@@ -70,6 +70,32 @@ export const updateProduct = async (req, res) => {
 };
 
 /**
+ * Delete Product
+ */
+export const deleteProduct = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!isValidObjectId(id)) {
+      return res.status(400).json({ error: "Invalid product ID" });
+    }
+    const product = await Product.findById(id);
+    if (!product) {
+      return res.status(404).json({ error: "Product not found" });
+    }
+    const stock = await calculateStock(id);
+    if (stock > 0) {
+      return res.status(400).json({
+        error: "Cannot delete product with stock greater than 0. Adjust stock to zero first.",
+      });
+    }
+    await Product.findByIdAndDelete(id);
+    res.json({ message: "Product deleted" });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+/**
  * Stock In
  */
 
