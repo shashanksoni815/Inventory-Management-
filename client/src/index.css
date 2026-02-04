@@ -1,0 +1,6 @@
+@import "tailwindcss";
+
+/* Light mode only - white background */
+html {
+  color-scheme: light;
+}
