@@ -104,4 +104,5 @@ transferSchema.index({ toFranchise: 1, status: 1 });
 transferSchema.index({ transferDate: -1 });
 transferSchema.index({ product: 1, status: 1 });
 
-export const Transfer = mongoose.model('Transfer', transferSchema);
+const Transfer = mongoose.model('Transfer', transferSchema);
+export default Transfer;

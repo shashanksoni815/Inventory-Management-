@@ -1,7 +1,7 @@
 // controllers/product.controller.js
 import mongoose from 'mongoose';
-import { Product } from '../models/Product.js';
-import { Franchise } from '../models/Franchise.js';
+import { Product } from '../models/Product.model.js';
+import  Franchise  from '../models/Franchise.js';
 
 export const getProducts = async (req, res) => {
   try {
@@ -17,7 +17,7 @@ export const getProducts = async (req, res) => {
       sortOrder = 'asc'
     } = req.query;
     
-    const { user } = req;
+    const user = req.user;
     
     // Build base query
     let baseQuery = {};
@@ -31,8 +31,8 @@ export const getProducts = async (req, res) => {
           { isGlobal: true, franchise: franchise }
         ]
       };
-    } else if (user.role !== 'admin') {
-      // Non-admin users can only see products from their franchises
+    } else if (user && user.role !== 'admin' && Array.isArray(user.franchises) && user.franchises.length > 0) {
+      // Non-admin users with assigned franchises: only see products from their franchises
       baseQuery = {
         $or: user.franchises.map(franchiseId => ({
           $or: [
@@ -40,7 +40,7 @@ export const getProducts = async (req, res) => {
             { isGlobal: true, 'sharedWith.franchise': franchiseId },
             { isGlobal: true, franchise: franchiseId }
           ]
-        }))
+        })),
       };
     }
     
@@ -99,7 +99,7 @@ export const getProducts = async (req, res) => {
     ]);
     
     // Calculate franchise-specific stock
-    const franchiseId = franchise || (user.franchises?.[0]?.toString());
+    const franchiseId = franchise || (user?.franchises?.[0]?.toString());
     const productsWithFranchiseStock = products.map(product => {
       let franchiseStock = product.stockQuantity;
       let isShared = false;
@@ -132,7 +132,6 @@ export const getProducts = async (req, res) => {
     });
     
     res.json({
-      success: true,
       data: productsWithFranchiseStock,
       pagination: {
         page: parseInt(page),
@@ -151,78 +150,148 @@ export const getProducts = async (req, res) => {
   }
 };
 
-export const createProduct = async (req, res) => {
+// Alias used by routes
+export const getAllProducts = getProducts;
+
+// Get single product by id
+export const getProductById = async (req, res) => {
   try {
-    const { user } = req;
-    const productData = req.body;
-    
-    // Validate required fields
-    if (!productData.sku || !productData.name || !productData.category) {
-      return res.status(400).json({
+    const { id } = req.params;
+    const product = await Product.findById(id)
+      .populate('franchise', 'name code metadata.color metadata.icon')
+      .populate('sharedWith.franchise', 'name code')
+      .lean();
+
+    if (!product) {
+      return res.status(404).json({
         success: false,
-        message: 'SKU, name, and category are required'
+        message: 'Product not found',
       });
     }
-    
-    // Set franchise if not provided
-    if (!productData.franchise) {
-      if (user.role !== 'admin') {
-        // Use user's default franchise or first franchise
-        productData.franchise = user.defaultFranchise || user.franchises[0];
-      } else {
-        return res.status(400).json({
-          success: false,
-          message: 'Franchise is required'
-        });
-      }
-    }
-    
-    // Verify user has access to this franchise
-    if (user.role !== 'admin' && !user.franchises.includes(productData.franchise)) {
-      return res.status(403).json({
-        success: false,
-        message: 'Access denied to this franchise'
-      });
-    }
-    
-    // Check if SKU already exists in this franchise
-    const existingProduct = await Product.findOne({
-      sku: productData.sku.toUpperCase(),
-      franchise: productData.franchise
-    });
-    
-    if (existingProduct) {
-      return res.status(400).json({
-        success: false,
-        message: `SKU "${productData.sku}" already exists in this franchise`
-      });
-    }
-    
-    // Create product
-    const product = new Product({
-      ...productData,
-      sku: productData.sku.toUpperCase(),
-      franchise: productData.franchise,
-      isGlobal: productData.isGlobal || false
-    });
-    
-    await product.save();
-    
-    // Populate franchise data
-    const populatedProduct = await Product.findById(product._id)
-      .populate('franchise', 'name code metadata.color metadata.icon');
-    
-    res.status(201).json({
+
+    res.json({
       success: true,
-      message: 'Product created successfully',
-      data: populatedProduct
+      data: product,
     });
   } catch (error) {
-    console.error('Error creating product:', error);
-    res.status(400).json({
+    console.error('Error fetching product by id:', error);
+    res.status(500).json({
       success: false,
-      message: 'Error creating product',
-      error: error.message
+      message: 'Error fetching product',
+      error: error.message,
+    });
+  }
+};
+
+// export const createProduct = async (req, res) => {
+//   try {
+//     const user = req.user;
+//     const productData = req.body;
+    
+//     // Validate required fields
+//     if (!productData.sku || !productData.name || !productData.category) {
+//       return res.status(400).json({
+//         success: false,
+//         message: 'SKU, name, and category are required'
+//       });
+//     }
+    
+//     // Set franchise if not provided (only when user is present)
+//     if (!productData.franchise && user) {
+//       if (user.role !== 'admin') {
+//         // Use user's default franchise or first franchise
+//         productData.franchise = user.defaultFranchise || user.franchises?.[0];
+//       }
+//     }
+
+//     // If still no franchise, allow create as global/unassigned
+
+//     // Verify user has access to this franchise when both exist
+//     if (user && productData.franchise && user.role !== 'admin' && !user.franchises?.includes(productData.franchise)) {
+//       return res.status(403).json({
+//         success: false,
+//         message: 'Access denied to this franchise'
+//       });
+//     }
+    
+//     // Check if SKU already exists in this franchise
+//     const existingProduct = await Product.findOne({
+//       sku: productData.sku.toUpperCase(),
+//       franchise: productData.franchise
+//     });
+    
+//     if (existingProduct) {
+//       return res.status(400).json({
+//         success: false,
+//         message: `SKU "${productData.sku}" already exists in this franchise`
+//       });
+//     }
+    
+//     // Create product
+//     const product = new Product({
+//       ...productData,
+//       sku: productData.sku.toUpperCase(),
+//       franchise: productData.franchise,
+//       isGlobal: productData.isGlobal || false
+//     });
+    
+//     await product.save();
+    
+//     // Populate franchise data
+//     const populatedProduct = await Product.findById(product._id)
+//       .populate('franchise', 'name code metadata.color metadata.icon');
+    
+//     res.status(201).json({
+//       success: true,
+//       message: 'Product created successfully',
+//       data: populatedProduct
+//     });
+//   } catch (error) {
+//     console.error('Error creating product:', error);
+//     res.status(400).json({
+//       success: false,
+//       message: 'Error creating product',
+//       error: error.message
+//     });
+//   }
+// };
+
+export const createProduct = async (req, res) => {
+  try {
+    const {
+      name,
+      price,
+      category,
+      stock,
+      franchise
+    } = req.body;
+
+    // ✅ Validation (important)
+    if (!franchise) {
+      return res.status(400).json({
+        success: false,
+        message: "Franchise ID is required"
+      });
+    }
+
+    const product = await Product.create({
+      name,
+      price,
+      category,
+      stock,
+      franchise
+    });
+
+    res.status(201).json({
+      success: true,
+      product
+    });
+
+  } catch (error) {
+    console.error("Error creating product:", error);
+    res.status(500).json({
+      success: false,
+      message: error.message
     });
   }
 };
@@ -272,6 +341,44 @@ export const updateProduct = async (req, res) => {
       success: false,
       message: 'Error updating product',
       error: error.message
+    });
+  }
+};
+
+export const deleteProduct = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { user } = req;
+
+    const product = await Product.findById(id);
+
+    if (!product) {
+      return res.status(404).json({
+        success: false,
+        message: 'Product not found',
+      });
+    }
+
+    // Check access
+    if (user.role !== 'admin' && !user.franchises.includes(product.franchise)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied to this product',
+      });
+    }
+
+    await Product.deleteOne({ _id: id });
+
+    res.json({
+      success: true,
+      message: 'Product deleted successfully',
+    });
+  } catch (error) {
+    console.error('Error deleting product:', error);
+    res.status(400).json({
+      success: false,
+      message: 'Error deleting product',
+      error: error.message,
     });
   }
 };
@@ -406,30 +513,80 @@ export const transferStock = async (req, res) => {
   }
 };
 
+export const bulkDeleteProducts = async (req, res) => {
+  try {
+    const { ids } = req.body;
+    const { user } = req;
+
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'No product ids provided',
+      });
+    }
+
+    const query = {
+      _id: { $in: ids },
+    };
+
+    if (user.role !== 'admin') {
+      query.franchise = { $in: user.franchises };
+    }
+
+    const result = await Product.deleteMany(query);
+
+    res.json({
+      success: true,
+      message: 'Products deleted successfully',
+      data: { deletedCount: result.deletedCount },
+    });
+  } catch (error) {
+    console.error('Error bulk deleting products:', error);
+    res.status(400).json({
+      success: false,
+      message: 'Error deleting products',
+      error: error.message,
+    });
+  }
+};
+
 export const getProductAnalytics = async (req, res) => {
   try {
     const { franchiseId } = req.params;
     const { period = 'month' } = req.query;
-    const { user } = req;
+    const user = req.user;
     
-    // Check access
-    if (user.role !== 'admin' && !user.franchises.includes(franchiseId)) {
-      return res.status(403).json({
+    // Validate franchiseId
+    if (!franchiseId || !mongoose.Types.ObjectId.isValid(franchiseId)) {
+      return res.status(400).json({
         success: false,
-        message: 'Access denied to this franchise'
+        message: 'Invalid franchise ID'
       });
     }
     
-    const dateFilter = getDateFilter(period);
+    // Check access - handle both string and ObjectId comparison
+    if (user && user.role !== 'admin') {
+      const userFranchises = (user.franchises || []).map((f) => f?.toString() || f);
+      const franchiseIdStr = franchiseId.toString();
+      if (!userFranchises.includes(franchiseIdStr)) {
+        return res.status(403).json({
+          success: false,
+          message: 'Access denied to this franchise'
+        });
+      }
+    }
     
+    const dateFilter = getDateFilter(period);
+    const franchiseObjectId = new mongoose.Types.ObjectId(franchiseId);
+    
+    // Get analytics for all products in franchise (not filtered by lastSold for summary)
     const analytics = await Product.aggregate([
       {
         $match: {
           $or: [
-            { franchise: mongoose.Types.ObjectId(franchiseId) },
-            { isGlobal: true, 'sharedWith.franchise': mongoose.Types.ObjectId(franchiseId) }
-          ],
-          lastSold: { $gte: dateFilter.start }
+            { franchise: franchiseObjectId },
+            { isGlobal: true, 'sharedWith.franchise': franchiseObjectId }
+          ]
         }
       },
       {
@@ -481,15 +638,25 @@ export const getProductAnalytics = async (req, res) => {
       }
     ]);
     
-    // Get top selling products
+    // Get top selling products (filtered by period if lastSold exists)
     const topProducts = await Product.aggregate([
       {
         $match: {
-          $or: [
-            { franchise: mongoose.Types.ObjectId(franchiseId) },
-            { isGlobal: true, 'sharedWith.franchise': mongoose.Types.ObjectId(franchiseId) }
-          ],
-          lastSold: { $gte: dateFilter.start }
+          $and: [
+            {
+              $or: [
+                { franchise: franchiseObjectId },
+                { isGlobal: true, 'sharedWith.franchise': franchiseObjectId }
+              ]
+            },
+            {
+              $or: [
+                { lastSold: { $gte: dateFilter.start } },
+                { lastSold: { $exists: false } },
+                { lastSold: null }
+              ]
+            }
+          ]
         }
       },
       { $sort: { totalSold: -1 } },
@@ -530,8 +697,8 @@ export const getProductAnalytics = async (req, res) => {
       {
         $match: {
           $or: [
-            { franchise: mongoose.Types.ObjectId(franchiseId) },
-            { isGlobal: true, 'sharedWith.franchise': mongoose.Types.ObjectId(franchiseId) }
+            { franchise: franchiseObjectId },
+            { isGlobal: true, 'sharedWith.franchise': franchiseObjectId }
           ]
         }
       },
@@ -582,19 +749,26 @@ function getDateFilter(period) {
       start.setHours(0, 0, 0, 0);
       break;
     case 'week':
+    case '7d':
       start.setDate(start.getDate() - 7);
       break;
     case 'month':
-      start.setMonth(start.getMonth() - 1);
+    case '30d':
+      start.setDate(start.getDate() - 30);
+      break;
+    case '90d':
+      start.setDate(start.getDate() - 90);
       break;
     case 'quarter':
       start.setMonth(start.getMonth() - 3);
       break;
     case 'year':
+    case '1y':
       start.setFullYear(start.getFullYear() - 1);
       break;
     default:
-      start.setMonth(start.getMonth() - 1);
+      // Default to 30 days
+      start.setDate(start.getDate() - 30);
   }
   
   return { start, end: now };
@@ -655,6 +829,105 @@ export const bulkUpdateProducts = async (req, res) => {
       success: false,
       message: 'Error updating products',
       error: error.message
+    });
+  }
+};
+
+export const updateStock = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { quantity, type, note } = req.body;
+    const { user } = req;
+
+    const delta = Number(quantity);
+    if (!Number.isFinite(delta) || delta === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'A non-zero numeric quantity is required',
+      });
+    }
+
+    const product = await Product.findById(id);
+
+    if (!product) {
+      return res.status(404).json({
+        success: false,
+        message: 'Product not found',
+      });
+    }
+
+    if (user.role !== 'admin' && !user.franchises.includes(product.franchise)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied to this product',
+      });
+    }
+
+    const newQty = product.stockQuantity + delta;
+    if (newQty < 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Resulting stock quantity cannot be negative',
+      });
+    }
+
+    product.stockQuantity = newQty;
+    product.stockHistory.push({
+      quantity: delta,
+      type: type || 'adjustment',
+      note: note || 'Manual stock update',
+      franchise: product.franchise,
+    });
+
+    await product.save();
+
+    res.json({
+      success: true,
+      message: 'Stock updated successfully',
+      data: product,
+    });
+  } catch (error) {
+    console.error('Error updating stock:', error);
+    res.status(400).json({
+      success: false,
+      message: 'Error updating stock',
+      error: error.message,
+    });
+  }
+};
+
+export const getLowStockProducts = async (req, res) => {
+  try {
+    const { franchise } = req.query;
+    const { user } = req;
+
+    const franchiseId = franchise || user.defaultFranchise || user.franchises?.[0];
+    if (!franchiseId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Franchise id is required',
+      });
+    }
+
+    if (user.role !== 'admin' && !user.franchises.includes(franchiseId)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied to this franchise',
+      });
+    }
+
+    const products = await Product.getLowStockProducts(franchiseId);
+
+    res.json({
+      success: true,
+      data: products,
+    });
+  } catch (error) {
+    console.error('Error fetching low stock products:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching low stock products',
+      error: error.message,
     });
   }
 };

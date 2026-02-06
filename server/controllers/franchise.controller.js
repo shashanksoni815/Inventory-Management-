@@ -1,7 +1,7 @@
 // controllers/franchise.controller.js
 import Franchise from '../models/Franchise.js';
-import Product from '../models/Product.js';
-import Sale from '../models/Sale.js';
+import { Product } from '../models/Product.model.js';
+import { Sale } from '../models/Sale.model.js';
 
 // Get all franchises accessible to user
 export const getFranchises = async (req, res) => {
@@ -64,9 +64,14 @@ export const getFranchise = async (req, res) => {
       Product.countDocuments({ franchise: id }),
       
       // Low stock products (below reorder point)
-      Product.countDocuments({ 
-        franchise: id, 
-        quantity: { $lt: '$reorderPoint' }
+      Product.countDocuments({
+        franchise: id,
+        $expr: {
+          $lt: [
+            '$stockQuantity',
+            { $ifNull: ['$replenishmentSettings.reorderPoint', '$minimumStock'] }
+          ]
+        }
       }),
       
       // Today's sales count
@@ -88,7 +93,7 @@ export const getFranchise = async (req, res) => {
         {
           $group: {
             _id: null,
-            total: { $sum: '$total' }
+            total: { $sum: '$grandTotal' }
           }
         }
       ]),
@@ -253,7 +258,7 @@ export const getNetworkStats = async (req, res) => {
         {
           $group: {
             _id: null,
-            total: { $sum: '$total' }
+            total: { $sum: '$grandTotal' }
           }
         }
       ]),
@@ -269,7 +274,7 @@ export const getNetworkStats = async (req, res) => {
         {
           $group: {
             _id: null,
-            total: { $sum: '$total' }
+            total: { $sum: '$grandTotal' }
           }
         }
       ]),
@@ -285,7 +290,7 @@ export const getNetworkStats = async (req, res) => {
         {
           $group: {
             _id: null,
-            total: { $sum: '$total' }
+            total: { $sum: '$grandTotal' }
           }
         }
       ]),
@@ -303,7 +308,7 @@ export const getNetworkStats = async (req, res) => {
           $group: {
             _id: '$items.product',
             totalSold: { $sum: '$items.quantity' },
-            totalRevenue: { $sum: '$items.total' }
+            totalRevenue: { $sum: '$grandTotal' }
           }
         },
         { $sort: { totalSold: -1 } },
@@ -330,7 +335,7 @@ export const getNetworkStats = async (req, res) => {
         {
           $group: {
             _id: '$franchise',
-            totalRevenue: { $sum: '$total' },
+            totalRevenue: { $sum: '$grandTotal' },
             salesCount: { $sum: 1 }
           }
         },

@@ -13,15 +13,23 @@ import { ThemeProvider } from './components/Common/ThemeProvider';
 import ErrorBoundary from './components/Common/ErrorBoundary';
 import LoadingSpinner from './components/Common/LoadingSpinner';
 import { Toaster } from 'react-hot-toast';
+import { FranchiseProvider } from './contexts/FranchiseContext';
 
 // Lazy load pages
 const Login = lazy(() => import('./pages/Login'));
+const Register = lazy(() => import('./pages/Register'));
 const Layout = lazy(() => import('./components/Layout/Layout'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Products = lazy(() => import('./pages/Products'));
 const Sales = lazy(() => import('./pages/Sales'));
 const Reports = lazy(() => import('./pages/Reports'));
 const Settings = lazy(() => import('./pages/Settings'));
+const FranchiseDashboard = lazy(() => import('./pages/FranchiseDashboard'));
+const FranchiseSalesDashboard = lazy(() => import('./pages/FranchiseSalesDashboard'));
+const FranchiseImportsDashboard = lazy(() => import('./pages/FranchiseImportsDashboard'));
+const FranchiseProfitLoss = lazy(() => import('./pages/FranchiseProfitLoss'));
+const NetworkDashboard = lazy(() => import('./pages/NetworkDashboard'));
+const FranchiseSettings = lazy(() => import('./components/Franchise/FranchiseSettings'));
 
 // Protected route wrapper
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -55,11 +63,14 @@ function App() {
             <Suspense fallback={<LoadingSpinner fullScreen />}>
               <Routes>
                 <Route path="/login" element={<Login />} />
+                <Route path="/register" element={<Register />} />
                 <Route
                   path="/"
                   element={
                     <ProtectedRoute>
-                      <Layout />
+                      <FranchiseProvider>
+                        <Layout />
+                      </FranchiseProvider>
                     </ProtectedRoute>
                   }
                 >
@@ -69,6 +80,12 @@ function App() {
                   <Route path="sales" element={<Sales />} />
                   <Route path="reports" element={<Reports />} />
                   <Route path="settings" element={<Settings />} />
+                  <Route path="franchises" element={<NetworkDashboard />} />
+                  <Route path="franchise/:franchiseId" element={<FranchiseDashboard />} />
+                  <Route path="franchise/:franchiseId/sales" element={<FranchiseSalesDashboard />} />
+                  <Route path="franchise/:franchiseId/imports" element={<FranchiseImportsDashboard />} />
+                  <Route path="franchise/:franchiseId/profit-loss" element={<FranchiseProfitLoss />} />
+                  <Route path="franchise/:franchiseId/settings" element={<FranchiseSettings />} />
                 </Route>
                 <Route path="*" element={<Navigate to="/dashboard" replace />} />
               </Routes>
@@ -97,8 +114,8 @@ function App() {
                 },
               }}
             />
+            <ReactQueryDevtools initialIsOpen={false} />
           </Router>
-          <ReactQueryDevtools initialIsOpen={false} />
         </ThemeProvider>
       </QueryClientProvider>
     </ErrorBoundary>

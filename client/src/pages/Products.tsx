@@ -90,7 +90,7 @@ const Products: React.FC = () => {
     console.log('Import products');
   }, []);
 
-  const products = data?.products ?? [];
+  const products = (data as any)?.data ?? [];
 
   return (
     <div className="min-h-0 bg-white p-3 sm:p-4 lg:p-6">

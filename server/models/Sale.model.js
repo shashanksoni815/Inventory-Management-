@@ -103,6 +103,12 @@ const saleSchema = new mongoose.Schema({
   },
   refundReason: {
     type: String
+  },
+  franchise: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Franchise',
+    required: true,
+    index: true
   }
 }, {
   timestamps: true
@@ -168,5 +174,7 @@ saleSchema.index({ saleType: 1, status: 1 });
 saleSchema.index({ invoiceNumber: 'text', customerName: 'text', customerEmail: 'text' });
 saleSchema.index({ totalProfit: -1 });
 saleSchema.index({ 'items.product': 1 });
+saleSchema.index({ franchise: 1, createdAt: -1 }); // For franchise-scoped queries
+saleSchema.index({ franchise: 1, status: 1 }); // For franchise status queries
 
 export const Sale = mongoose.model('Sale', saleSchema);

@@ -6,16 +6,11 @@ import {
   Package,
   DollarSign,
   AlertTriangle,
-  ShoppingCart,
-  Calendar,
   Download
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { productApi } from '../../services/api';
 import { useFranchise } from '../../contexts/FranchiseContext';
-import { Card } from '../ui/Card';
-import { Select } from '../ui/Select';
-import { Button } from '../ui/Button';
 import {
   BarChart,
   Bar,
@@ -103,28 +98,30 @@ const FranchiseInventoryAnalytics: React.FC = () => {
           <p className="text-sm text-gray-600">Performance insights for {currentFranchise?.name}</p>
         </div>
         <div className="flex items-center space-x-3">
-          <Select
+          <select
+            className="w-40 rounded-md border border-gray-300 bg-white py-1.5 px-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
             value={timeRange}
-            onChange={setTimeRange}
-            options={[
-              { value: 'today', label: 'Today' },
-              { value: 'week', label: 'Last 7 Days' },
-              { value: 'month', label: 'Last 30 Days' },
-              { value: 'quarter', label: 'Last Quarter' },
-              { value: 'year', label: 'Last Year' }
-            ]}
-            className="w-40"
-          />
-          <Button variant="outline" size="sm">
+            onChange={(e) => setTimeRange(e.target.value)}
+          >
+            <option value="today">Today</option>
+            <option value="week">Last 7 Days</option>
+            <option value="month">Last 30 Days</option>
+            <option value="quarter">Last Quarter</option>
+            <option value="year">Last Year</option>
+          </select>
+          <button
+            type="button"
+            className="inline-flex items-center rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+          >
             <Download className="h-4 w-4 mr-2" />
             Export
-          </Button>
+          </button>
         </div>
       </div>
 
       {/* Key Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card className="p-6">
+        <div className="bg-white rounded-xl border border-gray-200 p-6">
           <div className="flex items-center justify-between mb-4">
             <div className="p-2 bg-blue-100 rounded-lg">
               <Package className="h-6 w-6 text-blue-600" />
@@ -139,9 +136,9 @@ const FranchiseInventoryAnalytics: React.FC = () => {
               ${summary.inventoryValue?.toLocaleString() || 0} total value
             </div>
           </div>
-        </Card>
+        </div>
 
-        <Card className="p-6">
+        <div className="bg-white rounded-xl border border-gray-200 p-6">
           <div className="flex items-center justify-between mb-4">
             <div className="p-2 bg-red-100 rounded-lg">
               <AlertTriangle className="h-6 w-6 text-red-600" />
@@ -161,9 +158,9 @@ const FranchiseInventoryAnalytics: React.FC = () => {
               <span className="text-gray-600 ml-1">Out</span>
             </div>
           </div>
-        </Card>
+        </div>
 
-        <Card className="p-6">
+        <div className="bg-white rounded-xl border border-gray-200 p-6">
           <div className="flex items-center justify-between mb-4">
             <div className="p-2 bg-green-100 rounded-lg">
               <DollarSign className="h-6 w-6 text-green-600" />
@@ -178,9 +175,9 @@ const FranchiseInventoryAnalytics: React.FC = () => {
               Profit: ${summary.totalProfit?.toLocaleString() || 0}
             </div>
           </div>
-        </Card>
+        </div>
 
-        <Card className="p-6">
+        <div className="bg-white rounded-xl border border-gray-200 p-6">
           <div className="flex items-center justify-between mb-4">
             <div className="p-2 bg-purple-100 rounded-lg">
               <BarChart3 className="h-6 w-6 text-purple-600" />
@@ -202,23 +199,23 @@ const FranchiseInventoryAnalytics: React.FC = () => {
               {summary.averageProfitMargin >= 20 ? 'Healthy' : 'Needs Attention'}
             </span>
           </div>
-        </Card>
+        </div>
       </div>
 
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Stock Status Distribution */}
-        <Card className="p-6">
+        <div className="bg-white rounded-xl border border-gray-200 p-6">
           <h4 className="text-lg font-semibold text-gray-900 mb-4">Stock Status</h4>
           <div className="h-80">
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
               <PieChart>
                 <Pie
                   data={stockStatusData}
                   cx="50%"
                   cy="50%"
                   labelLine={false}
-                  label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                label={({ name, percent }) => `${name}: ${((percent || 0) * 100).toFixed(0)}%`}
                   outerRadius={80}
                   fill="#8884d8"
                   dataKey="value"
@@ -232,13 +229,13 @@ const FranchiseInventoryAnalytics: React.FC = () => {
               </PieChart>
             </ResponsiveContainer>
           </div>
-        </Card>
+        </div>
 
         {/* Category Distribution */}
-        <Card className="p-6">
+        <div className="bg-white rounded-xl border border-gray-200 p-6">
           <h4 className="text-lg font-semibold text-gray-900 mb-4">Category Distribution</h4>
           <div className="h-80">
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
               <BarChart data={categoryData}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="name" />
@@ -250,23 +247,24 @@ const FranchiseInventoryAnalytics: React.FC = () => {
               </BarChart>
             </ResponsiveContainer>
           </div>
-        </Card>
+        </div>
 
         {/* Top Products */}
-        <Card className="p-6 lg:col-span-2">
+        <div className="bg-white rounded-xl border border-gray-200 p-6 lg:col-span-2">
           <h4 className="text-lg font-semibold text-gray-900 mb-4">Top Performing Products</h4>
           <div className="h-80">
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
               <BarChart data={topProductsData}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="name" />
                 <YAxis yAxisId="left" />
                 <YAxis yAxisId="right" orientation="right" />
                 <Tooltip formatter={(value, name) => {
-                  if (name === 'sales') return [value, 'Units Sold'];
-                  if (name === 'revenue') return [`$${value.toLocaleString()}`, 'Revenue'];
-                  if (name === 'profit') return [`$${value.toLocaleString()}`, 'Profit'];
-                  return [value, name];
+                  const num = typeof value === 'number' ? value : Number(value) || 0;
+                  if (name === 'sales') return [num, 'Units Sold'];
+                  if (name === 'revenue') return [`$${num.toLocaleString()}`, 'Revenue'];
+                  if (name === 'profit') return [`$${num.toLocaleString()}`, 'Profit'];
+                  return [num, name];
                 }} />
                 <Legend />
                 <Bar yAxisId="left" dataKey="sales" name="Units Sold" fill="#3B82F6" />
@@ -274,11 +272,11 @@ const FranchiseInventoryAnalytics: React.FC = () => {
               </BarChart>
             </ResponsiveContainer>
           </div>
-        </Card>
+        </div>
       </div>
 
       {/* Top Products Table */}
-      <Card className="p-6">
+      <div className="bg-white rounded-xl border border-gray-200 p-6">
         <h4 className="text-lg font-semibold text-gray-900 mb-4">Top Products Details</h4>
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
@@ -336,7 +334,7 @@ const FranchiseInventoryAnalytics: React.FC = () => {
             </tbody>
           </table>
         </div>
-      </Card>
+      </div>
     </div>
   );
 };

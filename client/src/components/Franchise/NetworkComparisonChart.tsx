@@ -5,12 +5,12 @@ import {
   Store,
   DollarSign,
   Package,
-  Users
+  Users,
+  ShoppingCart,
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { franchiseApi } from '../../services/api';
 import { useFranchise } from '../../contexts/FranchiseContext';
-import { Card } from '../ui/Card';
 import {
   BarChart,
   Bar,
@@ -32,8 +32,12 @@ const NetworkComparisonChart: React.FC = () => {
     queryKey: ['network-stats-comparison'],
     queryFn: () => franchiseApi.getNetworkStats(),
   });
-
-  const franchisePerformance = networkStats?.data?.franchisePerformance || [];
+  
+  // API interceptor unwraps `{ success, data }` and returns the inner stats object.
+  const stats = (networkStats && typeof networkStats === 'object'
+    ? (networkStats as { franchisePerformance?: any[] })
+    : {}) || {};
+  const franchisePerformance = stats.franchisePerformance || [];
 
   // Prepare data for charts
   const revenueData = franchisePerformance.map((fp: any) => ({
@@ -53,18 +57,18 @@ const NetworkComparisonChart: React.FC = () => {
   if (isLoading) {
     return (
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card className="p-6">
+        <div className="bg-white rounded-xl border border-gray-200 p-6">
           <div className="animate-pulse">
             <div className="h-4 bg-gray-200 rounded w-1/4 mb-4"></div>
             <div className="h-64 bg-gray-200 rounded"></div>
           </div>
-        </Card>
-        <Card className="p-6">
+        </div>
+        <div className="bg-white rounded-xl border border-gray-200 p-6">
           <div className="animate-pulse">
             <div className="h-4 bg-gray-200 rounded w-1/4 mb-4"></div>
             <div className="h-64 bg-gray-200 rounded"></div>
           </div>
-        </Card>
+        </div>
       </div>
     );
   }
@@ -91,7 +95,7 @@ const NetworkComparisonChart: React.FC = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Revenue Comparison */}
-        <Card className="p-6">
+        <div className="bg-white rounded-xl border border-gray-200 p-6">
           <div className="flex items-center justify-between mb-6">
             <div>
               <h4 className="text-lg font-semibold text-gray-900">Revenue Comparison</h4>
@@ -103,7 +107,7 @@ const NetworkComparisonChart: React.FC = () => {
           </div>
           
           <div className="h-72">
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
               <BarChart data={revenueData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                 <XAxis 
@@ -143,18 +147,21 @@ const NetworkComparisonChart: React.FC = () => {
                   ))}
                   <LabelList 
                     dataKey="revenue" 
-                    position="top" 
-                    formatter={(value: number) => `$${(value / 1000).toFixed(0)}k`}
+                    position="top"
+                    formatter={(value: any) => {
+                      const num = typeof value === 'number' ? value : Number(value) || 0;
+                      return `$${(num / 1000).toFixed(0)}k`;
+                    }}
                     style={{ fontSize: 10, fill: '#374151' }}
                   />
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
           </div>
-        </Card>
+        </div>
 
         {/* Sales Count Comparison */}
-        <Card className="p-6">
+        <div className="bg-white rounded-xl border border-gray-200 p-6">
           <div className="flex items-center justify-between mb-6">
             <div>
               <h4 className="text-lg font-semibold text-gray-900">Sales Volume</h4>
@@ -166,7 +173,7 @@ const NetworkComparisonChart: React.FC = () => {
           </div>
           
           <div className="h-72">
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
               <BarChart data={salesData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                 <XAxis 
@@ -200,10 +207,10 @@ const NetworkComparisonChart: React.FC = () => {
               </BarChart>
             </ResponsiveContainer>
           </div>
-        </Card>
+        </div>
 
         {/* Performance Ranking */}
-        <Card className="p-6 lg:col-span-2">
+        <div className="bg-white rounded-xl border border-gray-200 p-6 lg:col-span-2">
           <div className="flex items-center justify-between mb-6">
             <div>
               <h4 className="text-lg font-semibold text-gray-900">Franchise Performance Ranking</h4>
@@ -295,7 +302,7 @@ const NetworkComparisonChart: React.FC = () => {
               </tbody>
             </table>
           </div>
-        </Card>
+        </div>
       </div>
     </div>
   );

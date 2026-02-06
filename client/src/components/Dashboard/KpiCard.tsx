@@ -9,7 +9,7 @@ interface KpiCardProps {
   icon: LucideIcon;
   trend?: number;
   description?: string;
-  format?: 'currency' | 'number' | 'percent';
+  format?: 'currency' | 'number' | 'percent' | 'percentage';
   loading?: boolean;
   color?: 'default' | 'profit' | 'loss' | 'warning';
 }
@@ -36,7 +36,9 @@ const KpiCard: React.FC<KpiCardProps> = ({
           maximumFractionDigits: 0,
         }).format(val);
       case 'percent':
-        return `${val.toFixed(1)}%`;
+        return `${val.toFixed(2)}%`;
+      case 'percentage':
+        return `${val.toFixed(2)}%`;
       default:
         return val.toLocaleString();
     }

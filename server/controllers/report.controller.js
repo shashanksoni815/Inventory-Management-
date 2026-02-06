@@ -1,3 +1,4 @@
+import mongoose from 'mongoose';
 import { Product } from '../models/Product.model.js';
 import { Sale } from '../models/Sale.model.js';
 import ExcelJS from 'exceljs';
@@ -426,8 +427,29 @@ export const generateInventoryReport = async (req, res) => {
 
 export const generateProfitLossReport = async (req, res) => {
   try {
-    const { startDate, endDate } = req.query;
+    const { franchise, startDate, endDate } = req.query;
+    const { user } = req;
 
+    // Validate franchise parameter if provided
+    if (franchise && !mongoose.Types.ObjectId.isValid(franchise)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid franchise ID',
+      });
+    }
+
+    // Check access if franchise is specified
+    if (franchise && user.role !== 'admin') {
+      const userFranchises = (user.franchises || []).map((f) => f?.toString() || f);
+      if (!userFranchises.includes(franchise.toString())) {
+        return res.status(403).json({
+          success: false,
+          message: 'Access denied to this franchise',
+        });
+      }
+    }
+
+    // Build query with franchise filter
     const query = {
       createdAt: {
         $gte: new Date(startDate || subMonths(new Date(), 1)),
@@ -436,25 +458,47 @@ export const generateProfitLossReport = async (req, res) => {
       status: 'completed',
     };
 
-    // Get all completed sales in period
-    const sales = await Sale.find(query).lean();
+    // Filter by franchise if provided
+    if (franchise) {
+      query.franchise = new mongoose.Types.ObjectId(franchise);
+    }
 
-    // Calculate total revenue and profit
-    const totalRevenue = sales.reduce((sum, sale) => sum + sale.grandTotal, 0);
-    const totalProfit = sales.reduce((sum, sale) => sum + sale.totalProfit, 0);
-    const totalCost = totalRevenue - totalProfit;
+    // Get all completed sales in period (filtered by franchise)
+    const sales = await Sale.find(query)
+      .populate('items.product', 'name sku category')
+      .lean();
 
-    // Calculate returns and discounts
-    const returns = await Sale.find({
-      ...query,
-      status: 'refunded',
-    }).lean();
-    
-    const totalReturns = returns.reduce((sum, sale) => sum + sale.refundedAmount, 0);
-    const totalDiscounts = sales.reduce((sum, sale) => sum + sale.totalDiscount, 0);
+    // Calculate Total Revenue
+    const totalRevenue = sales.reduce((sum, sale) => sum + (sale.grandTotal || 0), 0);
 
-    // Calculate by category
-    const categoryProfit = await Sale.aggregate([
+    // Calculate COGS (Cost of Goods Sold) from sale items
+    const cogs = sales.reduce((sum, sale) => {
+      if (sale.items && Array.isArray(sale.items)) {
+        return sum + sale.items.reduce((itemSum, item) => {
+          const quantity = item.quantity || 0;
+          const buyingPrice = item.buyingPrice || 0;
+          return itemSum + (quantity * buyingPrice);
+        }, 0);
+      }
+      return sum;
+    }, 0);
+
+    // Calculate Gross Profit
+    const grossProfit = totalRevenue - cogs;
+
+    // Calculate Operating Expenses (currently 0, but structure for future expansion)
+    // TODO: Add operating expenses tracking (rent, utilities, salaries, etc.)
+    const operatingExpenses = 0;
+
+    // Calculate Net Profit
+    const netProfit = grossProfit - operatingExpenses;
+
+    // Calculate Margins
+    const grossMargin = totalRevenue > 0 ? (grossProfit / totalRevenue) * 100 : 0;
+    const netMargin = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0;
+
+    // Category-wise breakdown
+    const categoryBreakdown = await Sale.aggregate([
       { $match: query },
       { $unwind: '$items' },
       {
@@ -469,93 +513,85 @@ export const generateProfitLossReport = async (req, res) => {
       {
         $group: {
           _id: '$product.category',
-          revenue: { $sum: { $multiply: ['$items.sellingPrice', '$items.quantity'] } },
-          cost: { $sum: { $multiply: ['$items.buyingPrice', '$items.quantity'] } },
-          profit: { $sum: '$items.profit' },
-          discount: { $sum: { $multiply: ['$items.sellingPrice', '$items.quantity', { $divide: ['$items.discount', 100] }] } },
+          category: { $first: '$product.category' },
+          revenue: {
+            $sum: {
+              $multiply: [
+                { $ifNull: ['$items.sellingPrice', 0] },
+                { $ifNull: ['$items.quantity', 0] }
+              ]
+            }
+          },
+          cogs: {
+            $sum: {
+              $multiply: [
+                { $ifNull: ['$items.buyingPrice', 0] },
+                { $ifNull: ['$items.quantity', 0] }
+              ]
+            }
+          },
+          profit: {
+            $sum: { $ifNull: ['$items.profit', 0] }
+          },
+          quantitySold: { $sum: { $ifNull: ['$items.quantity', 0] } },
+        },
+      },
+      {
+        $project: {
+          _id: 1,
+          category: 1,
+          revenue: 1,
+          cogs: 1,
+          profit: 1,
+          quantitySold: 1,
+          grossMargin: {
+            $cond: [
+              { $gt: ['$revenue', 0] },
+              { $multiply: [{ $divide: [{ $subtract: ['$revenue', '$cogs'] }, '$revenue'] }, 100] },
+              0
+            ]
+          },
+          netMargin: {
+            $cond: [
+              { $gt: ['$revenue', 0] },
+              { $multiply: [{ $divide: ['$profit', '$revenue'] }, 100] },
+              0
+            ]
+          },
         },
       },
       { $sort: { profit: -1 } },
     ]);
 
-    // Monthly trend
-    const monthlyTrend = await Sale.aggregate([
-      { $match: query },
-      {
-        $group: {
-          _id: { $dateToString: { format: '%Y-%m', date: '$createdAt' } },
-          revenue: { $sum: '$grandTotal' },
-          profit: { $sum: '$totalProfit' },
-          cost: { $sum: { $subtract: ['$grandTotal', '$totalProfit'] } },
-          salesCount: { $sum: 1 },
-        },
-      },
-      { $sort: { '_id': 1 } },
-    ]);
+    // Format category breakdown
+    const categoryWiseBreakdown = categoryBreakdown.map((cat) => ({
+      category: cat.category || cat._id || 'Uncategorized',
+      revenue: cat.revenue || 0,
+      cogs: cat.cogs || 0,
+      grossProfit: (cat.revenue || 0) - (cat.cogs || 0),
+      netProfit: cat.profit || 0,
+      quantitySold: cat.quantitySold || 0,
+      grossMargin: cat.grossMargin || 0,
+      netMargin: cat.netMargin || 0,
+    }));
 
-    // Top performing products
-    const topProducts = await Sale.aggregate([
-      { $match: query },
-      { $unwind: '$items' },
-      {
-        $group: {
-          _id: '$items.product',
-          name: { $first: '$items.name' },
-          sku: { $first: '$items.sku' },
-          revenue: { $sum: { $multiply: ['$items.sellingPrice', '$items.quantity'] } },
-          profit: { $sum: '$items.profit' },
-          quantitySold: { $sum: '$items.quantity' },
-        },
-      },
-      { $sort: { profit: -1 } },
-      { $limit: 10 },
-    ]);
-
-    // Loss analysis (products with negative profit margin)
-    const lossProducts = await Sale.aggregate([
-      { $match: query },
-      { $unwind: '$items' },
-      {
-        $match: {
-          $expr: { $lt: ['$items.profit', 0] },
-        },
-      },
-      {
-        $group: {
-          _id: '$items.product',
-          name: { $first: '$items.name' },
-          sku: { $first: '$items.sku' },
-          totalLoss: { $sum: '$items.profit' },
-          quantitySold: { $sum: '$items.quantity' },
-          avgSellingPrice: { $avg: '$items.sellingPrice' },
-          avgBuyingPrice: { $avg: '$items.buyingPrice' },
-        },
-      },
-      { $sort: { totalLoss: 1 } },
-      { $limit: 10 },
-    ]);
-
+    // Build response
     const report = {
       summary: {
         totalRevenue,
-        totalCost,
-        totalProfit,
-        profitMargin: totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : 0,
-        totalReturns,
-        totalDiscounts,
-        netProfit: totalProfit - totalReturns,
+        cogs,
+        grossProfit,
+        operatingExpenses,
+        netProfit,
+        grossMargin,
+        netMargin,
       },
-      categoryProfit,
-      monthlyTrend,
-      topProducts,
-      lossProducts,
-      insights: {
-        bestCategory: categoryProfit[0]?._id || 'N/A',
-        worstCategory: categoryProfit[categoryProfit.length - 1]?._id || 'N/A',
-        avgProfitMargin: totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : 0,
-        totalTransactions: sales.length,
-        avgTransactionValue: sales.length > 0 ? totalRevenue / sales.length : 0,
+      categoryBreakdown: categoryWiseBreakdown,
+      period: {
+        startDate: startDate || subMonths(new Date(), 1).toISOString(),
+        endDate: endDate || new Date().toISOString(),
       },
+      franchise: franchise || null,
     };
 
     res.status(200).json({
@@ -563,6 +599,7 @@ export const generateProfitLossReport = async (req, res) => {
       data: report,
     });
   } catch (error) {
+    console.error('Error generating profit & loss report:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to generate profit & loss report',

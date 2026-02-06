@@ -1,34 +1,90 @@
 // pages/NetworkDashboard.tsx
 import React, { useState } from 'react';
-import { 
-  Globe, 
-  Store, 
-  TrendingUp, 
-  DollarSign, 
+import {
+  Globe,
+  Store,
+  TrendingUp,
+  DollarSign,
   Package,
-  Users,
-  MapPin,
-  BarChart3,
-  ArrowUpRight,
-  ArrowDownRight
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { franchiseApi } from '../services/api';
-import FranchisePerformanceTable from '../components/Dashboard/FranchisePerformanceTable';
-import FranchiseComparisonChart from '../components/Dashboard/FranchiseComparisonChart';
+import { useFranchise } from '../contexts/FranchiseContext';
+import toast from 'react-hot-toast';
+import NetworkComparisonChart from '../components/Franchise/NetworkComparisonChart';
 import KpiCard from '../components/Dashboard/KpiCard';
 
 const NetworkDashboard: React.FC = () => {
   const [timeRange, setTimeRange] = useState<'today' | 'week' | 'month'>('today');
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [newFranchise, setNewFranchise] = useState({
+    name: '',
+    code: '',
+    location: '',
+    manager: '',
+    email: '',
+    phone: '',
+    address: '',
+  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const { refreshFranchises } = useFranchise();
 
   // Fetch network statistics
-  const { data: networkStats, isLoading } = useQuery({
+  const { data: networkStats } = useQuery({
     queryKey: ['network-stats', timeRange],
     queryFn: () => franchiseApi.getNetworkStats(),
   });
 
   const stats = networkStats?.data || {};
   const franchisePerformance = stats.franchisePerformance || [];
+
+  const handleInputChange = (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const { name, value } = e.target;
+    setNewFranchise((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleCreateFranchise = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newFranchise.name || !newFranchise.code || !newFranchise.location || !newFranchise.address) {
+      toast.error('Please fill in all required fields.');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      await franchiseApi.create({
+        name: newFranchise.name,
+        code: newFranchise.code.toUpperCase(),
+        location: newFranchise.location,
+        manager: newFranchise.manager || 'Manager',
+        contact: {
+          email: newFranchise.email || 'info@example.com',
+          phone: newFranchise.phone || '0000000000',
+          address: newFranchise.address,
+        },
+      });
+
+      toast.success('Franchise created successfully.');
+      setIsAddModalOpen(false);
+      setNewFranchise({
+        name: '',
+        code: '',
+        location: '',
+        manager: '',
+        email: '',
+        phone: '',
+        address: '',
+      });
+      await refreshFranchises();
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to create franchise.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
     <div className="p-6 space-y-6">
@@ -52,6 +108,13 @@ const NetworkDashboard: React.FC = () => {
               {range.charAt(0).toUpperCase() + range.slice(1)}
             </button>
           ))}
+          <button
+            type="button"
+            onClick={() => setIsAddModalOpen(true)}
+            className="ml-3 inline-flex items-center px-3 py-1.5 rounded-lg bg-blue-600 text-sm font-medium text-white hover:bg-blue-700"
+          >
+            + Add Franchise
+          </button>
         </div>
       </div>
 
@@ -164,11 +227,8 @@ const NetworkDashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* Franchise Performance Table */}
-      <FranchisePerformanceTable />
-
-      {/* Comparison Chart */}
-      <FranchiseComparisonChart />
+      {/* Comparison Charts */}
+      <NetworkComparisonChart />
 
       {/* Top Products Across Franchises */}
       <div className="bg-white rounded-xl border border-gray-200 p-6">
@@ -190,7 +250,7 @@ const NetworkDashboard: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {stats.topProducts?.slice(0, 5).map((product: any, index: number) => (
+              {stats.topProducts?.slice(0, 5).map((product: any) => (
                 <tr key={product._id} className="hover:bg-gray-50">
                   <td className="px-4 py-4">
                     <div className="flex items-center space-x-3">
@@ -243,6 +303,129 @@ const NetworkDashboard: React.FC = () => {
           </table>
         </div>
       </div>
+
+      {/* Add Franchise Modal */}
+      {isAddModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg p-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">
+              Add New Franchise
+            </h2>
+            <form onSubmit={handleCreateFranchise} className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Name *
+                  </label>
+                  <input
+                    name="name"
+                    value={newFranchise.name}
+                    onChange={handleInputChange}
+                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Franchise Name"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Code *
+                  </label>
+                  <input
+                    name="code"
+                    value={newFranchise.code}
+                    onChange={handleInputChange}
+                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm uppercase focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="e.g. FR-001"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Location *
+                </label>
+                <input
+                  name="location"
+                  value={newFranchise.location}
+                  onChange={handleInputChange}
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="City / Area"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Address *
+                </label>
+                <input
+                  name="address"
+                  value={newFranchise.address}
+                  onChange={handleInputChange}
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Full address"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Manager
+                  </label>
+                  <input
+                    name="manager"
+                    value={newFranchise.manager}
+                    onChange={handleInputChange}
+                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Manager name"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Phone
+                  </label>
+                  <input
+                    name="phone"
+                    value={newFranchise.phone}
+                    onChange={handleInputChange}
+                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Contact number"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Email
+                </label>
+                <input
+                  name="email"
+                  value={newFranchise.email}
+                  onChange={handleInputChange}
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Contact email"
+                />
+              </div>
+
+              <div className="flex justify-end space-x-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsAddModalOpen(false)}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 rounded-lg border border-gray-300 hover:bg-gray-50"
+                  disabled={isSubmitting}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="px-4 py-2 text-sm font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {isSubmitting ? 'Adding...' : 'Add Franchise'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

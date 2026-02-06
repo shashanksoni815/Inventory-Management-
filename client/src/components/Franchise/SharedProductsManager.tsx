@@ -74,7 +74,7 @@ const SharedProductsManager: React.FC = () => {
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      setSelectedProducts(products?.data?.map((p: any) => p._id) || []);
+      setSelectedProducts((products?.data || []).map((p: any) => p._id));
     } else {
       setSelectedProducts([]);
     }
