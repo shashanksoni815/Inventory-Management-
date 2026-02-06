@@ -81,11 +81,12 @@ function App() {
                   <Route path="reports" element={<Reports />} />
                   <Route path="settings" element={<Settings />} />
                   <Route path="franchises" element={<NetworkDashboard />} />
-                  <Route path="franchise/:franchiseId" element={<FranchiseDashboard />} />
+                  {/* Franchise routes - order matters: more specific routes first */}
                   <Route path="franchise/:franchiseId/sales" element={<FranchiseSalesDashboard />} />
                   <Route path="franchise/:franchiseId/imports" element={<FranchiseImportsDashboard />} />
                   <Route path="franchise/:franchiseId/profit-loss" element={<FranchiseProfitLoss />} />
                   <Route path="franchise/:franchiseId/settings" element={<FranchiseSettings />} />
+                  <Route path="franchise/:franchiseId" element={<FranchiseDashboard />} />
                 </Route>
                 <Route path="*" element={<Navigate to="/dashboard" replace />} />
               </Routes>

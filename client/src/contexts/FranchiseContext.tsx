@@ -89,7 +89,7 @@ export const FranchiseProvider: React.FC<FranchiseProviderProps> = ({ children }
 
   // Get franchise by ID
   const getFranchiseById = useCallback((id: string): Franchise | undefined => {
-    return franchises.find(f => f.id === id);
+    return franchises.find(f => f._id === id || f.id === id);
   }, [franchises]);
 
   // Switch to a specific franchise
@@ -199,12 +199,12 @@ export const useCurrentFranchiseData = <T,>(
   const { currentFranchise } = useFranchise();
   
   return useQuery({
-    queryKey: ['franchise-data', currentFranchise?.id],
+    queryKey: ['franchise-data', currentFranchise?._id],
     queryFn: () => {
       if (!currentFranchise) {
         throw new Error('No franchise selected');
       }
-      return fetchFunction(currentFranchise.id);
+      return fetchFunction(currentFranchise._id || currentFranchise.id);
     },
     enabled: Boolean(currentFranchise && (options?.enabled ?? true)),
     ...options,
@@ -225,7 +225,7 @@ export const useFranchisePermissions = () => {
     
     canEditFranchise: (franchiseId: string): boolean => {
       // Only allow editing in network view or if it's the current franchise
-      return isNetworkView || currentFranchise?.id === franchiseId;
+      return isNetworkView || currentFranchise?._id === franchiseId || currentFranchise?.id === franchiseId;
     },
     
     canDeleteFranchise: (): boolean => {

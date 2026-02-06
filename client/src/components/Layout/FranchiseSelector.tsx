@@ -128,6 +128,8 @@ const FranchiseSelector: React.FC = () => {
                 <div
                   key={franchise._id}
                   onClick={() => {
+                    // IMPORTANT: Always use franchise._id (MongoDB ObjectId) for routing
+                    // NEVER use franchise.code or numeric IDs in routes
                     switchFranchise(franchise._id);
                     setIsOpen(false);
                   }}

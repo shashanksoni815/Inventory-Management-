@@ -122,6 +122,8 @@ const Layout: React.FC = () => {
                       <button
                         key={f._id}
                         onClick={() => {
+                          // IMPORTANT: Always use franchise._id (MongoDB ObjectId) for routing
+                          // NEVER use franchise.code or numeric IDs in routes
                           switchFranchise(f._id);
                           navigate(`/franchise/${f._id}`);
                           setSidebarOpen(false);
@@ -133,6 +135,7 @@ const Layout: React.FC = () => {
                         }`}
                       >
                         <span className="truncate">{f.name}</span>
+                        {/* Display franchise code for UI only - NOT used for routing */}
                         <span className="ml-2 text-xs text-gray-400">{f.code}</span>
                       </button>
                     ))}
@@ -201,6 +204,8 @@ const Layout: React.FC = () => {
                   <button
                     key={f._id}
                     onClick={() => {
+                      // IMPORTANT: Always use franchise._id (MongoDB ObjectId) for routing
+                      // NEVER use franchise.code or numeric IDs in routes
                       switchFranchise(f._id);
                       navigate(`/franchise/${f._id}`);
                     }}
@@ -212,6 +217,7 @@ const Layout: React.FC = () => {
                     )}
                   >
                     <span className="truncate">{f.name}</span>
+                    {/* Display franchise code for UI only - NOT used for routing */}
                     <span className="ml-2 text-xs text-gray-400">{f.code}</span>
                   </button>
                 ))}
