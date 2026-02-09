@@ -555,3 +555,225 @@ export const getTransferStatistics = async (req, res) => {
     });
   }
 };
+
+/**
+ * Admin-only: Network transfers overview (total imports/exports, inter-franchise list, bottlenecks).
+ * Query: timeRange = 7d | 30d | 90d | 1y
+ */
+export const getAdminTransfersOverview = async (req, res) => {
+  try {
+    const user = req.user;
+    if (user.role !== 'admin' && user.role !== 'superAdmin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Admin access required',
+      });
+    }
+
+    const { timeRange = '30d' } = req.query;
+    const now = new Date();
+    const endDate = new Date(now);
+    let startDate = new Date(now);
+    switch (timeRange) {
+      case '7d':
+        startDate.setDate(startDate.getDate() - 7);
+        break;
+      case '30d':
+        startDate.setDate(startDate.getDate() - 30);
+        break;
+      case '90d':
+        startDate.setDate(startDate.getDate() - 90);
+        break;
+      case '1y':
+        startDate.setFullYear(startDate.getFullYear() - 1);
+        break;
+      default:
+        startDate.setDate(startDate.getDate() - 30);
+    }
+
+    const dateMatch = { transferDate: { $gte: startDate, $lte: endDate } };
+
+    // Use $facet to combine Transfer aggregations (indexed: transferDate, status)
+    const [overviewResult, recentTransfers, pendingTransfers] = await Promise.all([
+      Transfer.aggregate([
+        { $match: dateMatch },
+        {
+          $facet: {
+            importsExports: [
+              {
+                $group: {
+                  _id: null,
+                  totalTransfers: { $sum: 1 },
+                  totalQuantity: { $sum: '$quantity' },
+                  completedCount: { $sum: { $cond: [{ $eq: ['$status', 'completed'] }, 1, 0] } },
+                  completedQuantity: { $sum: { $cond: [{ $eq: ['$status', 'completed'] }, '$quantity', 0] } },
+                },
+              },
+              { $project: { _id: 0 } },
+            ],
+            byStatus: [
+              { $group: { _id: '$status', count: { $sum: 1 } } },
+              { $project: { status: '$_id', count: 1, _id: 0 } },
+            ],
+          },
+        },
+      ]),
+      // Recent transfers (indexed: transferDate)
+      Transfer.aggregate([
+        { $sort: { transferDate: -1 } },
+        { $limit: 15 },
+        {
+          $lookup: {
+            from: 'products',
+            localField: 'product',
+            foreignField: '_id',
+            as: 'productDoc'
+          }
+        },
+        { $unwind: { path: '$productDoc', preserveNullAndEmptyArrays: true } },
+        {
+          $lookup: {
+            from: 'franchises',
+            localField: 'fromFranchise',
+            foreignField: '_id',
+            as: 'fromDoc'
+          }
+        },
+        { $unwind: { path: '$fromDoc', preserveNullAndEmptyArrays: true } },
+        {
+          $lookup: {
+            from: 'franchises',
+            localField: 'toFranchise',
+            foreignField: '_id',
+            as: 'toDoc'
+          }
+        },
+        { $unwind: { path: '$toDoc', preserveNullAndEmptyArrays: true } },
+        {
+          $lookup: {
+            from: 'users',
+            localField: 'initiatedBy',
+            foreignField: '_id',
+            as: 'userDoc'
+          }
+        },
+        { $unwind: { path: '$userDoc', preserveNullAndEmptyArrays: true } },
+        {
+          $project: {
+            _id: { $toString: '$_id' },
+            productName: { $ifNull: ['$productDoc.name', '—'] },
+            sku: { $ifNull: ['$productDoc.sku', '—'] },
+            fromFranchiseName: { $ifNull: ['$fromDoc.name', '—'] },
+            fromFranchiseCode: '$fromDoc.code',
+            toFranchiseName: { $ifNull: ['$toDoc.name', '—'] },
+            toFranchiseCode: '$toDoc.code',
+            quantity: 1,
+            totalValue: 1,
+            status: 1,
+            transferDate: 1,
+            initiatedBy: '$userDoc.username',
+          },
+        },
+      ]),
+      // Pending transfers (indexed: status, transferDate)
+      Transfer.aggregate([
+        { $match: { status: { $in: ['pending', 'approved', 'in_transit'] } } },
+        { $sort: { transferDate: 1 } },
+        { $limit: 50 },
+        {
+          $lookup: {
+            from: 'products',
+            localField: 'product',
+            foreignField: '_id',
+            as: 'productDoc'
+          }
+        },
+        { $unwind: { path: '$productDoc', preserveNullAndEmptyArrays: true } },
+        {
+          $lookup: {
+            from: 'franchises',
+            localField: 'fromFranchise',
+            foreignField: '_id',
+            as: 'fromDoc'
+          }
+        },
+        { $unwind: { path: '$fromDoc', preserveNullAndEmptyArrays: true } },
+        {
+          $lookup: {
+            from: 'franchises',
+            localField: 'toFranchise',
+            foreignField: '_id',
+            as: 'toDoc'
+          }
+        },
+        { $unwind: { path: '$toDoc', preserveNullAndEmptyArrays: true } },
+        {
+          $lookup: {
+            from: 'users',
+            localField: 'initiatedBy',
+            foreignField: '_id',
+            as: 'userDoc'
+          }
+        },
+        { $unwind: { path: '$userDoc', preserveNullAndEmptyArrays: true } },
+        {
+          $project: {
+            _id: { $toString: '$_id' },
+            productName: { $ifNull: ['$productDoc.name', '—'] },
+            sku: { $ifNull: ['$productDoc.sku', '—'] },
+            fromFranchiseName: { $ifNull: ['$fromDoc.name', '—'] },
+            fromFranchiseCode: '$fromDoc.code',
+            toFranchiseName: { $ifNull: ['$toDoc.name', '—'] },
+            toFranchiseCode: '$toDoc.code',
+            quantity: 1,
+            totalValue: 1,
+            status: 1,
+            transferDate: 1,
+            initiatedBy: '$userDoc.username',
+          },
+        },
+      ]),
+    ]);
+
+    const { importsExports = [], byStatus = [] } = overviewResult[0] || {};
+    const totals = importsExports[0] || {
+      totalTransfers: 0,
+      totalQuantity: 0,
+      completedCount: 0,
+      completedQuantity: 0,
+    };
+
+    // Build byStatus object in aggregation result (no JS Object.fromEntries)
+    const statusMap = {};
+    byStatus.forEach((s) => {
+      statusMap[s.status] = s.count;
+    });
+
+    res.status(200).json({
+      success: true,
+      data: {
+        totalImports: totals.completedCount,
+        totalExports: totals.completedCount,
+        totalTransfers: totals.totalTransfers,
+        totalQuantity: totals.totalQuantity,
+        completedQuantity: totals.completedQuantity,
+        byStatus: {
+          pending: statusMap.pending || 0,
+          approved: statusMap.approved || 0,
+          in_transit: statusMap.in_transit || 0,
+          completed: statusMap.completed || 0,
+          rejected: statusMap.rejected || 0,
+          cancelled: statusMap.cancelled || 0,
+        },
+        recentTransfers: recentTransfers,
+        pendingTransfers: pendingTransfers,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch transfers overview',
+      error: error.message,
+    });
+  }
+};

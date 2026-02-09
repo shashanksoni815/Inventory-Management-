@@ -166,6 +166,7 @@ productSchema.index({ sku: 1, franchise: 1 }, { unique: true });
 
 // Index for franchise queries
 productSchema.index({ franchise: 1, category: 1 });
+productSchema.index({ category: 1 }); // CRITICAL: Standalone index for category aggregations
 productSchema.index({ franchise: 1, status: 1 });
 productSchema.index({ franchise: 1, stockQuantity: 1 });
 productSchema.index({ franchise: 1, isGlobal: 1 });

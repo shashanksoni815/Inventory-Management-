@@ -7,7 +7,8 @@ import { startOfMonth, endOfMonth, subMonths, format } from 'date-fns';
 
 export const generateSalesReport = async (req, res) => {
   try {
-    const { startDate, endDate, format: reportFormat = 'excel' } = req.query;
+    const { startDate, endDate, format: reportFormat = 'excel', franchise } = req.query;
+    const { user } = req;
 
     const query = {
       createdAt: {
@@ -16,6 +17,19 @@ export const generateSalesReport = async (req, res) => {
       },
       status: 'completed',
     };
+    // STRICT FRANCHISE SCOPING: Filter sales by franchise when provided
+    if (franchise) {
+      if (user && user.role !== 'admin') {
+        const userFranchises = (user.franchises || []).map((f) => f?.toString?.() || f);
+        if (!userFranchises.includes(String(franchise))) {
+          return res.status(403).json({
+            success: false,
+            message: 'Access denied to this franchise',
+          });
+        }
+      }
+      query.franchise = franchise;
+    }
 
     const sales = await Sale.find(query)
       .populate('items.product', 'name sku category')

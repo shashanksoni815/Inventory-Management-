@@ -100,7 +100,9 @@ transferSchema.pre('save', function(next) {
 
 // Indexes
 transferSchema.index({ fromFranchise: 1, status: 1 });
+transferSchema.index({ fromFranchise: 1 }); // CRITICAL: Standalone index for fromFranchise lookups
 transferSchema.index({ toFranchise: 1, status: 1 });
+transferSchema.index({ toFranchise: 1 }); // CRITICAL: Standalone index for toFranchise lookups
 transferSchema.index({ transferDate: -1 });
 transferSchema.index({ product: 1, status: 1 });
 

@@ -451,9 +451,13 @@ export const generateInvoice = async (req, res) => {
 
 export const exportSalesReport = async (req, res) => {
   try {
-    const { startDate, endDate, format = 'excel' } = req.query;
+    const { startDate, endDate, format = 'excel', franchise } = req.query;
 
-    const query = {};
+    const query = { status: 'completed' };
+    // STRICT FRANCHISE SCOPING: Filter by franchise when provided
+    if (franchise) {
+      query.franchise = franchise;
+    }
     if (startDate || endDate) {
       query.createdAt = {};
       if (startDate) query.createdAt.$gte = new Date(startDate);
@@ -566,7 +570,7 @@ export const exportSalesReport = async (req, res) => {
 
 export const getSalesSummary = async (req, res) => {
   try {
-    const { period = 'today' } = req.query;
+    const { period = 'today', franchise } = req.query;
     let startDate, endDate;
 
     const now = new Date();
@@ -594,12 +598,17 @@ export const getSalesSummary = async (req, res) => {
         endDate = new Date();
     }
 
+    const dateMatch = {
+      createdAt: { $gte: startDate, $lte: endDate },
+      status: 'completed',
+    };
+    if (franchise) {
+      dateMatch.franchise = franchise;
+    }
+
     const summary = await Sale.aggregate([
       {
-        $match: {
-          createdAt: { $gte: startDate, $lte: endDate },
-          status: 'completed',
-        },
+        $match: dateMatch,
       },
       {
         $group: {
@@ -624,13 +633,10 @@ export const getSalesSummary = async (req, res) => {
       },
     ]);
 
-    // Get top products
+    // Get top products (STRICT FRANCHISE SCOPING: same match as summary)
     const topProducts = await Sale.aggregate([
       {
-        $match: {
-          createdAt: { $gte: startDate, $lte: endDate },
-          status: 'completed',
-        },
+        $match: dateMatch,
       },
       { $unwind: '$items' },
       {

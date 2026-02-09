@@ -10,6 +10,7 @@ import {
   completeTransfer,
   cancelTransfer,
   getTransferStatistics,
+  getAdminTransfersOverview,
 } from '../controllers/transfer.controller.js';
 import { authMiddleware } from '../middleware/auth.middleware.js';
 
@@ -18,6 +19,7 @@ const router = express.Router();
 router.use(authMiddleware);
 
 router.get('/', getAllTransfers);
+router.get('/admin/overview', getAdminTransfersOverview);
 router.get('/statistics/:franchiseId', getTransferStatistics);
 router.get('/:id', getTransferById);
 router.post('/', createTransfer);
