@@ -14,11 +14,11 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import { transferApi } from '../../services/api';
 import { useFranchise } from '../../contexts/FranchiseContext';
-import { Card } from '../ui/Card';
-import { Button } from '../ui/Button';
-import { Input } from '../ui/Input';
-import { Select } from '../ui/Select';
-import { Badge } from '../ui/Badge';
+import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Select } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
 import TransferDetailsModal from './TransferDetailsModal';
 
 const TransferManagement: React.FC = () => {

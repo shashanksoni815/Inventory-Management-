@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Outlet, useNavigate, useLocation } from 'react-router-dom';
+import { Outlet, useNavigate, useLocation, useMatch } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard,
@@ -31,6 +31,15 @@ const Layout: React.FC = () => {
     switchFranchise,
     switchToNetworkView,
   } = useFranchise();
+
+  // Sync context with URL: when franchiseId in route changes, update context to prevent stale data
+  const franchiseMatch = useMatch('/franchise/:franchiseId/*');
+  const franchiseIdFromRoute = franchiseMatch?.params?.franchiseId;
+  useEffect(() => {
+    if (franchiseIdFromRoute) {
+      switchFranchise(franchiseIdFromRoute);
+    }
+  }, [franchiseIdFromRoute, switchFranchise]);
 
   const navigation = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },

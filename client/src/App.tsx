@@ -12,8 +12,9 @@ import { queryClient } from './lib/queryClient';
 import { ThemeProvider } from './components/Common/ThemeProvider';
 import ErrorBoundary from './components/Common/ErrorBoundary';
 import LoadingSpinner from './components/Common/LoadingSpinner';
-import { Toaster } from 'react-hot-toast';
+import toast, { Toaster } from 'react-hot-toast';
 import { FranchiseProvider } from './contexts/FranchiseContext';
+import type { UserRole } from './types';
 
 // Lazy load pages
 const Login = lazy(() => import('./pages/Login'));
@@ -30,6 +31,7 @@ const FranchiseImportsDashboard = lazy(() => import('./pages/FranchiseImportsDas
 const FranchiseProfitLoss = lazy(() => import('./pages/FranchiseProfitLoss'));
 const NetworkDashboard = lazy(() => import('./pages/NetworkDashboard'));
 const FranchiseSettings = lazy(() => import('./components/Franchise/FranchiseSettings'));
+const AdminDashboard = lazy(() => import('./pages/AdminDashboard'));
 
 // Protected route wrapper
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -39,6 +41,40 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
     return <Navigate to="/login" replace />;
   }
   
+  return <>{children}</>;
+};
+
+/** Super Admin only. Franchise managers are blocked and redirected to /dashboard. */
+const AdminRoute = ({ children }: { children: React.ReactNode }) => {
+  const [allowed, setAllowed] = React.useState<boolean | null>(null);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('user');
+      const user = raw ? (JSON.parse(raw) as { role?: UserRole }) : null;
+      const role = user?.role;
+      const isSuperAdminOrAdmin = role === 'superAdmin' || role === 'admin';
+      const isFranchiseManager = role === 'franchise_manager';
+
+      if (isFranchiseManager || !isSuperAdminOrAdmin) {
+        setAllowed(false);
+        if (isFranchiseManager) {
+          toast.error('Access denied. Admin Master Dashboard is for Super Admin only.');
+        }
+      } else {
+        setAllowed(true);
+      }
+    } catch {
+      setAllowed(false);
+    }
+  }, []);
+
+  if (allowed === null) {
+    return <LoadingSpinner fullScreen />;
+  }
+  if (!allowed) {
+    return <Navigate to="/dashboard" replace />;
+  }
   return <>{children}</>;
 };
 
@@ -87,6 +123,14 @@ function App() {
                   <Route path="franchise/:franchiseId/profit-loss" element={<FranchiseProfitLoss />} />
                   <Route path="franchise/:franchiseId/settings" element={<FranchiseSettings />} />
                   <Route path="franchise/:franchiseId" element={<FranchiseDashboard />} />
+                  <Route
+                    path="admin/dashboard"
+                    element={
+                      <AdminRoute>
+                        <AdminDashboard />
+                      </AdminRoute>
+                    }
+                  />
                 </Route>
                 <Route path="*" element={<Navigate to="/dashboard" replace />} />
               </Routes>

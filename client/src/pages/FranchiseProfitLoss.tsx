@@ -1,15 +1,15 @@
 /**
- * Franchise Profit & Loss Page
- * 
- * Standalone page for detailed Profit & Loss analysis for a specific franchise outlet.
+ * Franchise Profit & Loss Dashboard
  * Route: /franchise/:franchiseId/profit-loss
- * 
- * STRICT FRANCHISE SCOPING:
- * - All sales data is filtered by franchiseId on the backend
- * - All transfers (imports/exports) are filtered to show only transfers involving this franchise
- * - All product analytics are scoped to this franchise
- * - All profit/loss calculations use only this franchise's data
- * - No data leakage between franchises
+ *
+ * Includes:
+ * - P&L KPI cards (Revenue, COGS, Gross Profit, Margins, Operating Expenses, Net Profit)
+ * - P&L statement table (Revenue, COGS, Gross Profit, Expenses, Net Profit, Margins)
+ * - Revenue vs Cost vs Profit trend chart
+ * - Category-wise profit breakdown (chart + table)
+ * - Export (PDF / Excel) buttons
+ *
+ * STRICT FRANCHISE SCOPING: All data filtered by franchiseId on the backend.
  */
 import React, { useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -85,7 +85,8 @@ const FranchiseProfitLoss: React.FC = () => {
     staleTime: 30000, // Cache for 30 seconds
   });
 
-  const franchise = franchiseData?.data;
+  // API interceptor returns franchise object directly (no .data wrapper)
+  const franchise = franchiseData;
   const profitLoss = profitLossData;
 
   // Extract summary and category breakdown from API response
@@ -98,10 +99,11 @@ const FranchiseProfitLoss: React.FC = () => {
     grossMargin: 0,
     netMargin: 0,
   };
+  const isEmpty = !profitLoss || (profitLoss.summary?.totalRevenue === 0 && (profitLoss.categoryBreakdown?.length ?? 0) === 0);
 
   const profitByCategory = profitLoss?.categoryBreakdown || [];
 
-  // Fetch sales data for trend chart
+  // Fetch sales data for trend chart (Revenue vs Cost vs Profit)
   const { data: salesData } = useQuery({
     queryKey: ['franchise-sales-trend', franchiseId, timeRange],
     queryFn: () => saleApi.getAll({
@@ -109,7 +111,7 @@ const FranchiseProfitLoss: React.FC = () => {
       endDate: getEndDate(),
       franchise: franchiseId,
     }),
-    enabled: !!franchiseId && !isEmpty,
+    enabled: !!franchiseId,
   });
 
   // Calculate daily profit/loss trend from sales data
@@ -214,9 +216,6 @@ const FranchiseProfitLoss: React.FC = () => {
       </div>
     );
   }
-
-  // Handle empty state (no data available)
-  const isEmpty = !profitLoss || (profitLoss.summary.totalRevenue === 0 && profitLoss.categoryBreakdown.length === 0);
 
   return (
     <div className="p-6 space-y-6">
@@ -464,43 +463,43 @@ const FranchiseProfitLoss: React.FC = () => {
               <tr>
                 <td className="px-4 py-3 font-medium text-gray-900">Revenue</td>
                 <td className="px-4 py-3 text-right text-gray-900">
-                  ${profitLossStatement.revenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  ${(profitLossStatement.totalRevenue ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </td>
               </tr>
               <tr>
                 <td className="px-4 py-3 text-gray-700 pl-8">Cost of Goods Sold</td>
                 <td className="px-4 py-3 text-right text-gray-700">
-                  ${profitLossStatement.cogs.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  ${(profitLossStatement.cogs ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </td>
               </tr>
               <tr className="bg-gray-50">
                 <td className="px-4 py-3 font-medium text-gray-900">Gross Profit</td>
                 <td className="px-4 py-3 text-right text-gray-900">
-                  ${profitLossStatement.grossProfit.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  ${(profitLossStatement.grossProfit ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </td>
               </tr>
               <tr>
                 <td className="px-4 py-3 text-gray-700 pl-8">Operating Expenses</td>
                 <td className="px-4 py-3 text-right text-gray-700">
-                  ${profitLossStatement.operatingExpenses.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  ${(profitLossStatement.operatingExpenses ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </td>
               </tr>
               <tr className="bg-blue-50">
                 <td className="px-4 py-3 font-bold text-gray-900">Net Profit</td>
                 <td className="px-4 py-3 text-right font-bold text-gray-900">
-                  ${profitLossStatement.netProfit.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  ${(profitLossStatement.netProfit ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </td>
               </tr>
               <tr>
                 <td className="px-4 py-3 text-gray-700">Gross Margin</td>
                 <td className="px-4 py-3 text-right text-gray-700">
-                  {profitLossStatement.grossMargin.toFixed(2)}%
+                  {(profitLossStatement.grossMargin ?? 0).toFixed(2)}%
                 </td>
               </tr>
               <tr>
                 <td className="px-4 py-3 text-gray-700">Net Margin</td>
                 <td className="px-4 py-3 text-right text-gray-700">
-                  {profitLossStatement.netMargin.toFixed(2)}%
+                  {(profitLossStatement.netMargin ?? 0).toFixed(2)}%
                 </td>
               </tr>
             </tbody>

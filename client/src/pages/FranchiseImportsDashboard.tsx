@@ -1,11 +1,15 @@
 /**
- * Franchise Imports Dashboard Page
+ * Franchise Import / Export Dashboard
  * Route: /franchise/:franchiseId/imports
- * 
- * STRICT FRANCHISE SCOPING:
- * - All transfers (imports/exports) are filtered to show only transfers involving this franchise
+ *
+ * Includes:
+ * - Import & export summary (counts and values)
+ * - Transfer history table (all activity)
+ * - Source / destination filtering (All | Imports | Exports)
+ *
+ * STRICT FRANCHISE SCOPING: All transfers filtered to this franchise only.
  */
-import React, { useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Store,
@@ -19,10 +23,13 @@ import { useQuery } from '@tanstack/react-query';
 import { franchiseApi, transferApi } from '../services/api';
 import { useFranchise } from '../contexts/FranchiseContext';
 
+type TransferFilter = 'all' | 'imports' | 'exports';
+
 const FranchiseImportsDashboard: React.FC = () => {
   const { franchiseId } = useParams<{ franchiseId: string }>();
   const navigate = useNavigate();
   const { switchToNetworkView } = useFranchise();
+  const [transferFilter, setTransferFilter] = useState<TransferFilter>('all');
 
   const handleNetworkView = () => {
     switchToNetworkView();
@@ -43,7 +50,8 @@ const FranchiseImportsDashboard: React.FC = () => {
     enabled: !!franchiseId,
   });
 
-  const franchise = franchiseData?.data;
+  // API interceptor returns franchise object directly (no .data wrapper)
+  const franchise = franchiseData;
   const transfers = Array.isArray(transfersData) ? transfersData : (transfersData as { data?: any[] })?.data || [];
 
   // Prepare import/export data
@@ -68,9 +76,20 @@ const FranchiseImportsDashboard: React.FC = () => {
       exportValue,
       recentImports: imports.slice(0, 10),
       recentExports: exports.slice(0, 10),
-      allTransfers: transfers.slice(0, 20),
+      allTransfers: transfers,
     };
   }, [transfers, franchiseId]);
+
+  // Filter transfers by source/destination (Imports = into this franchise, Exports = out of this franchise)
+  const filteredTransfers = useMemo(() => {
+    if (transferFilter === 'imports') {
+      return importExportData.allTransfers.filter((t: any) => t.toFranchise === franchiseId || t.toFranchise?._id === franchiseId);
+    }
+    if (transferFilter === 'exports') {
+      return importExportData.allTransfers.filter((t: any) => t.fromFranchise === franchiseId || t.fromFranchise?._id === franchiseId);
+    }
+    return importExportData.allTransfers;
+  }, [importExportData.allTransfers, transferFilter, franchiseId]);
 
   if (franchiseLoading) {
     return (
@@ -259,9 +278,26 @@ const FranchiseImportsDashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* All Transfer Activity Table */}
+      {/* Transfer History Table with Source/Destination Filtering */}
       <div className="bg-white rounded-xl border border-gray-200 p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">All Import/Export Activity</h3>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
+          <h3 className="text-lg font-semibold text-gray-900">Transfer History</h3>
+          <div className="flex rounded-lg border border-gray-200 p-1 bg-gray-50">
+            {(['all', 'imports', 'exports'] as const).map((filter) => (
+              <button
+                key={filter}
+                onClick={() => setTransferFilter(filter)}
+                className={`px-4 py-2 text-sm font-medium rounded-md transition-colors
+                  ${transferFilter === filter
+                    ? 'bg-white text-blue-600 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                  }`}
+              >
+                {filter === 'all' ? 'All' : filter === 'imports' ? 'Imports' : 'Exports'}
+              </button>
+            ))}
+          </div>
+        </div>
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead>
@@ -276,8 +312,8 @@ const FranchiseImportsDashboard: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {importExportData.allTransfers.length > 0 ? (
-                importExportData.allTransfers.map((transfer: any) => (
+              {filteredTransfers.length > 0 ? (
+                filteredTransfers.map((transfer: any) => (
                   <tr key={transfer._id} className="hover:bg-gray-50">
                     <td className="px-4 py-3">
                       {transfer.toFranchise === franchiseId || transfer.toFranchise?._id === franchiseId ? (
@@ -323,7 +359,7 @@ const FranchiseImportsDashboard: React.FC = () => {
               ) : (
                 <tr>
                   <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
-                    No transfer activity found
+                    {transferFilter === 'all' ? 'No transfer activity found' : `No ${transferFilter} found`}
                   </td>
                 </tr>
               )}

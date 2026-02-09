@@ -17,13 +17,13 @@ import {
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { franchiseApi } from '../../services/api';
 import { useFranchise } from '../../contexts/FranchiseContext';
-import { Card } from '../ui/Card';
-import { Button } from '../ui/Button';
-import { Input } from '../ui/Input';
-import { Select } from '../ui/Select';
-import { Textarea } from '../ui/Textarea';
-import { Switch } from '../ui/Switch';
-import { Badge } from '../ui/Badge';
+import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Select } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
+import { Switch } from '@/components/ui/switch';
+import { Badge } from '@/components/ui/badge';
 
 const FranchiseSettings: React.FC = () => {
   const { currentFranchise } = useFranchise();

@@ -92,7 +92,7 @@ export const FranchiseProvider: React.FC<FranchiseProviderProps> = ({ children }
     return franchises.find(f => f._id === id || f.id === id);
   }, [franchises]);
 
-  // Switch to a specific franchise
+  // Switch to a specific franchise (by MongoDB _id). Keeps context in sync with route.
   const switchFranchise = useCallback((franchiseId: string | null) => {
     if (franchiseId === null) {
       setCurrentFranchise(null);
@@ -103,13 +103,15 @@ export const FranchiseProvider: React.FC<FranchiseProviderProps> = ({ children }
     }
 
     const franchise = getFranchiseById(franchiseId);
+    setSelectedFranchiseId(franchiseId);
+    localStorage.setItem('selectedFranchiseId', franchiseId);
     if (franchise) {
       setCurrentFranchise(franchise);
       setIsNetworkView(false);
-      setSelectedFranchiseId(franchiseId);
-      localStorage.setItem('selectedFranchiseId', franchiseId);
     } else {
-      console.warn(`Franchise with ID ${franchiseId} not found`);
+      setCurrentFranchise(null);
+      setIsNetworkView(false);
+      // Franchise may not be in list yet; effect below will set currentFranchise when franchises load.
     }
   }, [getFranchiseById]);
 

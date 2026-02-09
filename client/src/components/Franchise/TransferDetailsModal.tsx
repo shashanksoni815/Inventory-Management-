@@ -14,9 +14,9 @@ import {
   Printer
 } from 'lucide-react';
 import { format } from 'date-fns';
-import { Card } from '../ui/Card';
-import { Button } from '../ui/Button';
-import { Badge } from '../ui/Badge';
+import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 
 interface TransferDetailsModalProps {
   transfer: any;

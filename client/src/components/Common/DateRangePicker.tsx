@@ -154,7 +154,7 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({
     <div className="relative" ref={pickerRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center space-x-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:hover:bg-gray-600"
+        className="flex items-center space-x-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm hover:bg-gray-50"
       >
         <Calendar className="h-4 w-4 text-gray-400" />
         <span className="text-gray-700 dark:text-gray-300">
@@ -168,16 +168,16 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 10 }}
-            className="absolute left-0 top-full z-50 mt-2 w-80 rounded-lg border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-800"
+            className="absolute left-0 top-full z-50 mt-2 w-80 rounded-lg border border-gray-200 bg-white shadow-lg "
           >
             {/* Quick ranges */}
-            <div className="border-b border-gray-200 p-4 dark:border-gray-700">
+            <div className="border-b border-gray-200 p-4 ">
               <div className="grid grid-cols-2 gap-2">
                 {quickRanges.map((range, index) => (
                   <button
                     key={index}
                     onClick={() => applyQuickRange(range)}
-                    className="rounded-lg border border-gray-200 px-3 py-2 text-sm hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-700"
+                    className="rounded-lg border border-gray-200 px-3 py-2 text-sm hover:bg-gray-50 "
                   >
                     {range.label}
                   </button>
@@ -192,7 +192,7 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({
                   onClick={() => setCurrentMonth(
                     new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1)
                   )}
-                  className="rounded-lg p-2 hover:bg-gray-100 dark:hover:bg-gray-700"
+                  className="rounded-lg p-2 hover:bg-gray-100 "
                 >
                   <ChevronLeft className="h-4 w-4" />
                 </button>
@@ -201,7 +201,7 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({
                   onClick={() => setCurrentMonth(
                     new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1)
                   )}
-                  className="rounded-lg p-2 hover:bg-gray-100 dark:hover:bg-gray-700"
+                  className="rounded-lg p-2 hover:bg-gray-100 "
                 >
                   <ChevronRight className="h-4 w-4" />
                 </button>
@@ -210,7 +210,7 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({
               {/* Day headers */}
               <div className="mb-2 grid grid-cols-7">
                 {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((day) => (
-                  <div key={day} className="text-center text-xs font-medium text-gray-500 dark:text-gray-400">
+                  <div key={day} className="text-center text-xs font-medium text-gray-500 ">
                     {day}
                   </div>
                 ))}
@@ -230,19 +230,19 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({
                       onClick={() => handleDateClick(day.date)}
                       className={cn(
                         'relative h-8 rounded text-sm',
-                        !day.isCurrentMonth && 'text-gray-400 dark:text-gray-500',
-                        isSelected && 'bg-blue-100 dark:bg-blue-900/30',
+                        !day.isCurrentMonth && 'text-gray-400 ',
+                        isSelected && 'bg-blue-100 ',
                         isStartDay && 'rounded-l-full bg-blue-600 text-white',
                         isEndDay && 'rounded-r-full bg-blue-600 text-white',
                         isToday && !isStartDay && !isEndDay && 'border border-blue-500',
-                        !isStartDay && !isEndDay && 'hover:bg-gray-100 dark:hover:bg-gray-700'
+                        !isStartDay && !isEndDay && 'hover:bg-gray-100 '
                       )}
                     >
                       <span
                         className={cn(
                           'relative z-10',
                           (isStartDay || isEndDay) && 'text-white',
-                          isToday && !isStartDay && !isEndDay && 'font-bold text-blue-600 dark:text-blue-400'
+                          isToday && !isStartDay && !isEndDay && 'font-bold text-blue-600 '
                         )}
                       >
                         {day.date.getDate()}
@@ -253,9 +253,9 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({
               </div>
 
               {/* Selected range display */}
-              <div className="mt-4 flex items-center justify-between border-t border-gray-200 pt-4 dark:border-gray-700">
+                <div className="mt-4 flex items-center justify-between border-t border-gray-200 pt-4 ">
                 <div className="text-sm">
-                  <div className="text-gray-500 dark:text-gray-400">Selected:</div>
+                  <div className="text-gray-500 ">Selected:</div>
                   <div className="font-medium">
                     {tempRange.startDate ? formatDate(tempRange.startDate) : 'Start date'} -{' '}
                     {tempRange.endDate ? formatDate(tempRange.endDate) : 'End date'}

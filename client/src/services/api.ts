@@ -1,5 +1,5 @@
 import axios, { type InternalAxiosRequestConfig, type AxiosResponse, type AxiosError } from 'axios';
-import type { Product, Sale, DashboardStats, ApiResponse } from '@/types';
+import type { Product, Sale, DashboardStats, ApiResponse, AdminKpis, AdminCharts, FranchisePerformanceRow, AdminTransfersOverview, AdminInsights } from '@/types';
 
 export const api = axios.create({
   baseURL: '/api',
@@ -60,10 +60,19 @@ export const authApi = {
 
 export const franchiseApi = {
   getAll: async () => api.get('/franchises'),
+  /** id must be MongoDB _id (e.g. 65c9a8e2f...). In Network tab you should see /api/franchises/65c9a8e2f..., not /api/franchises/789456 (code). */
   getById: async (id: string) => api.get(`/franchises/${id}`),
   create: async (data: unknown) => api.post('/franchises', data),
   update: async (id: string, data: unknown) => api.put(`/franchises/${id}`, data),
   getNetworkStats: async () => api.get('/franchises/network/stats'),
+  getAdminKpis: async (timeRange: string) =>
+    api.get<AdminKpis>('/franchises/admin/kpis', { params: { timeRange } }),
+  getAdminCharts: async (timeRange: string) =>
+    api.get<AdminCharts>('/franchises/admin/charts', { params: { timeRange } }),
+  getAdminPerformance: async (timeRange: string) =>
+    api.get<FranchisePerformanceRow[]>('/franchises/admin/performance', { params: { timeRange } }),
+  getAdminInsights: async (timeRange: string) =>
+    api.get<AdminInsights>('/franchises/admin/insights', { params: { timeRange } }),
 };
 
 export const productApi = {
@@ -136,7 +145,8 @@ export const productApi = {
 };
 
 export const transferApi = {
-  getAll: async (params?: any) => api.get('/transfers', { params }),
+  /** Pass franchise so backend returns only transfers where outlet is source or destination. */
+  getAll: async (params?: { franchise?: string; [key: string]: any }) => api.get('/transfers', { params }),
   getById: async (id: string) => api.get(`/transfers/${id}`),
   create: async (data: any) => api.post('/transfers', data),
   update: async (id: string, data: any) => api.put(`/transfers/${id}`, data),
@@ -146,9 +156,15 @@ export const transferApi = {
   cancel: async (id: string, reason?: string) => api.post(`/transfers/${id}/cancel`, { reason }),
   getStatistics: async (franchiseId: string, period: string = 'month') =>
     api.get(`/transfers/statistics/${franchiseId}`, { params: { period } }),
+  getAdminOverview: async (timeRange: string) =>
+    api.get<AdminTransfersOverview>('/transfers/admin/overview', { params: { timeRange } }),
 };
 
 export const saleApi = {
+  /**
+   * Get sales. For franchise-scoped views always pass franchise so the backend filters by outlet.
+   * Backend filters sales by franchise when franchise is provided; no frontend filtering.
+   */
   getAll: async (params?: {
     page?: number;
     limit?: number;

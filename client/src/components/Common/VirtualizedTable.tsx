@@ -36,7 +36,7 @@ export const VirtualizedTable: React.FC<VirtualizedTableProps> = ({
     return (
       <div className="space-y-2">
         {[...Array(5)].map((_, i) => (
-          <div key={i} className="h-16 w-full bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+          <div key={i} className="h-16 w-full bg-gray-200  rounded animate-pulse" />
         ))}
       </div>
     );
@@ -45,7 +45,7 @@ export const VirtualizedTable: React.FC<VirtualizedTableProps> = ({
   return (
     <div
       ref={parentRef}
-      className="relative h-[600px] w-full overflow-auto rounded-lg border border-gray-200 dark:border-gray-700"
+      className="relative h-[600px] w-full overflow-auto rounded-lg border border-gray-200 "
       style={{ scrollBehavior: 'smooth' }}
     >
       <div
@@ -57,13 +57,13 @@ export const VirtualizedTable: React.FC<VirtualizedTableProps> = ({
       >
         {/* Header */}
         <div
-          className="sticky top-0 z-10 flex border-b border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-800"
+          className="sticky top-0 z-10 flex border-b border-gray-200 bg-gray-50 "
           style={{ width: totalWidth }}
         >
           {columns.map((col) => (
             <div
               key={col.key}
-              className="flex-shrink-0 px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400"
+              className="flex-shrink-0 px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 "
               style={{ width: col.width || 150 }}
             >
               {col.header}
@@ -82,7 +82,7 @@ export const VirtualizedTable: React.FC<VirtualizedTableProps> = ({
               ref={virtualizer.measureElement}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              className="absolute left-0 top-0 flex w-full border-b border-gray-100 bg-white hover:bg-gray-50 dark:border-gray-800 dark:bg-gray-900 dark:hover:bg-gray-800"
+                className="absolute left-0 top-0 flex w-full border-b border-gray-100 bg-white hover:bg-gray-50 "
               style={{
                 height: rowHeight,
                 transform: `translateY(${virtualRow.start}px)`,

@@ -15,10 +15,10 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import { productApi } from '../../services/api';
 import { useFranchise } from '../../contexts/FranchiseContext';
-import { Badge } from '../ui/Badge';
-import { Button } from '../ui/Button';
-import { Input } from '../ui/Input';
-import { Select } from '../ui/Select';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Select } from '@/components/ui/select';
 
 interface Product {
   _id: string;

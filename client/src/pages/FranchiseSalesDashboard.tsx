@@ -1,10 +1,14 @@
 /**
- * Franchise Sales Dashboard Page
+ * Franchise Sales Dashboard
  * Route: /franchise/:franchiseId/sales
- * 
- * STRICT FRANCHISE SCOPING:
- * - All sales data is filtered by franchiseId on the backend
- * - All calculations use only this franchise's data
+ *
+ * Includes:
+ * - Sales KPIs (Revenue, Profit, Total Sales, Avg Order Value)
+ * - Revenue & profit charts (Sales Trend, Profit by Category)
+ * - Recent sales table
+ * - Time range filter (7d / 30d / 90d / 1y)
+ *
+ * STRICT FRANCHISE SCOPING: All data filtered by franchiseId on the backend.
  */
 import React, { useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -80,7 +84,8 @@ const FranchiseSalesDashboard: React.FC = () => {
     enabled: !!franchiseId,
   });
 
-  const franchise = franchiseData?.data;
+  // API interceptor returns franchise object directly (no .data wrapper)
+  const franchise = franchiseData;
   const sales = Array.isArray(salesData) ? salesData : (salesData as { sales?: any[] })?.sales || [];
   const analytics = (productAnalytics && typeof productAnalytics === 'object' && 'data' in productAnalytics)
     ? (productAnalytics as { data?: any }).data

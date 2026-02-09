@@ -1,11 +1,18 @@
 /**
- * Franchise Outlet Dashboard - Overview Page
- * 
+ * Franchise Overview Dashboard
+ * Route: /franchise/:franchiseId
+ *
+ * Includes:
+ * - Revenue, Profit, Sales KPIs (Total Revenue, Total Profit, Total Sales, Profit Margin, Avg Order, Cost, Gross Profit)
+ * - Sales trend chart (revenue & profit over time)
+ * - Profit by category chart
+ * - Quick action buttons (Create Sale, P&L Report, Imports)
+ * - Recent sales table
+ * - Inventory summary (products, stock, value, low stock)
+ *
  * STRICT FRANCHISE SCOPING:
  * - All sales data is filtered by franchiseId on the backend
- * - All transfers (imports/exports) are filtered to show only transfers involving this franchise
  * - All product analytics are scoped to this franchise
- * - All profit/loss calculations use only this franchise's data
  * - No data leakage between franchises
  */
 import React, { useState, useMemo } from 'react';
@@ -41,6 +48,23 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 
+/** Shape returned by franchiseApi.getById (after response interceptor unwraps { success, data }) */
+interface FranchiseDetail {
+  _id: string;
+  name: string;
+  code: string;
+  location: string;
+  status: string;
+  stats?: {
+    totalProducts?: number;
+    lowStockProducts?: number;
+    todaySales?: number;
+    todayRevenue?: number;
+    inventoryValue?: number;
+  };
+  [key: string]: unknown;
+}
+
 const FranchiseDashboard: React.FC = () => {
   const { franchiseId } = useParams<{ franchiseId: string }>();
   const navigate = useNavigate();
@@ -60,11 +84,20 @@ const FranchiseDashboard: React.FC = () => {
     return start.toISOString();
   }
 
-  // Fetch franchise details
-  const { data: franchiseData, isLoading: franchiseLoading } = useQuery({
+  // Fetch franchise details — use franchiseId from URL as-is (do NOT parse or transform)
+  const {
+    data: franchiseData,
+    isLoading: franchiseLoading,
+    isError: franchiseError,
+    error: franchiseErrorData,
+  } = useQuery<FranchiseDetail>({
     queryKey: ['franchise', franchiseId],
-    queryFn: () => franchiseApi.getById(franchiseId!),
+    queryFn: async () => {
+      const data = await franchiseApi.getById(franchiseId as string);
+      return data as unknown as FranchiseDetail;
+    },
     enabled: !!franchiseId,
+    retry: false, // Do not retry 404/unauthorized
   });
 
   // Fetch sales data filtered by franchise (outlet)
@@ -85,7 +118,8 @@ const FranchiseDashboard: React.FC = () => {
     enabled: !!franchiseId,
   });
 
-  const franchise = franchiseData?.data;
+  // API interceptor returns the franchise object directly (no .data wrapper)
+  const franchise = franchiseData;
   const sales = Array.isArray(salesData) ? salesData : (salesData as { sales?: any[] })?.sales || [];
   const analytics = (productAnalytics && typeof productAnalytics === 'object' && 'data' in productAnalytics)
     ? (productAnalytics as { data?: any }).data
@@ -169,15 +203,16 @@ const FranchiseDashboard: React.FC = () => {
     };
   }, [salesSummary]);
 
+  // Loading state
   if (franchiseLoading) {
     return (
       <div className="p-6">
         <div className="animate-pulse">
-          <div className="h-8 bg-gray-200 rounded w-1/4 mb-4"></div>
-          <div className="h-32 bg-gray-200 rounded mb-6"></div>
+          <div className="h-8 bg-gray-200 rounded w-1/4 mb-4" />
+          <div className="h-32 bg-gray-200 rounded mb-6" />
           <div className="grid grid-cols-4 gap-6 mb-6">
             {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="h-24 bg-gray-200 rounded"></div>
+              <div key={i} className="h-24 bg-gray-200 rounded" />
             ))}
           </div>
         </div>
@@ -185,13 +220,14 @@ const FranchiseDashboard: React.FC = () => {
     );
   }
 
-  if (!franchise) {
+  // Missing franchiseId in URL
+  if (!franchiseId) {
     return (
       <div className="p-6">
         <div className="text-center py-12">
           <Store className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900">Franchise not found</h3>
-          <p className="text-gray-600 mt-1">The requested franchise does not exist or you don't have access.</p>
+          <h3 className="text-lg font-medium text-gray-900">Invalid link</h3>
+          <p className="text-gray-600 mt-1">No franchise was specified.</p>
           <button
             onClick={handleNetworkView}
             className="mt-4 inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
@@ -203,6 +239,37 @@ const FranchiseDashboard: React.FC = () => {
       </div>
     );
   }
+
+  // 404 / unauthorized state (API error or no data)
+  if (franchiseError || !franchise) {
+    const errorMessage =
+      franchiseErrorData && typeof franchiseErrorData === 'object' && 'message' in franchiseErrorData
+        ? String((franchiseErrorData as { message?: string }).message)
+        : null;
+    return (
+      <div className="p-6">
+        <div className="text-center py-12">
+          <Store className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-gray-900">Franchise not found</h3>
+          <p className="text-gray-600 mt-1">
+            The requested franchise does not exist or you don&apos;t have access.
+          </p>
+          {errorMessage && (
+            <p className="text-sm text-gray-500 mt-2 max-w-md mx-auto">{errorMessage}</p>
+          )}
+          <button
+            onClick={handleNetworkView}
+            className="mt-4 inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Network View
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Success state — render dashboard
 
   return (
     <div className="p-6 space-y-6">
@@ -580,35 +647,35 @@ const FranchiseDashboard: React.FC = () => {
             </div>
           </div>
 
-          {/* Inventory Status */}
+          {/* Inventory Summary */}
           <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl border border-blue-200 p-6">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">Inventory Status</h3>
+              <h3 className="text-lg font-semibold text-gray-900">Inventory Summary</h3>
               <Package className="w-6 h-6 text-blue-600" />
             </div>
             <div className="space-y-3">
               <div className="flex justify-between">
                 <span className="text-gray-600">Total Products</span>
                 <span className="font-semibold text-gray-900">
-                  {analytics?.summary?.totalProducts || 0}
+                  {franchise.stats?.totalProducts ?? analytics?.summary?.totalProducts ?? 0}
                 </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600">Total Stock</span>
                 <span className="font-semibold text-gray-900">
-                  {analytics?.summary?.totalStock || 0}
+                  {analytics?.summary?.totalStock ?? 0}
                 </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600">Inventory Value</span>
                 <span className="font-semibold text-gray-900">
-                  ${((analytics?.summary?.inventoryValue || 0) / 1000).toFixed(1)}k
+                  ${((franchise.stats?.inventoryValue ?? analytics?.summary?.inventoryValue ?? 0) / 1000).toFixed(1)}k
                 </span>
               </div>
               <div className="flex justify-between pt-2 border-t border-blue-200">
                 <span className="text-gray-700 font-medium">Low Stock Items</span>
-                <span className={`font-bold ${(analytics?.summary?.lowStockCount || 0) > 0 ? 'text-orange-600' : 'text-green-600'}`}>
-                  {analytics?.summary?.lowStockCount || 0}
+                <span className={`font-bold ${(franchise.stats?.lowStockProducts ?? analytics?.summary?.lowStockCount ?? 0) > 0 ? 'text-orange-600' : 'text-green-600'}`}>
+                  {franchise.stats?.lowStockProducts ?? analytics?.summary?.lowStockCount ?? 0}
                 </span>
               </div>
               <button
