@@ -103,6 +103,12 @@ const saleSchema = new mongoose.Schema({
   },
   refundReason: {
     type: String
+  },
+  franchise: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Franchise',
+    required: true,
+    index: true
   }
 }, {
   timestamps: true
@@ -164,9 +170,13 @@ saleSchema.pre('save', function(next) {
 
 // Indexes for efficient queries
 saleSchema.index({ createdAt: -1 });
+saleSchema.index({ createdAt: 1 }); // Ascending for date range queries
 saleSchema.index({ saleType: 1, status: 1 });
 saleSchema.index({ invoiceNumber: 'text', customerName: 'text', customerEmail: 'text' });
 saleSchema.index({ totalProfit: -1 });
 saleSchema.index({ 'items.product': 1 });
+saleSchema.index({ franchise: 1, createdAt: -1 }); // For franchise-scoped queries (descending)
+saleSchema.index({ franchise: 1, createdAt: 1 }); // For franchise-scoped queries (ascending) - CRITICAL for aggregations
+saleSchema.index({ franchise: 1, status: 1 }); // For franchise status queries
 
 export const Sale = mongoose.model('Sale', saleSchema);

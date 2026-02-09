@@ -1,7 +1,9 @@
+export type UserRole = 'superAdmin' | 'admin' | 'franchise_manager';
+
 export interface User {
     _id: string;
     username: string;
-    role: 'admin';
+    role: UserRole;
     settings: UserSettings;
     lastLogin?: string;
   }
@@ -166,6 +168,77 @@ export interface User {
     };
   }
   
+  /** Global KPIs for Admin Master Dashboard (all franchises). */
+  export interface AdminKpis {
+    totalRevenue: number;
+    totalProfit: number;
+    totalSales: number;
+    activeFranchises: number;
+    avgOrderValue: number;
+    inventoryValue: number;
+    totalImports: number;
+    totalExports: number;
+  }
+
+  /** Admin chart data (all franchises, selected time range). */
+  export interface AdminCharts {
+    revenueProfitTrend: { period: string; revenue: number; cost: number; profit: number }[];
+    profitByFranchise: { franchiseName: string; profit: number }[];
+    profitByCategory: { category: string; revenue: number; cost: number; profit: number }[];
+  }
+
+  /** One row for admin franchise performance table. */
+  export interface FranchisePerformanceRow {
+    franchiseId: string;
+    franchiseName: string;
+    revenue: number;
+    profit: number;
+    sales: number;
+    stockValue: number;
+  }
+
+  /** Admin network transfers overview. */
+  export interface AdminTransfersOverview {
+    totalImports: number;
+    totalExports: number;
+    totalTransfers: number;
+    totalQuantity: number;
+    completedQuantity: number;
+    byStatus: {
+      pending: number;
+      approved: number;
+      in_transit: number;
+      completed: number;
+      rejected: number;
+      cancelled: number;
+    };
+    recentTransfers: TransferOverviewItem[];
+    pendingTransfers: TransferOverviewItem[];
+  }
+
+  export interface TransferOverviewItem {
+    _id: string;
+    productName: string;
+    sku: string;
+    fromFranchiseName: string;
+    fromFranchiseCode?: string;
+    toFranchiseName: string;
+    toFranchiseCode?: string;
+    quantity: number;
+    totalValue?: number;
+    status: string;
+    transferDate: string;
+    initiatedBy?: string;
+  }
+
+  /** Admin alerts & insights. */
+  export interface AdminInsights {
+    lossMakingFranchises: { franchiseId: string; franchiseName: string; revenue: number; profit: number; sales: number }[];
+    lowMarginCategories: { category: string; revenue: number; profit: number; marginPercent: number }[];
+    highDeadStockOutlets: { franchiseId: string; franchiseName: string; deadStockValue: number; totalInventoryValue: number; deadStockPercent: number }[];
+    suddenRevenueDrops: { franchiseId: string; franchiseName: string; currentRevenue: number; previousRevenue: number; dropPercent: number }[];
+  }
+
   export interface ApiResponse<T = any> {
     success: boolean;
     data?: T;

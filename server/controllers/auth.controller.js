@@ -2,12 +2,20 @@ import jwt from 'jsonwebtoken';
 import { User } from '../models/User.model.js';
 import bcrypt from 'bcryptjs';
 
+const getJwtSecret = () => process.env.JWT_SECRET || 'your-secret-key';
+
 export const login = async (req, res) => {
   try {
     const { username, password } = req.body;
+    if (!username || !password) {
+      return res.status(400).json({
+        success: false,
+        message: 'Username and password are required',
+      });
+    }
 
-    // Find user
-    const user = await User.findOne({ username });
+    // Find user (username is stored lowercase per schema)
+    const user = await User.findOne({ username: String(username).trim().toLowerCase() });
     if (!user) {
       return res.status(401).json({
         success: false,
@@ -35,7 +43,7 @@ export const login = async (req, res) => {
     // Generate JWT token
     const token = jwt.sign(
       { userId: user._id, role: user.role },
-      process.env.JWT_SECRET,
+      getJwtSecret(),
       { expiresIn: '7d' }
     );
 
@@ -60,6 +68,95 @@ export const login = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Login failed',
+      error: error.message,
+    });
+  }
+};
+
+export const register = async (req, res) => {
+  try {
+    const { username, password } = req.body;
+    if (!username || !password) {
+      return res.status(400).json({
+        success: false,
+        message: 'Username and password are required',
+      });
+    }
+    const normalizedUsername = String(username).trim().toLowerCase();
+    if (normalizedUsername.length < 2) {
+      return res.status(400).json({
+        success: false,
+        message: 'Username must be at least 2 characters',
+      });
+    }
+    if (password.length < 8) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password must be at least 8 characters',
+      });
+    }
+
+    const existing = await User.findOne({ username: normalizedUsername });
+    if (existing) {
+      return res.status(409).json({
+        success: false,
+        message: 'Username already taken',
+      });
+    }
+
+    const user = await User.create({
+      username: normalizedUsername,
+      password,
+      role: 'admin',
+      isActive: true,
+      settings: {
+        theme: 'light',
+        currency: 'USD',
+        taxRate: 10,
+        lowStockThreshold: 10,
+        refreshInterval: 30,
+      },
+    });
+
+    const token = jwt.sign(
+      { userId: user._id, role: user.role },
+      getJwtSecret(),
+      { expiresIn: '7d' }
+    );
+
+    res.status(201).json({
+      success: true,
+      data: {
+        token,
+        user: {
+          id: user._id,
+          username: user.username,
+          role: user.role,
+          settings: user.settings || {},
+        },
+      },
+      message: 'Registration successful',
+    });
+  } catch (error) {
+    // Mongoose duplicate key (username already exists)
+    if (error.code === 11000) {
+      return res.status(409).json({
+        success: false,
+        message: 'Username already taken',
+      });
+    }
+    // Mongoose validation error
+    if (error.name === 'ValidationError' && error.errors) {
+      const firstError = Object.values(error.errors)[0];
+      const message = firstError?.message || 'Validation failed';
+      return res.status(400).json({
+        success: false,
+        message,
+      });
+    }
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Registration failed',
       error: error.message,
     });
   }

@@ -16,6 +16,10 @@ import type { Product, ProductCategory } from '@/types';
 import { cn, calculateProfit } from '@/lib/utils';
 
 const productSchema = z.object({
+  sku: z
+    .string()
+    .min(1, 'SKU is required')
+    .max(50),
   name: z.string().min(1, 'Product name is required').max(100),
   category: z.enum(['Electronics', 'Clothing', 'Books', 'Home & Kitchen', 'Sports', 'Other']),
   brand: z.string().optional(),
@@ -59,6 +63,7 @@ const ProductForm: React.FC<ProductFormProps> = ({
     resolver: zodResolver(productSchema),
     defaultValues: product
       ? {
+          sku: product.sku,
           name: product.name,
           category: product.category,
           brand: product.brand || '',
@@ -70,6 +75,7 @@ const ProductForm: React.FC<ProductFormProps> = ({
           images: product.images ?? [],
         }
       : {
+          sku: '',
           category: 'Electronics',
           buyingPrice: 0,
           sellingPrice: 0,
@@ -219,21 +225,40 @@ const ProductForm: React.FC<ProductFormProps> = ({
                   exit={{ opacity: 0, x: 20 }}
                   className="space-y-6"
                 >
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Product Name *
-                    </label>
-                    <input
-                      {...register('name')}
-                      type="text"
-                      className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                      placeholder="Enter product name"
-                    />
-                    {errors.name && (
-                      <p className="mt-1 text-sm text-red-600">
-                        {errors.name.message}
-                      </p>
-                    )}
+                  <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Product Name *
+                      </label>
+                      <input
+                        {...register('name')}
+                        type="text"
+                        className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                        placeholder="Enter product name"
+                      />
+                      {errors.name && (
+                        <p className="mt-1 text-sm text-red-600">
+                          {errors.name.message}
+                        </p>
+                      )}
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        SKU *
+                      </label>
+                      <input
+                        {...register('sku')}
+                        type="text"
+                        className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm uppercase tracking-wide focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                        placeholder="e.g. PRD-001"
+                      />
+                      {errors.sku && (
+                        <p className="mt-1 text-sm text-red-600">
+                          {errors.sku.message}
+                        </p>
+                      )}
+                    </div>
                   </div>
 
                   <div className="grid grid-cols-1 gap-6 md:grid-cols-2">

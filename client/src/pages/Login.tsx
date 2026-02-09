@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -43,8 +43,9 @@ const Login: React.FC = () => {
         // Redirect to dashboard
         navigate('/dashboard', { replace: true });
       }
-    } catch (err: any) {
-      setError(err.message || 'Login failed. Please check your credentials.');
+    } catch (err: unknown) {
+      const message = err && typeof err === 'object' && 'message' in err ? String((err as { message: string }).message) : 'Login failed. Please check your credentials.';
+      setError(message);
     } finally {
       setIsLoading(false);
     }
@@ -169,12 +170,12 @@ const Login: React.FC = () => {
                   Remember me
                 </span>
               </label>
-              <button
-                type="button"
+              <Link
+                to="/register"
                 className="text-sm font-medium text-blue-600 hover:text-blue-500"
               >
-                Forgot password?
-              </button>
+                Create account
+              </Link>
             </div>
 
             {/* Submit Button */}

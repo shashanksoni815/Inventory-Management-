@@ -244,14 +244,14 @@ const NewSaleModal: React.FC<NewSaleModalProps> = ({
                       className="h-16 w-full bg-gray-200 rounded-lg animate-pulse"
                     />
                   ))
-                ) : (products?.products?.length === 0 ? (
+        ) : ((products as any)?.data?.length === 0 ? (
                   <div className="text-center py-8">
                     <p className="text-gray-500">
                       No products found
                     </p>
                   </div>
                 ) : (
-                  (products?.products ?? []).map((product: Product) => (
+                  (((products as any)?.data || []) as Product[]).map((product: Product) => (
                     <button
                       key={product._id}
                       onClick={() => addItem(product)}

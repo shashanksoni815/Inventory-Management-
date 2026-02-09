@@ -40,16 +40,16 @@ class ErrorBoundary extends Component<Props, State> {
       }
 
       return (
-        <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-4">
+        <div className="min-h-screen bg-gray-50  flex items-center justify-center p-4">
           <div className="max-w-md w-full text-center">
             <div className="mb-6">
-              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-red-100 dark:bg-red-900/30 mb-4">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-red-100  mb-4">
                 <AlertTriangle className="h-8 w-8 text-red-600 dark:text-red-400" />
               </div>
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+              <h1 className="text-2xl font-bold text-gray-900   mb-2">
                 Something went wrong
               </h1>
-              <p className="text-gray-600 dark:text-gray-400 mb-6">
+              <p className="text-gray-600  mb-6">
                 {this.state.error?.message || 'An unexpected error occurred'}
               </p>
             </div>
@@ -65,15 +65,15 @@ class ErrorBoundary extends Component<Props, State> {
               
               <button
                 onClick={this.handleGoHome}
-                className="w-full flex items-center justify-center space-x-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 px-4 py-3 rounded-lg font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                className="w-full flex items-center justify-center space-x-2 border border-gray-300  text-gray-700  px-4 py-3 rounded-lg font-medium hover:bg-gray-50  transition-colors"
               >
                 <Home className="h-4 w-4" />
                 <span>Go to Dashboard</span>
               </button>
             </div>
 
-            <div className="mt-8 p-4 bg-gray-100 dark:bg-gray-800 rounded-lg">
-              <p className="text-xs text-gray-500 dark:text-gray-400">
+            <div className="mt-8 p-4 bg-gray-100  rounded-lg">
+              <p className="text-xs text-gray-500 ">
                 If the problem persists, please contact support with the error details.
               </p>
             </div>

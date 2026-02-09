@@ -91,7 +91,7 @@ const QuickActions: React.FC = () => {
             <div className={`${action.color} mb-2 rounded-lg p-2 group-hover:scale-110 transition-transform`}>
               <Icon className="h-5 w-5 text-white" />
             </div>
-            <span className="text-sm font-medium text-gray-900 dark:text-white">
+            <span className="text-sm font-medium text-gray-900 ">
               {action.label}
             </span>
             <span className="mt-1 text-xs text-gray-500">

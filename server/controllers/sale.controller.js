@@ -7,9 +7,14 @@ export const getAllSales = async (req, res) => {
   try {
     const page = Math.max(1, Number(req.query.page) || 1);
     const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 20));
-    const { startDate, endDate, type, paymentMethod, status, search, sortBy = 'createdAt', sortOrder = 'desc' } = req.query;
+    const { startDate, endDate, type, paymentMethod, status, search, franchise, sortBy = 'createdAt', sortOrder = 'desc' } = req.query;
 
     const query = {};
+
+    // STRICT FRANCHISE SCOPING: Filter by franchise if provided
+    if (franchise) {
+      query.franchise = franchise;
+    }
 
     // Date range filter (defensive parsing)
     if (startDate || endDate) {
@@ -38,6 +43,7 @@ export const getAllSales = async (req, res) => {
 
     const sortOptions = { [sortBy]: sortOrder === 'asc' ? 1 : -1 };
 
+    // STRICT FRANCHISE SCOPING: Query already filtered by franchise if provided
     const [sales, total] = await Promise.all([
       Sale.find(query)
         .sort(sortOptions)
@@ -48,9 +54,9 @@ export const getAllSales = async (req, res) => {
       Sale.countDocuments(query),
     ]);
 
-    // Calculate summary
-    const summary = await Sale.aggregate([
-      { $match: query },
+    // Calculate summary - STRICTLY SCOPED BY FRANCHISE
+    const summaryAgg = await Sale.aggregate([
+      { $match: query }, // Query already includes franchise filter if provided
       {
         $group: {
           _id: null,
@@ -61,12 +67,19 @@ export const getAllSales = async (req, res) => {
         },
       },
     ]);
+    
+    const summary = summaryAgg[0] || {
+      totalRevenue: 0,
+      totalProfit: 0,
+      totalSales: 0,
+      avgOrderValue: 0,
+    };
 
     res.status(200).json({
       success: true,
       data: {
         sales,
-        summary: summary[0] || {
+        summary: summary || {
           totalRevenue: 0,
           totalProfit: 0,
           totalSales: 0,
@@ -142,6 +155,10 @@ export const createSale = async (req, res) => {
       item.quantity = qty;
     }
 
+    // STRICT FRANCHISE SCOPING: Determine franchise from products
+    let saleFranchise = null;
+    const user = req.user;
+    
     // Validate items and attach product data
     for (const item of items) {
       const product = await Product.findById(item.product);
@@ -155,6 +172,17 @@ export const createSale = async (req, res) => {
         return res.status(400).json({
           success: false,
           message: `Insufficient stock for ${product.name}`,
+        });
+      }
+
+      // STRICT FRANCHISE SCOPING: Set franchise from first product
+      // All products in a sale must belong to the same franchise
+      if (!saleFranchise) {
+        saleFranchise = product.franchise;
+      } else if (product.franchise.toString() !== saleFranchise.toString()) {
+        return res.status(400).json({
+          success: false,
+          message: 'All products in a sale must belong to the same franchise',
         });
       }
 
@@ -184,6 +212,19 @@ export const createSale = async (req, res) => {
     const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
     const invoiceNumber = `INV-${year}${month}${day}-${random}`;
 
+    // STRICT FRANCHISE SCOPING: Ensure franchise is set
+    if (!saleFranchise) {
+      // Fallback: use user's franchise if available
+      if (user && user.franchises && user.franchises.length > 0) {
+        saleFranchise = user.franchises[0];
+      } else {
+        return res.status(400).json({
+          success: false,
+          message: 'Unable to determine franchise for sale',
+        });
+      }
+    }
+
     const saleDoc = {
       items,
       customerName: customerName?.trim() || undefined,
@@ -198,6 +239,7 @@ export const createSale = async (req, res) => {
       totalTax,
       grandTotal,
       totalProfit,
+      franchise: saleFranchise, // STRICT FRANCHISE SCOPING
     };
 
     const sale = await Sale.create(saleDoc);
@@ -409,9 +451,13 @@ export const generateInvoice = async (req, res) => {
 
 export const exportSalesReport = async (req, res) => {
   try {
-    const { startDate, endDate, format = 'excel' } = req.query;
+    const { startDate, endDate, format = 'excel', franchise } = req.query;
 
-    const query = {};
+    const query = { status: 'completed' };
+    // STRICT FRANCHISE SCOPING: Filter by franchise when provided
+    if (franchise) {
+      query.franchise = franchise;
+    }
     if (startDate || endDate) {
       query.createdAt = {};
       if (startDate) query.createdAt.$gte = new Date(startDate);
@@ -524,7 +570,7 @@ export const exportSalesReport = async (req, res) => {
 
 export const getSalesSummary = async (req, res) => {
   try {
-    const { period = 'today' } = req.query;
+    const { period = 'today', franchise } = req.query;
     let startDate, endDate;
 
     const now = new Date();
@@ -552,12 +598,17 @@ export const getSalesSummary = async (req, res) => {
         endDate = new Date();
     }
 
+    const dateMatch = {
+      createdAt: { $gte: startDate, $lte: endDate },
+      status: 'completed',
+    };
+    if (franchise) {
+      dateMatch.franchise = franchise;
+    }
+
     const summary = await Sale.aggregate([
       {
-        $match: {
-          createdAt: { $gte: startDate, $lte: endDate },
-          status: 'completed',
-        },
+        $match: dateMatch,
       },
       {
         $group: {
@@ -582,13 +633,10 @@ export const getSalesSummary = async (req, res) => {
       },
     ]);
 
-    // Get top products
+    // Get top products (STRICT FRANCHISE SCOPING: same match as summary)
     const topProducts = await Sale.aggregate([
       {
-        $match: {
-          createdAt: { $gte: startDate, $lte: endDate },
-          status: 'completed',
-        },
+        $match: dateMatch,
       },
       { $unwind: '$items' },
       {

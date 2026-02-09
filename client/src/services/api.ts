@@ -1,7 +1,7 @@
 import axios, { type InternalAxiosRequestConfig, type AxiosResponse, type AxiosError } from 'axios';
-import type { Product, Sale, DashboardStats, ApiResponse } from '@/types';
+import type { Product, Sale, DashboardStats, ApiResponse, AdminKpis, AdminCharts, FranchisePerformanceRow, AdminTransfersOverview, AdminInsights } from '@/types';
 
-const api = axios.create({
+export const api = axios.create({
   baseURL: '/api',
   headers: {
     'Content-Type': 'application/json',
@@ -49,9 +49,30 @@ export const authApi = {
     return api.post('/auth/login', { username, password }) as Promise<{ token: string; user: unknown }>;
   },
 
+  register: async (username: string, password: string): Promise<{ token: string; user: unknown }> => {
+    return api.post('/auth/register', { username, password }) as Promise<{ token: string; user: unknown }>;
+  },
+
   logout: async () => {
     localStorage.removeItem('token');
   },
+};
+
+export const franchiseApi = {
+  getAll: async () => api.get('/franchises'),
+  /** id must be MongoDB _id (e.g. 65c9a8e2f...). In Network tab you should see /api/franchises/65c9a8e2f..., not /api/franchises/789456 (code). */
+  getById: async (id: string) => api.get(`/franchises/${id}`),
+  create: async (data: unknown) => api.post('/franchises', data),
+  update: async (id: string, data: unknown) => api.put(`/franchises/${id}`, data),
+  getNetworkStats: async () => api.get('/franchises/network/stats'),
+  getAdminKpis: async (timeRange: string) =>
+    api.get<AdminKpis>('/franchises/admin/kpis', { params: { timeRange } }),
+  getAdminCharts: async (timeRange: string) =>
+    api.get<AdminCharts>('/franchises/admin/charts', { params: { timeRange } }),
+  getAdminPerformance: async (timeRange: string) =>
+    api.get<FranchisePerformanceRow[]>('/franchises/admin/performance', { params: { timeRange } }),
+  getAdminInsights: async (timeRange: string) =>
+    api.get<AdminInsights>('/franchises/admin/insights', { params: { timeRange } }),
 };
 
 export const productApi = {
@@ -102,9 +123,48 @@ export const productApi = {
     });
     return response;
   },
+  share: async (id: string, franchiseIds: string[]) => {
+    const response = await api.post<ApiResponse>(`/products/${id}/share`, {
+      franchiseIds,
+    });
+    return response;
+  },
+  transferStock: async (
+    id: string,
+    payload: { toFranchiseId: string; quantity: number; note?: string }
+  ) => {
+    const response = await api.post<ApiResponse<Product>>(`/products/${id}/transfer`, payload);
+    return response;
+  },
+  getAnalytics: async (franchiseId: string, period: string = 'month') => {
+    const response = await api.get(`/products/franchise/${franchiseId}/analytics`, {
+      params: { period },
+    });
+    return response;
+  },
+};
+
+export const transferApi = {
+  /** Pass franchise so backend returns only transfers where outlet is source or destination. */
+  getAll: async (params?: { franchise?: string; [key: string]: any }) => api.get('/transfers', { params }),
+  getById: async (id: string) => api.get(`/transfers/${id}`),
+  create: async (data: any) => api.post('/transfers', data),
+  update: async (id: string, data: any) => api.put(`/transfers/${id}`, data),
+  approve: async (id: string) => api.post(`/transfers/${id}/approve`),
+  reject: async (id: string, reason?: string) => api.post(`/transfers/${id}/reject`, { reason }),
+  complete: async (id: string) => api.post(`/transfers/${id}/complete`),
+  cancel: async (id: string, reason?: string) => api.post(`/transfers/${id}/cancel`, { reason }),
+  getStatistics: async (franchiseId: string, period: string = 'month') =>
+    api.get(`/transfers/statistics/${franchiseId}`, { params: { period } }),
+  getAdminOverview: async (timeRange: string) =>
+    api.get<AdminTransfersOverview>('/transfers/admin/overview', { params: { timeRange } }),
 };
 
 export const saleApi = {
+  /**
+   * Get sales. For franchise-scoped views always pass franchise so the backend filters by outlet.
+   * Backend filters sales by franchise when franchise is provided; no frontend filtering.
+   */
   getAll: async (params?: {
     page?: number;
     limit?: number;
@@ -113,6 +173,7 @@ export const saleApi = {
     type?: 'online' | 'offline';
     paymentMethod?: string;
     status?: string;
+    franchise?: string;
   }): Promise<{ sales: Sale[]; total: number; summary?: { totalRevenue: number; totalProfit: number; totalSales: number; avgOrderValue: number } }> => {
     return api.get('/sales', { params }) as Promise<{ sales: Sale[]; total: number; summary?: { totalRevenue: number; totalProfit: number; totalSales: number; avgOrderValue: number } }>;
   },
@@ -171,6 +232,15 @@ export const reportApi = {
     const response = await api.get<ApiResponse>('/reports/profit-loss', { params });
     return response;
   },
+
+  getFranchiseProfitLoss: async (params: {
+    franchise: string;
+    startDate?: string;
+    endDate?: string;
+  }) => {
+    const response = await api.get<ApiResponse>('/reports/profit-loss', { params });
+    return response;
+  },
 };
 
 export const exportApi = {
@@ -193,3 +263,226 @@ export const exportApi = {
 };
 
 export default api;
+
+
+
+
+
+
+
+
+
+
+
+
+// services/api.ts - Extended version
+// import axios from 'axios';
+
+// const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5002/api';
+
+// const api = axios.create({
+//   baseURL: API_URL,
+//   headers: {
+//     'Content-Type': 'application/json',
+//   },
+// });
+
+// // Add auth token to requests
+// api.interceptors.request.use((config) => {
+//   const token = localStorage.getItem('token');
+//   if (token) {
+//     config.headers.Authorization = `Bearer ${token}`;
+//   }
+//   return config;
+// });
+
+// // Response interceptor for error handling
+// api.interceptors.response.use(
+//   (response) => response,
+//   (error) => {
+//     if (error.response?.status === 401) {
+//       localStorage.removeItem('token');
+//       window.location.href = '/login';
+//     }
+//     return Promise.reject(error);
+//   }
+// );
+
+// // Franchise API
+// export const franchiseApi = {
+//   // ... existing franchise methods ...
+
+//   getSettings: async (id: string) => {
+//     const response = await api.get(`/franchises/${id}/settings`);
+//     return response.data;
+//   },
+
+//   updateSettings: async (id: string, data: any) => {
+//     const response = await api.put(`/franchises/${id}/settings`, data);
+//     return response.data;
+//   },
+
+//   getStaff: async (id: string) => {
+//     const response = await api.get(`/franchises/${id}/staff`);
+//     return response.data;
+//   },
+
+//   getActivityLog: async (id: string, params?: any) => {
+//     const response = await api.get(`/franchises/${id}/activity`, { params });
+//     return response.data;
+//   }
+// };
+
+// // Product API (extended)
+// export const productApi = {
+//   // ... existing product methods ...
+
+//   getAnalytics: async (franchiseId: string, period: string = 'month') => {
+//     const response = await api.get(`/products/franchise/${franchiseId}/analytics`, {
+//       params: { period }
+//     });
+//     return response.data;
+//   },
+
+//   bulkUpdate: async (franchiseId: string, updates: any[]) => {
+//     const response = await api.post('/products/bulk-update', {
+//       franchiseId,
+//       updates
+//     });
+//     return response.data;
+//   },
+
+//   importProducts: async (franchiseId: string, file: File) => {
+//     const formData = new FormData();
+//     formData.append('file', file);
+//     formData.append('franchiseId', franchiseId);
+
+//     const response = await api.post('/products/import', formData, {
+//       headers: {
+//         'Content-Type': 'multipart/form-data'
+//       }
+//     });
+//     return response.data;
+//   },
+
+//   exportProducts: async (franchiseId: string, format: 'csv' | 'excel' = 'csv') => {
+//     const response = await api.get(`/products/export/${franchiseId}`, {
+//       params: { format },
+//       responseType: 'blob'
+//     });
+//     return response.data;
+//   }
+// };
+
+// // Transfer API
+// export const transferApi = {
+//   getAll: async (params?: any) => {
+//     const response = await api.get('/transfers', { params });
+//     return response.data;
+//   },
+
+//   getById: async (id: string) => {
+//     const response = await api.get(`/transfers/${id}`);
+//     return response.data;
+//   },
+
+//   create: async (data: any) => {
+//     const response = await api.post('/transfers', data);
+//     return response.data;
+//   },
+
+//   update: async (id: string, data: any) => {
+//     const response = await api.put(`/transfers/${id}`, data);
+//     return response.data;
+//   },
+
+//   approve: async (id: string) => {
+//     const response = await api.post(`/transfers/${id}/approve`);
+//     return response.data;
+//   },
+
+//   reject: async (id: string, reason?: string) => {
+//     const response = await api.post(`/transfers/${id}/reject`, { reason });
+//     return response.data;
+//   },
+
+//   complete: async (id: string) => {
+//     const response = await api.post(`/transfers/${id}/complete`);
+//     return response.data;
+//   },
+
+//   cancel: async (id: string, reason?: string) => {
+//     const response = await api.post(`/transfers/${id}/cancel`, { reason });
+//     return response.data;
+//   },
+
+//   getStatistics: async (franchiseId: string, period: string = 'month') => {
+//     const response = await api.get(`/transfers/statistics/${franchiseId}`, {
+//       params: { period }
+//     });
+//     return response.data;
+//   }
+// };
+
+// // Analytics API
+// export const analyticsApi = {
+//   getNetworkOverview: async () => {
+//     const response = await api.get('/analytics/network/overview');
+//     return response.data;
+//   },
+
+//   getFranchiseComparison: async (metric: string, period: string = 'month') => {
+//     const response = await api.get('/analytics/franchises/comparison', {
+//       params: { metric, period }
+//     });
+//     return response.data;
+//   },
+
+//   getProductPerformance: async (params?: any) => {
+//     const response = await api.get('/analytics/products/performance', { params });
+//     return response.data;
+//   },
+
+//   getSalesTrends: async (franchiseId?: string, period: string = 'month') => {
+//     const response = await api.get('/analytics/sales/trends', {
+//       params: { franchise: franchiseId, period }
+//     });
+//     return response.data;
+//   },
+
+//   getInventoryHealth: async (franchiseId?: string) => {
+//     const response = await api.get('/analytics/inventory/health', {
+//       params: { franchise: franchiseId }
+//     });
+//     return response.data;
+//   }
+// };
+
+// // Dashboard API
+// export const dashboardApi = {
+//   getFranchiseDashboard: async (franchiseId: string) => {
+//     const response = await api.get(`/dashboard/franchise/${franchiseId}`);
+//     return response.data;
+//   },
+
+//   getNetworkDashboard: async () => {
+//     const response = await api.get('/dashboard/network');
+//     return response.data;
+//   },
+
+//   getQuickStats: async (franchiseId?: string) => {
+//     const response = await api.get('/dashboard/quick-stats', {
+//       params: { franchise: franchiseId }
+//     });
+//     return response.data;
+//   },
+
+//   getRecentActivity: async (franchiseId?: string, limit: number = 10) => {
+//     const response = await api.get('/dashboard/recent-activity', {
+//       params: { franchise: franchiseId, limit }
+//     });
+//     return response.data;
+//   }
+// };
+
+// export default api;
