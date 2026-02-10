@@ -19,5 +19,8 @@ export default defineConfig({
         changeOrigin: true,
       },
     },
+    hmr: {
+      overlay: false, // Disable HMR overlay to prevent browser extension crashes
+    },
   },
 })

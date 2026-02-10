@@ -9,10 +9,10 @@ import {
 import { useFranchise } from '../../contexts/FranchiseContext';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { productApi, franchiseApi } from '../../services/api';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Select } from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
+import { Button } from '../ui/Button';
+import { Input } from '../ui/Input';
+import { Select } from '../ui/Select';
+import { Badge } from '../ui/Badge';
 
 interface ProductTransferModalProps {
   product: {

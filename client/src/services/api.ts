@@ -142,6 +142,14 @@ export const productApi = {
     });
     return response;
   },
+  import: async (formData: FormData) => {
+    const response = await api.post('/products/import', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response;
+  },
 };
 
 export const transferApi = {
@@ -199,6 +207,15 @@ export const saleApi = {
     const response = await api.post<ApiResponse<Sale>>(`/sales/${id}/refund`, {
       amount,
       reason,
+    });
+    return response;
+  },
+
+  import: async (formData: FormData) => {
+    const response = await api.post('/sales/import', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
     });
     return response;
   },

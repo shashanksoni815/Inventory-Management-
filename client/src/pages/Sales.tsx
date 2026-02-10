@@ -16,7 +16,8 @@ import {
 } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { DateRangePicker } from '@/components/Common/DateRangePicker';
-import { saleApi, exportApi } from '@/services/api';
+import { saleApi } from '@/services/api';
+import { useFranchise } from '@/contexts/FranchiseContext';
 import type { Sale } from '@/types';
 import { cn, formatCurrency, formatDate } from '@/lib/utils';
 import NewSaleModal from '@/components/Sales/NewSaleModal';
@@ -35,6 +36,7 @@ const Sales: React.FC = () => {
   const [showNewSale, setShowNewSale] = useState(false);
 
   const queryClient = useQueryClient();
+  const { currentFranchise } = useFranchise();
 
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['sales', dateRange, filters],
@@ -58,38 +60,150 @@ const Sales: React.FC = () => {
     refetch();
   }, [refetch]);
 
-  const handleExport = useCallback(async () => {
+  const handleExport = useCallback(async (format: 'excel' | 'pdf' = 'excel') => {
     try {
-      const blob = await showToast.promise(
-        exportApi.exportSales({
-          startDate: dateRange.startDate.toISOString(),
-          endDate: dateRange.endDate.toISOString(),
-          format: 'xlsx',
-        }),
-        {
-          loading: 'Exporting sales...',
-          success: 'Sales exported successfully.',
-          error: 'Failed to export sales.',
-        }
-      );
+      const params = new URLSearchParams();
+      params.append('startDate', dateRange.startDate.toISOString());
+      params.append('endDate', dateRange.endDate.toISOString());
+      params.append('format', format);
+      if (filters.type !== 'all') params.append('type', filters.type);
+      if (filters.paymentMethod !== 'all') params.append('paymentMethod', filters.paymentMethod);
 
+      const response = await fetch(`/api/sales/export?${params.toString()}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        },
+      });
+
+      if (!response.ok) {
+        if (response.status === 403) {
+          const errorData = await response.json().catch(() => ({}));
+          showToast.error(errorData.message || 'Access denied: You do not have permission to export sales from this franchise');
+          return;
+        }
+        throw new Error('Export failed');
+      }
+
+      const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `sales-${dateRange.startDate.toISOString().slice(0, 10)}_to_${dateRange.endDate.toISOString().slice(0, 10)}.xlsx`;
+      const extension = format === 'excel' ? 'xlsx' : 'pdf';
+      link.download = `sales-${dateRange.startDate.toISOString().slice(0, 10)}_to_${dateRange.endDate.toISOString().slice(0, 10)}.${extension}`;
       document.body.appendChild(link);
       link.click();
       link.remove();
       window.URL.revokeObjectURL(url);
+
+      showToast.success(`Sales exported successfully as ${format.toUpperCase()}.`);
     } catch (error) {
-      // Error already handled by toast.promise
       console.error('Export error:', error);
+      showToast.error(error instanceof Error ? error.message : 'Failed to export sales. Please try again.');
     }
-  }, [dateRange.endDate, dateRange.startDate]);
+  }, [dateRange, filters]);
+
+  const salesFileRef = React.useRef<HTMLInputElement>(null);
 
   const handleImport = useCallback(() => {
-    showToast.error('Import is not implemented yet.');
+    // Trigger file picker using native input element (avoids browser extension interference)
+    salesFileRef.current?.click();
   }, []);
+
+  const handleSalesImport = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    try {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      // Validate file type
+      const validTypes = [
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'application/vnd.ms-excel',
+        'text/csv',
+      ];
+      const validExtensions = ['.xlsx', '.xls', '.csv'];
+      const isValidType = validTypes.includes(file.type) || 
+                         validExtensions.some(ext => file.name.toLowerCase().endsWith(ext));
+
+      if (!isValidType) {
+        showToast.error('Please select a valid Excel or CSV file (.xlsx, .xls, or .csv)');
+        // Reset input
+        if (salesFileRef.current) {
+          salesFileRef.current.value = '';
+        }
+        return;
+      }
+
+      // Validate file size (10MB limit)
+      if (file.size > 10 * 1024 * 1024) {
+        showToast.error('File size exceeds 10MB limit. Please select a smaller file.');
+        // Reset input
+        if (salesFileRef.current) {
+          salesFileRef.current.value = '';
+        }
+        return;
+      }
+
+      // Create FormData
+      const formData = new FormData();
+      formData.append('file', file);
+      
+      // Add franchise ID if available from context
+      if (currentFranchise?._id || currentFranchise?.id) {
+        const franchiseId = currentFranchise._id || currentFranchise.id;
+        formData.append('franchise', franchiseId);
+      }
+
+      // Show loading state
+      const loadingToast = showToast.loading('Uploading file... Please wait.');
+
+      // Call import API using saleApi
+      const result = await saleApi.import(formData);
+
+      // Dismiss loading toast
+      showToast.dismiss(loadingToast);
+
+      // Success - result is already unwrapped by axios interceptor
+      const importData = result as any;
+      
+      // Show success toast with detailed information
+      const successMessage = importData?.failedSales > 0 || importData?.failedRows > 0
+        ? `Import completed with ${importData.successfulSales || importData.successfulRows || 0} successful, ${importData.failedSales || importData.failedRows || 0} failed`
+        : `Import successful! ${importData.successfulSales || importData.successfulRows || 0} sales imported`;
+      
+      showToast.success(successMessage);
+
+      // Refresh sales list
+      queryClient.invalidateQueries({ queryKey: ['sales'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
+      refetch();
+
+      // Reset input
+      if (salesFileRef.current) {
+        salesFileRef.current.value = '';
+      }
+    } catch (error: any) {
+      console.error('Sales import failed', error);
+      
+      // Extract error message from various possible sources
+      let errorMessage = 'Failed to import sales. Please try again.';
+      
+      if (error?.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error?.response?.data?.error) {
+        errorMessage = error.response.data.error;
+      } else if (error?.message) {
+        errorMessage = error.message;
+      }
+      
+      // Show validation error message
+      showToast.error(errorMessage);
+      
+      // Reset input
+      if (salesFileRef.current) {
+        salesFileRef.current.value = '';
+      }
+    }
+  }, [queryClient, refetch, currentFranchise]);
 
   const handleSaleCreated = useCallback(() => {
     // Refresh sales list and dashboard stats when a new sale is created
@@ -147,6 +261,14 @@ const Sales: React.FC = () => {
 
   return (
     <div className="min-h-0 bg-white p-3 sm:p-4 lg:p-6">
+      {/* Hidden file input for import */}
+      <input
+        type="file"
+        accept=".xlsx,.csv"
+        ref={salesFileRef}
+        className="hidden"
+        onChange={handleSalesImport}
+      />
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -176,13 +298,24 @@ const Sales: React.FC = () => {
               <Upload className="h-4 w-4" />
               <span>Import</span>
             </button>
-            <button
-              onClick={handleExport}
-              className="flex items-center space-x-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-            >
-              <Download className="h-4 w-4" />
-              <span>Export</span>
-            </button>
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={() => handleExport('excel')}
+                className="flex items-center space-x-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                title="Export to Excel"
+              >
+                <Download className="h-4 w-4" />
+                <span>Excel</span>
+              </button>
+              <button
+                onClick={() => handleExport('pdf')}
+                className="flex items-center space-x-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                title="Export to PDF"
+              >
+                <Download className="h-4 w-4" />
+                <span>PDF</span>
+              </button>
+            </div>
             <button
               onClick={() => setShowNewSale(true)}
               className="flex items-center space-x-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"

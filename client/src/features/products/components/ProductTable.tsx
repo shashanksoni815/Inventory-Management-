@@ -163,7 +163,7 @@ const ProductTable: React.FC<ProductTableProps> = ({
         cell: ({ row }: { row: Row<Product> }) => (
           <div className="text-right">
             <p className="font-medium text-gray-900">
-              ${row.original.buyingPrice.toFixed(2)}
+              ₹{row.original.buyingPrice.toFixed(2)}
             </p>
             <p className="text-sm text-gray-500">Cost</p>
           </div>
@@ -175,7 +175,7 @@ const ProductTable: React.FC<ProductTableProps> = ({
         cell: ({ row }: { row: Row<Product> }) => (
           <div className="text-right">
             <p className="font-medium text-gray-900">
-              ${row.original.sellingPrice.toFixed(2)}
+              ₹{row.original.sellingPrice.toFixed(2)}
             </p>
             <p className="text-sm text-gray-500">Selling</p>
           </div>
@@ -208,7 +208,7 @@ const ProductTable: React.FC<ProductTableProps> = ({
         cell: ({ row }: { row: Row<Product> }) => (
           <div className="text-right">
             <p className="font-medium text-gray-900">
-              ${((row.original.inventoryValue || 0) / 1000).toFixed(1)}k
+              ₹{((row.original.inventoryValue || 0) / 1000).toFixed(1)}k
             </p>
             <p className="text-sm text-gray-500">Value</p>
           </div>

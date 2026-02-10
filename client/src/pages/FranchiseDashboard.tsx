@@ -360,6 +360,100 @@ const FranchiseDashboard: React.FC = () => {
               {range === '7d' ? '7D' : range === '30d' ? '30D' : range === '90d' ? '90D' : '1Y'}
             </button>
           ))}
+          <div className="ml-4 flex items-center space-x-2 border-l border-gray-300 pl-4">
+            <button
+              onClick={async () => {
+                try {
+                  const startDate = getStartDate(timeRange);
+                  const endDate = new Date().toISOString();
+                  const params = new URLSearchParams();
+                  params.append('franchise', franchiseId!);
+                  params.append('startDate', startDate);
+                  params.append('endDate', endDate);
+                  params.append('format', 'excel');
+
+                  const response = await fetch(`/api/reports/profit-loss?${params.toString()}`, {
+                    headers: {
+                      'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                    },
+                  });
+
+                  if (!response.ok) {
+                    if (response.status === 403) {
+                      const errorData = await response.json().catch(() => ({}));
+                      alert(errorData.message || 'Access denied: You do not have permission to export data from this franchise');
+                      return;
+                    }
+                    throw new Error('Export failed');
+                  }
+
+                  const blob = await response.blob();
+                  const url = window.URL.createObjectURL(blob);
+                  const link = document.createElement('a');
+                  link.href = url;
+                  link.download = `franchise-dashboard-${franchise?.code || franchiseId}-${timeRange}.xlsx`;
+                  document.body.appendChild(link);
+                  link.click();
+                  link.remove();
+                  window.URL.revokeObjectURL(url);
+                } catch (error) {
+                  console.error('Export error:', error);
+                  alert(error instanceof Error ? error.message : 'Failed to export dashboard. Please try again.');
+                }
+              }}
+              className="flex items-center space-x-1 rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
+              title="Export Dashboard to Excel"
+            >
+              <Download className="h-3 w-3" />
+              <span>Excel</span>
+            </button>
+            <button
+              onClick={async () => {
+                try {
+                  const startDate = getStartDate(timeRange);
+                  const endDate = new Date().toISOString();
+                  const params = new URLSearchParams();
+                  params.append('franchise', franchiseId!);
+                  params.append('startDate', startDate);
+                  params.append('endDate', endDate);
+                  params.append('format', 'pdf');
+
+                  const response = await fetch(`/api/reports/profit-loss?${params.toString()}`, {
+                    headers: {
+                      'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                    },
+                  });
+
+                  if (!response.ok) {
+                    if (response.status === 403) {
+                      const errorData = await response.json().catch(() => ({}));
+                      alert(errorData.message || 'Access denied: You do not have permission to export data from this franchise');
+                      return;
+                    }
+                    throw new Error('Export failed');
+                  }
+
+                  const blob = await response.blob();
+                  const url = window.URL.createObjectURL(blob);
+                  const link = document.createElement('a');
+                  link.href = url;
+                  link.download = `franchise-dashboard-${franchise?.code || franchiseId}-${timeRange}.pdf`;
+                  document.body.appendChild(link);
+                  link.click();
+                  link.remove();
+                  window.URL.revokeObjectURL(url);
+                } catch (error) {
+                  console.error('Export error:', error);
+                  alert(error instanceof Error ? error.message : 'Failed to export dashboard. Please try again.');
+                }
+              }}
+              className="flex items-center space-x-1 rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
+              title="Export Dashboard to PDF"
+            >
+              <Download className="h-3 w-3" />
+              <span>PDF</span>
+            </button>
+          </div>
         </div>
       </div>
 

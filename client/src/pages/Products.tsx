@@ -5,6 +5,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import ProductTable from '@/features/products/components/ProductTable';
 import ProductForm from '@/features/products/components/ProductForm';
 import { productApi } from '@/services/api';
+import { useFranchise } from '@/contexts/FranchiseContext';
+import { showToast } from '@/services/toast';
 import type { Product } from '@/types';
 
 const Products: React.FC = () => {
@@ -19,6 +21,7 @@ const Products: React.FC = () => {
   });
 
   const queryClient = useQueryClient();
+  const { currentFranchise } = useFranchise();
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['products', filters],
@@ -80,20 +83,158 @@ const Products: React.FC = () => {
     }
   }, [selectedProduct, createMutation, updateMutation]);
 
-  const handleExport = useCallback(() => {
-    // Export functionality
-    console.log('Export products');
-  }, []);
+  const handleExport = useCallback(async (format: 'excel' | 'pdf' = 'excel') => {
+    try {
+      const params = new URLSearchParams();
+      if (filters.category) params.append('category', filters.category);
+      if (filters.status) params.append('status', filters.status);
+      if (filters.minStock) params.append('minStock', filters.minStock);
+      if (filters.maxStock) params.append('maxStock', filters.maxStock);
+      params.append('format', format);
+
+      const response = await fetch(`/api/products/export?${params.toString()}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        },
+      });
+
+      if (!response.ok) {
+        if (response.status === 403) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.message || 'Access denied: You do not have permission to export products from this franchise');
+        }
+        throw new Error('Export failed');
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `products-export-${new Date().toISOString().slice(0, 10)}.${format === 'excel' ? 'xlsx' : 'pdf'}`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Export error:', error);
+      alert(error instanceof Error ? error.message : 'Failed to export products. Please try again.');
+    }
+  }, [filters]);
+
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const handleImport = useCallback(() => {
-    // Import functionality
-    console.log('Import products');
+    // Trigger file picker using native input element (avoids browser extension interference)
+    fileInputRef.current?.click();
   }, []);
+
+  const handleProductImport = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    const validTypes = [
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/vnd.ms-excel',
+      'text/csv',
+    ];
+    const validExtensions = ['.xlsx', '.xls', '.csv'];
+    const isValidType = validTypes.includes(file.type) || 
+                       validExtensions.some(ext => file.name.toLowerCase().endsWith(ext));
+
+    if (!isValidType) {
+      showToast.error('Please select a valid Excel or CSV file (.xlsx, .xls, or .csv)');
+      // Reset input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+      return;
+    }
+
+    // Validate file size (10MB limit)
+    if (file.size > 10 * 1024 * 1024) {
+      showToast.error('File size exceeds 10MB limit. Please select a smaller file.');
+      // Reset input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+      return;
+    }
+
+    try {
+      // Create FormData
+      const formData = new FormData();
+      formData.append('file', file);
+      
+      // Add franchise ID if available from context
+      if (currentFranchise?._id || currentFranchise?.id) {
+        const franchiseId = currentFranchise._id || currentFranchise.id;
+        formData.append('franchise', franchiseId);
+      }
+
+      // Show loading state
+      const loadingToast = showToast.loading('Uploading file... Please wait.');
+
+      // Call import API using productApi
+      const result = await productApi.import(formData);
+
+      // Dismiss loading toast
+      showToast.dismiss(loadingToast);
+
+      // Success - result is already unwrapped by axios interceptor
+      const importData = result as any;
+      
+      // Show success toast with detailed information
+      const successMessage = importData?.failedRows > 0
+        ? `Import completed with ${importData.successfulRows || 0} successful, ${importData.failedRows || 0} failed`
+        : `Import successful! ${importData.successfulRows || 0} products imported`;
+      
+      showToast.success(successMessage);
+
+      // Refresh products list
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+      refetch();
+
+      // Reset input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    } catch (error: any) {
+      console.error('Import error:', error);
+      
+      // Extract error message from various possible sources
+      let errorMessage = 'Failed to import products. Please try again.';
+      
+      if (error?.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error?.response?.data?.error) {
+        errorMessage = error.response.data.error;
+      } else if (error?.message) {
+        errorMessage = error.message;
+      }
+      
+      // Show validation error message
+      showToast.error(errorMessage);
+      
+      // Reset input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  }, [queryClient, refetch, currentFranchise]);
 
   const products = (data as any)?.data ?? [];
 
   return (
     <div className="min-h-0 bg-white p-3 sm:p-4 lg:p-6">
+      {/* Hidden file input for import */}
+      <input
+        type="file"
+        accept=".xlsx,.csv"
+        ref={fileInputRef}
+        className="hidden"
+        onChange={handleProductImport}
+      />
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -123,13 +264,24 @@ const Products: React.FC = () => {
               <Upload className="h-4 w-4" />
               <span>Import</span>
             </button>
-            <button
-              onClick={handleExport}
-              className="flex items-center space-x-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 "
-            >
-              <Download className="h-4 w-4" />
-              <span>Export</span>
-            </button>
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={() => handleExport('excel')}
+                className="flex items-center space-x-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                title="Export to Excel"
+              >
+                <Download className="h-4 w-4" />
+                <span>Excel</span>
+              </button>
+              <button
+                onClick={() => handleExport('pdf')}
+                className="flex items-center space-x-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                title="Export to PDF"
+              >
+                <Download className="h-4 w-4" />
+                <span>PDF</span>
+              </button>
+            </div>
             <button
               onClick={() => {
                 setSelectedProduct(undefined);

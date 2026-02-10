@@ -257,9 +257,44 @@ const FranchiseProfitLoss: React.FC = () => {
             {/* Export Buttons */}
             <div className="flex items-center gap-2">
               <button
-                onClick={() => {
-                  // TODO: Implement PDF export
-                  console.log('Export PDF');
+                onClick={async () => {
+                  try {
+                    const startDate = getStartDate(timeRange);
+                    const endDate = getEndDate();
+                    const params = new URLSearchParams();
+                    params.append('franchise', franchiseId!);
+                    params.append('startDate', startDate);
+                    params.append('endDate', endDate);
+                    params.append('format', 'pdf');
+
+                    const response = await fetch(`/api/reports/profit-loss?${params.toString()}`, {
+                      headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                      },
+                    });
+
+                    if (!response.ok) {
+                      if (response.status === 403) {
+                        const errorData = await response.json().catch(() => ({}));
+                        alert(errorData.message || 'Access denied: You do not have permission to export Profit & Loss data from this franchise');
+                        return;
+                      }
+                      throw new Error('Export failed');
+                    }
+
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = `profit-loss-${franchise?.name || franchiseId}-${timeRange}.pdf`;
+                    document.body.appendChild(link);
+                    link.click();
+                    link.remove();
+                    window.URL.revokeObjectURL(url);
+                  } catch (error) {
+                    console.error('Export error:', error);
+                    alert(error instanceof Error ? error.message : 'Failed to export Profit & Loss report. Please try again.');
+                  }
                 }}
                 className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2"
               >
@@ -267,9 +302,44 @@ const FranchiseProfitLoss: React.FC = () => {
                 PDF
               </button>
               <button
-                onClick={() => {
-                  // TODO: Implement Excel export
-                  console.log('Export Excel');
+                onClick={async () => {
+                  try {
+                    const startDate = getStartDate(timeRange);
+                    const endDate = getEndDate();
+                    const params = new URLSearchParams();
+                    params.append('franchise', franchiseId!);
+                    params.append('startDate', startDate);
+                    params.append('endDate', endDate);
+                    params.append('format', 'excel');
+
+                    const response = await fetch(`/api/reports/profit-loss?${params.toString()}`, {
+                      headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                      },
+                    });
+
+                    if (!response.ok) {
+                      if (response.status === 403) {
+                        const errorData = await response.json().catch(() => ({}));
+                        alert(errorData.message || 'Access denied: You do not have permission to export Profit & Loss data from this franchise');
+                        return;
+                      }
+                      throw new Error('Export failed');
+                    }
+
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = `profit-loss-${franchise?.name || franchiseId}-${timeRange}.xlsx`;
+                    document.body.appendChild(link);
+                    link.click();
+                    link.remove();
+                    window.URL.revokeObjectURL(url);
+                  } catch (error) {
+                    console.error('Export error:', error);
+                    alert(error instanceof Error ? error.message : 'Failed to export Profit & Loss report. Please try again.');
+                  }
                 }}
                 className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2"
               >
