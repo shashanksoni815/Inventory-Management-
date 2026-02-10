@@ -1,6 +1,9 @@
 // controllers/transfer.controller.js
+import mongoose from 'mongoose';
 import Transfer from '../models/Transfer.js';
 import { Product } from '../models/Product.model.js';
+import Franchise from '../models/Franchise.js';
+import { AuditLog } from '../models/AuditLog.model.js';
 
 // Get all transfers - STRICTLY SCOPED BY FRANCHISE
 export const getAllTransfers = async (req, res) => {
@@ -773,6 +776,686 @@ export const getAdminTransfersOverview = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to fetch transfers overview',
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * Import Stock (Stock In) - Track stock received by a franchise
+ * POST /api/transfers/import
+ * 
+ * Creates a transfer record for stock received (imported goods).
+ * This is used for recording stock that has already been received,
+ * typically from a warehouse or another franchise.
+ * 
+ * Body (single transfer or array of transfers):
+ * {
+ *   productId: ObjectId (required),
+ *   quantity: Number (required, >= 1),
+ *   cost: Number (required, >= 0) - unit price/cost,
+ *   fromFranchise: ObjectId (required) - source franchise/warehouse,
+ *   toFranchise: ObjectId (required) - destination franchise (receiving),
+ *   date: Date (optional) - transfer date (default: now),
+ *   status: String (optional) - transfer status (default: 'completed'),
+ *   notes: String (optional)
+ * }
+ */
+export const importStock = async (req, res) => {
+  const startTime = Date.now();
+  let auditLog = null;
+  
+  try {
+    const user = req.user;
+    const transferData = req.body;
+
+    // Support both single transfer and array of transfers
+    const transfers = Array.isArray(transferData) ? transferData : [transferData];
+    
+    if (transfers.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'No transfer data provided',
+      });
+    }
+
+    // Create audit log entry for stock import
+    const fileName = `stock-import-${new Date().toISOString().slice(0, 10)}.json`;
+    auditLog = new AuditLog({
+      actionType: 'import',
+      operationType: 'stock_import',
+      fileName: fileName,
+      format: 'json',
+      user: user._id,
+      franchise: transfers[0]?.toFranchise || null,
+      totalRows: transfers.length,
+      successfulRows: 0,
+      failedRows: 0,
+      status: 'processing',
+      startedAt: new Date(),
+      requestParams: new Map(Object.entries({
+        transferCount: transfers.length
+      })),
+      ipAddress: req.ip || req.headers['x-forwarded-for'] || req.connection.remoteAddress,
+      userAgent: req.headers['user-agent']
+    });
+    await auditLog.save();
+
+    const results = [];
+    const errors = [];
+
+    for (let i = 0; i < transfers.length; i++) {
+      const transfer = transfers[i];
+      
+      try {
+        const {
+          productId,
+          quantity,
+          cost,
+          fromFranchise,
+          toFranchise,
+          date,
+          status = 'completed',
+          notes,
+        } = transfer;
+
+        // Validate required fields
+        if (!productId || !quantity || cost === undefined || !fromFranchise || !toFranchise) {
+          errors.push({
+            index: i,
+            message: 'Missing required fields: productId, quantity, cost, fromFranchise, toFranchise are required',
+          });
+          continue;
+        }
+
+        // Validate ObjectIds
+        if (!mongoose.Types.ObjectId.isValid(productId)) {
+          errors.push({
+            index: i,
+            message: 'Invalid productId',
+          });
+          continue;
+        }
+
+        if (!mongoose.Types.ObjectId.isValid(fromFranchise)) {
+          errors.push({
+            index: i,
+            message: 'Invalid fromFranchise',
+          });
+          continue;
+        }
+
+        if (!mongoose.Types.ObjectId.isValid(toFranchise)) {
+          errors.push({
+            index: i,
+            message: 'Invalid toFranchise',
+          });
+          continue;
+        }
+
+        // Validate quantity
+        const qty = Number(quantity);
+        if (isNaN(qty) || qty < 1) {
+          errors.push({
+            index: i,
+            message: 'Quantity must be a number >= 1',
+          });
+          continue;
+        }
+
+        // Validate cost
+        const unitPrice = Number(cost);
+        if (isNaN(unitPrice) || unitPrice < 0) {
+          errors.push({
+            index: i,
+            message: 'Cost must be a number >= 0',
+          });
+          continue;
+        }
+
+        // Validate status
+        const validStatuses = ['pending', 'approved', 'rejected', 'in_transit', 'completed', 'cancelled'];
+        const transferStatus = status.toLowerCase();
+        if (!validStatuses.includes(transferStatus)) {
+          errors.push({
+            index: i,
+            message: `Status must be one of: ${validStatuses.join(', ')}`,
+          });
+          continue;
+        }
+
+        // Validate franchises exist
+        const [fromFranchiseDoc, toFranchiseDoc] = await Promise.all([
+          Franchise.findById(fromFranchise),
+          Franchise.findById(toFranchise),
+        ]);
+
+        if (!fromFranchiseDoc) {
+          errors.push({
+            index: i,
+            message: 'From franchise not found',
+          });
+          continue;
+        }
+
+        if (!toFranchiseDoc) {
+          errors.push({
+            index: i,
+            message: 'To franchise not found',
+          });
+          continue;
+        }
+
+        // STRICT FRANCHISE SCOPING: Validate user has access to toFranchise (receiving franchise)
+        if (user && user.role !== 'admin') {
+          const userFranchises = user.franchises || [];
+          if (!userFranchises.some((fId) => fId.toString() === toFranchise.toString())) {
+            errors.push({
+              index: i,
+              message: 'Access denied to receiving franchise',
+            });
+            continue;
+          }
+        }
+
+        // Validate product exists
+        const product = await Product.findById(productId);
+        if (!product) {
+          errors.push({
+            index: i,
+            message: 'Product not found',
+          });
+          continue;
+        }
+
+        // Parse date
+        let transferDate = new Date();
+        if (date) {
+          const parsedDate = new Date(date);
+          if (!isNaN(parsedDate.getTime())) {
+            transferDate = parsedDate;
+          }
+        }
+
+        // Calculate total value
+        const totalValue = unitPrice * qty;
+
+        // Create transfer record
+        const transferRecord = await Transfer.create({
+          product: productId,
+          fromFranchise,
+          toFranchise,
+          quantity: qty,
+          unitPrice,
+          totalValue,
+          status: transferStatus,
+          transferDate,
+          actualDelivery: transferStatus === 'completed' ? transferDate : undefined,
+          initiatedBy: user._id,
+          notes: notes || `Stock imported on ${transferDate.toLocaleString()}`,
+          history: [{
+            date: new Date(),
+            status: transferStatus,
+            note: `Stock import created`,
+            user: user._id,
+          }],
+        });
+
+        // Update product stock in destination franchise if status is 'completed'
+        if (transferStatus === 'completed') {
+          // Find or create product in destination franchise
+          let destProduct = await Product.findOne({
+            sku: product.sku,
+            franchise: toFranchise,
+          });
+
+          if (destProduct) {
+            // Update existing product stock
+            await Product.findByIdAndUpdate(destProduct._id, {
+              $inc: { stockQuantity: qty },
+            });
+          } else {
+            // Create new product entry in destination franchise
+            destProduct = await Product.create({
+              sku: product.sku,
+              name: product.name,
+              category: product.category,
+              brand: product.brand,
+              description: product.description,
+              buyingPrice: unitPrice, // Use import cost as buying price
+              sellingPrice: product.sellingPrice,
+              stockQuantity: qty,
+              minimumStock: product.minimumStock,
+              franchise: toFranchise,
+              status: 'active',
+              isGlobal: false,
+              transferable: product.transferable,
+            });
+          }
+
+          // Add stock history entry
+          if (destProduct.stockHistory) {
+            destProduct.stockHistory.push({
+              date: transferDate,
+              quantity: qty,
+              type: 'transfer_in',
+              note: `Stock imported from ${fromFranchiseDoc.name}`,
+              franchise: toFranchise,
+            });
+            await destProduct.save();
+          }
+        }
+
+        results.push({
+          transferId: transferRecord._id,
+          productId: productId.toString(),
+          productName: product.name,
+          quantity: qty,
+          fromFranchise: fromFranchiseDoc.name,
+          toFranchise: toFranchiseDoc.name,
+          status: transferStatus,
+          totalValue,
+        });
+      } catch (error) {
+        errors.push({
+          index: i,
+          message: error.message || 'Error processing transfer',
+        });
+      }
+    }
+
+    // Update audit log
+    if (auditLog) {
+      auditLog.successfulRows = results.length;
+      auditLog.failedRows = errors.length;
+      auditLog.errors = errors.map((err, idx) => ({
+        row: err.index !== undefined ? err.index : idx,
+        field: 'transfer',
+        message: err.message || 'Error processing transfer',
+        value: null
+      }));
+      auditLog.status = errors.length === 0 ? 'completed' : errors.length < transfers.length ? 'partial' : 'failed';
+      auditLog.completedAt = new Date();
+      auditLog.duration = Date.now() - startTime;
+      await auditLog.save().catch(console.error);
+    }
+
+    // Return response
+    if (errors.length > 0 && results.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'All transfers failed',
+        errors,
+      });
+    }
+
+    res.status(results.length > 0 ? 201 : 400).json({
+      success: results.length > 0,
+      message: `Processed ${results.length} transfer(s), ${errors.length} error(s)`,
+      data: {
+        successful: results,
+        errors: errors.length > 0 ? errors : undefined,
+      },
+    });
+  } catch (error) {
+    console.error('Error importing stock:', error);
+    
+    // Update audit log on error
+    if (auditLog) {
+      auditLog.status = 'failed';
+      auditLog.completedAt = new Date();
+      auditLog.duration = Date.now() - startTime;
+      auditLog.errors.push({
+        row: 0,
+        field: 'import',
+        message: error.message || 'Import failed',
+        value: null
+      });
+      await auditLog.save().catch(console.error);
+    }
+    
+    res.status(500).json({
+      success: false,
+      message: 'Failed to import stock',
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * Export Stock (Stock Out) - Track stock sent out from a franchise
+ * POST /api/transfers/export
+ * 
+ * Creates a transfer record for stock sent out (exported goods).
+ * This is used for recording stock that has been sent out,
+ * typically to a warehouse or another franchise.
+ * 
+ * Body (single transfer or array of transfers):
+ * {
+ *   productId: ObjectId (required),
+ *   quantity: Number (required, >= 1),
+ *   cost: Number (required, >= 0) - unit price/cost,
+ *   fromFranchise: ObjectId (required) - source franchise (sending),
+ *   toFranchise: ObjectId (required) - destination franchise/warehouse,
+ *   date: Date (optional) - transfer date (default: now),
+ *   status: String (optional) - transfer status (default: 'completed'),
+ *   notes: String (optional)
+ * }
+ */
+export const exportStock = async (req, res) => {
+  const startTime = Date.now();
+  let auditLog = null;
+  
+  try {
+    const user = req.user;
+    const transferData = req.body;
+
+    // Support both single transfer and array of transfers
+    const transfers = Array.isArray(transferData) ? transferData : [transferData];
+    
+    if (transfers.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'No transfer data provided',
+      });
+    }
+
+    // Create audit log entry for stock export
+    const fileName = `stock-export-${new Date().toISOString().slice(0, 10)}.json`;
+    auditLog = new AuditLog({
+      actionType: 'export',
+      operationType: 'stock_export',
+      fileName: fileName,
+      format: 'json',
+      user: user._id,
+      franchise: transfers[0]?.fromFranchise || null,
+      totalRows: transfers.length,
+      successfulRows: 0,
+      failedRows: 0,
+      status: 'processing',
+      startedAt: new Date(),
+      requestParams: new Map(Object.entries({
+        transferCount: transfers.length
+      })),
+      ipAddress: req.ip || req.headers['x-forwarded-for'] || req.connection.remoteAddress,
+      userAgent: req.headers['user-agent']
+    });
+    await auditLog.save();
+
+    const results = [];
+    const errors = [];
+
+    for (let i = 0; i < transfers.length; i++) {
+      const transfer = transfers[i];
+      
+      try {
+        const {
+          productId,
+          quantity,
+          cost,
+          fromFranchise,
+          toFranchise,
+          date,
+          status = 'completed',
+          notes,
+        } = transfer;
+
+        // Validate required fields
+        if (!productId || !quantity || cost === undefined || !fromFranchise || !toFranchise) {
+          errors.push({
+            index: i,
+            message: 'Missing required fields: productId, quantity, cost, fromFranchise, toFranchise are required',
+          });
+          continue;
+        }
+
+        // Validate ObjectIds
+        if (!mongoose.Types.ObjectId.isValid(productId)) {
+          errors.push({
+            index: i,
+            message: 'Invalid productId',
+          });
+          continue;
+        }
+
+        if (!mongoose.Types.ObjectId.isValid(fromFranchise)) {
+          errors.push({
+            index: i,
+            message: 'Invalid fromFranchise',
+          });
+          continue;
+        }
+
+        if (!mongoose.Types.ObjectId.isValid(toFranchise)) {
+          errors.push({
+            index: i,
+            message: 'Invalid toFranchise',
+          });
+          continue;
+        }
+
+        // Validate quantity
+        const qty = Number(quantity);
+        if (isNaN(qty) || qty < 1) {
+          errors.push({
+            index: i,
+            message: 'Quantity must be a number >= 1',
+          });
+          continue;
+        }
+
+        // Validate cost
+        const unitPrice = Number(cost);
+        if (isNaN(unitPrice) || unitPrice < 0) {
+          errors.push({
+            index: i,
+            message: 'Cost must be a number >= 0',
+          });
+          continue;
+        }
+
+        // Validate status
+        const validStatuses = ['pending', 'approved', 'rejected', 'in_transit', 'completed', 'cancelled'];
+        const transferStatus = status.toLowerCase();
+        if (!validStatuses.includes(transferStatus)) {
+          errors.push({
+            index: i,
+            message: `Status must be one of: ${validStatuses.join(', ')}`,
+          });
+          continue;
+        }
+
+        // Validate franchises exist
+        const [fromFranchiseDoc, toFranchiseDoc] = await Promise.all([
+          Franchise.findById(fromFranchise),
+          Franchise.findById(toFranchise),
+        ]);
+
+        if (!fromFranchiseDoc) {
+          errors.push({
+            index: i,
+            message: 'From franchise not found',
+          });
+          continue;
+        }
+
+        if (!toFranchiseDoc) {
+          errors.push({
+            index: i,
+            message: 'To franchise not found',
+          });
+          continue;
+        }
+
+        // STRICT FRANCHISE SCOPING: Validate user has access to fromFranchise (sending franchise)
+        if (user && user.role !== 'admin') {
+          const userFranchises = user.franchises || [];
+          if (!userFranchises.some((fId) => fId.toString() === fromFranchise.toString())) {
+            errors.push({
+              index: i,
+              message: 'Access denied to sending franchise',
+            });
+            continue;
+          }
+        }
+
+        // Validate product exists and belongs to fromFranchise
+        const product = await Product.findById(productId);
+        if (!product) {
+          errors.push({
+            index: i,
+            message: 'Product not found',
+          });
+          continue;
+        }
+
+        // Verify product belongs to source franchise
+        if (product.franchise.toString() !== fromFranchise.toString()) {
+          errors.push({
+            index: i,
+            message: 'Product does not belong to the source franchise',
+          });
+          continue;
+        }
+
+        // Check stock availability
+        if (product.stockQuantity < qty) {
+          errors.push({
+            index: i,
+            message: `Insufficient stock. Available: ${product.stockQuantity}, Requested: ${qty}`,
+          });
+          continue;
+        }
+
+        // Parse date
+        let transferDate = new Date();
+        if (date) {
+          const parsedDate = new Date(date);
+          if (!isNaN(parsedDate.getTime())) {
+            transferDate = parsedDate;
+          }
+        }
+
+        // Calculate total value
+        const totalValue = unitPrice * qty;
+
+        // Create transfer record
+        const transferRecord = await Transfer.create({
+          product: productId,
+          fromFranchise,
+          toFranchise,
+          quantity: qty,
+          unitPrice,
+          totalValue,
+          status: transferStatus,
+          transferDate,
+          actualDelivery: transferStatus === 'completed' ? transferDate : undefined,
+          initiatedBy: user._id,
+          notes: notes || `Stock exported on ${transferDate.toLocaleString()}`,
+          history: [{
+            date: new Date(),
+            status: transferStatus,
+            note: `Stock export created`,
+            user: user._id,
+          }],
+        });
+
+        // Reduce product stock in source franchise if status is 'completed'
+        if (transferStatus === 'completed') {
+          // Update product stock (reduce inventory)
+          await Product.findByIdAndUpdate(productId, {
+            $inc: { stockQuantity: -qty },
+          });
+
+          // Add stock history entry
+          if (product.stockHistory) {
+            product.stockHistory.push({
+              date: transferDate,
+              quantity: -qty, // Negative for stock out
+              type: 'transfer_out',
+              note: `Stock exported to ${toFranchiseDoc.name}`,
+              franchise: fromFranchise,
+            });
+            await product.save();
+          }
+        }
+
+        // Get updated stock quantity for response
+        const updatedProduct = await Product.findById(productId);
+        const remainingStock = updatedProduct ? updatedProduct.stockQuantity : product.stockQuantity - qty;
+
+        results.push({
+          transferId: transferRecord._id,
+          productId: productId.toString(),
+          productName: product.name,
+          quantity: qty,
+          fromFranchise: fromFranchiseDoc.name,
+          toFranchise: toFranchiseDoc.name,
+          status: transferStatus,
+          totalValue,
+          remainingStock: transferStatus === 'completed' ? remainingStock : product.stockQuantity,
+        });
+      } catch (error) {
+        errors.push({
+          index: i,
+          message: error.message || 'Error processing transfer',
+        });
+      }
+    }
+
+    // Update audit log
+    if (auditLog) {
+      auditLog.successfulRows = results.length;
+      auditLog.failedRows = errors.length;
+      auditLog.errors = errors.map((err, idx) => ({
+        row: err.index !== undefined ? err.index : idx,
+        field: 'transfer',
+        message: err.message || 'Error processing transfer',
+        value: null
+      }));
+      auditLog.status = errors.length === 0 ? 'completed' : errors.length < transfers.length ? 'partial' : 'failed';
+      auditLog.completedAt = new Date();
+      auditLog.duration = Date.now() - startTime;
+      await auditLog.save().catch(console.error);
+    }
+
+    // Return response
+    if (errors.length > 0 && results.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'All transfers failed',
+        errors,
+      });
+    }
+
+    res.status(results.length > 0 ? 201 : 400).json({
+      success: results.length > 0,
+      message: `Processed ${results.length} transfer(s), ${errors.length} error(s)`,
+      data: {
+        successful: results,
+        errors: errors.length > 0 ? errors : undefined,
+      },
+    });
+  } catch (error) {
+    console.error('Error exporting stock:', error);
+    
+    // Update audit log on error
+    if (auditLog) {
+      auditLog.status = 'failed';
+      auditLog.completedAt = new Date();
+      auditLog.duration = Date.now() - startTime;
+      auditLog.errors.push({
+        row: 0,
+        field: 'export',
+        message: error.message || 'Export failed',
+        value: null
+      });
+      await auditLog.save().catch(console.error);
+    }
+    
+    res.status(500).json({
+      success: false,
+      message: 'Failed to export stock',
       error: error.message,
     });
   }

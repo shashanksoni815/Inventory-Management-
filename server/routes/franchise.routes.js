@@ -9,6 +9,8 @@ import {
   getAdminCharts,
   getAdminFranchisePerformance,
   getAdminInsights,
+  getFranchiseImportsExports,
+  getFranchiseDashboard,
 } from '../controllers/franchise.controller.js';
 import { authMiddleware } from '../middleware/auth.middleware.js';
 
@@ -22,6 +24,8 @@ router.get('/admin/kpis', getAdminKpis);
 router.get('/admin/charts', getAdminCharts);
 router.get('/admin/performance', getAdminFranchisePerformance);
 router.get('/admin/insights', getAdminInsights);
+router.get('/:franchiseId/dashboard', getFranchiseDashboard); // Dashboard route before /:id to avoid route conflict
+router.get('/:franchiseId/imports', getFranchiseImportsExports); // Imports/exports route before /:id to avoid route conflict
 router.get('/:id', getFranchise);
 router.post('/', createFranchise);
 router.put('/:id', updateFranchise);
