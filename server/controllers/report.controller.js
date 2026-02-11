@@ -35,9 +35,10 @@ export const generateSalesReport = async (req, res) => {
 
     const sales = await Sale.find(query)
       .populate('items.product', 'name sku category')
+      .populate('order', 'orderNumber')
       .lean();
 
-    // Aggregated data
+    // Aggregated data (includes revenue from order-derived sales)
     const aggregated = await Sale.aggregate([
       { $match: query },
       {
@@ -52,6 +53,9 @@ export const generateSalesReport = async (req, res) => {
           },
           offlineSales: {
             $sum: { $cond: [{ $eq: ['$saleType', 'offline'] }, '$grandTotal', 0] },
+          },
+          revenueFromOrders: {
+            $sum: { $cond: [{ $ne: ['$order', null] }, '$grandTotal', 0] },
           },
         },
       },
@@ -114,6 +118,7 @@ export const generateSalesReport = async (req, res) => {
           { metric: 'Average Order Value', value: summary.avgOrderValue.toFixed(2) },
           { metric: 'Online Sales', value: summary.onlineSales },
           { metric: 'Offline Sales', value: summary.offlineSales },
+          { metric: 'Revenue from Orders (delivered)', value: summary.revenueFromOrders ?? 0 },
         ]);
       }
 
@@ -167,6 +172,7 @@ export const generateSalesReport = async (req, res) => {
         { header: 'Total', key: 'total', width: 15 },
         { header: 'Profit', key: 'profit', width: 15 },
         { header: 'Status', key: 'status', width: 12 },
+        { header: 'Order #', key: 'orderNo', width: 18 },
       ];
       
       sales.forEach(sale => {
@@ -179,6 +185,7 @@ export const generateSalesReport = async (req, res) => {
           total: sale.grandTotal,
           profit: sale.totalProfit,
           status: sale.status,
+          orderNo: sale.order?.orderNumber ?? '—',
         });
       });
 
@@ -220,6 +227,7 @@ export const generateSalesReport = async (req, res) => {
         doc.text(`Total Profit: $${summary.totalProfit.toFixed(2)}`, 50, summaryY + 15);
         doc.text(`Total Sales: ${summary.totalSales}`, 50, summaryY + 30);
         doc.text(`Average Order: $${summary.avgOrderValue.toFixed(2)}`, 50, summaryY + 45);
+        doc.text(`Revenue from Orders (delivered): $${(summary.revenueFromOrders ?? 0).toFixed(2)}`, 50, summaryY + 60);
       }
 
       // Category Performance Table
@@ -247,7 +255,7 @@ export const generateSalesReport = async (req, res) => {
       res.status(200).json({
         success: true,
         data: {
-          summary: aggregated[0] || {},
+          summary: { ...(aggregated[0] || {}), revenueFromOrders: aggregated[0]?.revenueFromOrders ?? 0 },
           dailyTrend,
           categoryPerformance,
           sales: sales.map(s => ({
@@ -256,6 +264,7 @@ export const generateSalesReport = async (req, res) => {
             total: s.grandTotal,
             profit: s.totalProfit,
             type: s.saleType,
+            orderNumber: s.order?.orderNumber ?? null,
           })),
         },
       });
@@ -514,9 +523,11 @@ export const generateProfitLossReport = async (req, res) => {
       salesQuery.franchise = franchiseFilter;
     }
 
-    // Get all completed sales in period (filtered by franchise)
+    // Get all completed sales in period (filtered by franchise; includes order-derived sales)
     const sales = await Sale.find(salesQuery)
+      .populate('franchise', 'name code')
       .populate('items.product', 'name sku category')
+      .populate('order', 'orderNumber')
       .lean();
 
     // Calculate Total Revenue from sales
@@ -873,7 +884,7 @@ export const generateProfitLossReport = async (req, res) => {
       const workbook = new ExcelJS.Workbook();
       const worksheet = workbook.addWorksheet('Profit & Loss Report');
 
-      // Prepare sales data for table format (sorted by date, latest first)
+      // Prepare sales data for table format (sorted by date, latest first; includes order-derived sales)
       const salesData = sales.map(sale => {
         const saleRevenue = sale.grandTotal || 0;
         const saleCost = sale.items?.reduce((sum, item) => 
@@ -883,7 +894,8 @@ export const generateProfitLossReport = async (req, res) => {
         return {
           saleId: sale._id.toString(),
           invoiceNo: sale.invoiceNumber || 'N/A',
-          date: new Date(sale.createdAt).toISOString().split('T')[0], // ISO for sorting
+          orderNo: sale.order?.orderNumber ?? '—',
+          date: new Date(sale.createdAt).toISOString().split('T')[0],
           dateFormatted: new Date(sale.createdAt).toLocaleDateString(),
           franchise: sale.franchise?.name || 'N/A',
           franchiseCode: sale.franchise?.code || 'N/A',
@@ -895,10 +907,11 @@ export const generateProfitLossReport = async (req, res) => {
         };
       }).sort((a, b) => b.date.localeCompare(a.date)); // Sort by date descending (latest first)
 
-      // Define columns - Structured format: IDs, Names, Dates, Franchise
+      // Define columns - Structured format: IDs, Names, Dates, Franchise, Order #
       worksheet.columns = [
         { header: 'Sale ID', key: 'saleId', width: 25 },
         { header: 'Invoice No', key: 'invoiceNo', width: 20 },
+        { header: 'Order #', key: 'orderNo', width: 18 },
         { header: 'Date', key: 'dateFormatted', width: 12 },
         { header: 'Franchise', key: 'franchise', width: 20 },
         { header: 'Franchise Code', key: 'franchiseCode', width: 15 },
@@ -922,6 +935,7 @@ export const generateProfitLossReport = async (req, res) => {
         const row = worksheet.addRow({
           saleId: sale.saleId,
           invoiceNo: sale.invoiceNo,
+          orderNo: sale.orderNo,
           dateFormatted: sale.dateFormatted,
           franchise: sale.franchise,
           franchiseCode: sale.franchiseCode,
@@ -961,6 +975,7 @@ export const generateProfitLossReport = async (req, res) => {
       const totalsRow = worksheet.addRow({
         saleId: 'TOTALS',
         invoiceNo: '',
+        orderNo: '',
         dateFormatted: '',
         franchise: '',
         franchiseCode: '',
@@ -1023,9 +1038,10 @@ export const generateProfitLossReport = async (req, res) => {
       if (franchise) {
         doc.text(`Franchise: ${franchise}`, { align: 'center' });
       }
-      doc.moveDown(2);
+      doc.fontSize(9).fillColor('#555555').text('Revenue includes sales from delivered online orders.', { align: 'center' });
+      doc.fillColor('#000000').moveDown(2);
 
-      // Prepare sales data for table (sorted by date, latest first)
+      // Prepare sales data for table (sorted by date, latest first; includes order-derived sales)
       const salesData = sales.map(sale => {
         const saleRevenue = sale.grandTotal || 0;
         const saleCost = sale.items?.reduce((sum, item) => 
@@ -1035,6 +1051,7 @@ export const generateProfitLossReport = async (req, res) => {
         return {
           saleId: sale._id.toString().substring(0, 12) + '...',
           invoiceNo: sale.invoiceNumber || 'N/A',
+          orderNo: sale.order?.orderNumber ?? '—',
           date: new Date(sale.createdAt).toLocaleDateString(),
           dateSort: new Date(sale.createdAt).toISOString(),
           franchise: sale.franchise?.name || 'N/A',
@@ -1047,11 +1064,11 @@ export const generateProfitLossReport = async (req, res) => {
         };
       }).sort((a, b) => b.dateSort.localeCompare(a.dateSort)); // Sort by date descending
 
-      // Table header - Structured format: IDs, Names, Dates, Franchise
+      // Table header - Structured format: IDs, Names, Dates, Franchise, Order #
       let y = doc.y;
       doc.fontSize(10);
-      const colWidths = [50, 60, 50, 60, 50, 60, 50, 50, 50, 50];
-      const headers = ['Sale ID', 'Invoice', 'Date', 'Franchise', 'Code', 'Customer', 'Revenue', 'Cost', 'Profit', 'Margin'];
+      const colWidths = [45, 50, 42, 42, 50, 40, 45, 45, 45, 45, 40];
+      const headers = ['Sale ID', 'Invoice', 'Order #', 'Date', 'Franchise', 'Code', 'Customer', 'Revenue', 'Cost', 'Profit', 'Margin'];
       
       // Draw header background
       doc.rect(50, y, 500, 20).fill('#E0E0E0');
@@ -1086,6 +1103,7 @@ export const generateProfitLossReport = async (req, res) => {
         const rowData = [
           sale.saleId,
           sale.invoiceNo.substring(0, 10),
+          (sale.orderNo || '—').toString().substring(0, 10),
           sale.date,
           sale.franchise.substring(0, 10),
           sale.franchiseCode,
@@ -1118,6 +1136,7 @@ export const generateProfitLossReport = async (req, res) => {
       xPos = 55;
       const totalsData = [
         'TOTALS',
+        '',
         '',
         '',
         '',

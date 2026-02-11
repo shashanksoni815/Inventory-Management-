@@ -58,20 +58,34 @@ export const getProducts = async (req, res) => {
     
     const user = req.user;
     
+    // Log incoming request parameters
+    console.log('[Product Controller] Request params:', {
+      franchise,
+      search,
+      status,
+      category,
+      page,
+      limit,
+      userRole: user?.role,
+      userFranchises: user?.franchises
+    });
+    
     // Build base query
     let baseQuery = {};
     
     // Apply franchise filtering
     if (franchise && franchise !== 'all') {
+      // Explicit franchise filter: include products owned by this franchise
+      // AND all global products (isGlobal: true), regardless of origin franchise.
       baseQuery = {
         $or: [
           { franchise: franchise },
-          { isGlobal: true, 'sharedWith.franchise': franchise },
-          { isGlobal: true, franchise: franchise }
-        ]
+          { isGlobal: true },
+        ],
       };
     } else if (user && user.role !== 'admin' && Array.isArray(user.franchises) && user.franchises.length > 0) {
-      // Non-admin users with assigned franchises: only see products from their franchises
+      // Non-admin users with assigned franchises: see products from their franchises
+      // and any global products that are available or shared to those franchises.
       baseQuery = {
         $or: user.franchises.map(franchiseId => ({
           $or: [
@@ -114,9 +128,15 @@ export const getProducts = async (req, res) => {
       }
     }
     
-    // Apply search
+    // Apply search - use regex instead of $text to avoid text index requirement
     if (search) {
-      query.$text = { $search: search };
+      const searchRegex = new RegExp(search, 'i');
+      query.$or = [
+        { name: searchRegex },
+        { sku: searchRegex },
+        { category: searchRegex },
+        { brand: searchRegex }
+      ];
     }
     
     // Build sort
@@ -126,6 +146,7 @@ export const getProducts = async (req, res) => {
     // Pagination
     const skip = (parseInt(page) - 1) * parseInt(limit);
     
+    // Fetch products - name should be included by default
     const [products, total] = await Promise.all([
       Product.find(query)
         .populate('franchise', 'name code metadata.color metadata.icon')
@@ -137,13 +158,80 @@ export const getProducts = async (req, res) => {
       Product.countDocuments(query)
     ]);
     
+    // CRITICAL: Validate products have names BEFORE any processing
+    if (products.length > 0) {
+      const sampleProduct = products[0];
+      console.log('[Product Controller] SAMPLE PRODUCT FROM DB:', {
+        _id: sampleProduct._id,
+        name: sampleProduct.name,
+        nameType: typeof sampleProduct.name,
+        nameExists: 'name' in sampleProduct,
+        nameValue: String(sampleProduct.name || 'NULL'),
+        allFields: Object.keys(sampleProduct),
+        fullProduct: JSON.stringify(sampleProduct).substring(0, 500)
+      });
+      
+      // Check if ANY products are missing names
+      const missingNames = products.filter(p => !p.name || p.name === null || p.name === undefined || String(p.name).trim() === '');
+      if (missingNames.length > 0) {
+        console.error('[Product Controller] CRITICAL ERROR: Products missing names in database:', {
+          count: missingNames.length,
+          totalProducts: products.length,
+          missingProductIds: missingNames.map(p => p._id),
+          missingProductSkus: missingNames.map(p => p.sku),
+          firstMissing: missingNames[0]
+        });
+      }
+    }
+    
+    // Immediate validation - check if products have names
+    console.log('[Product Controller] Products fetched from DB:', {
+      count: products.length,
+      firstProductFields: products[0] ? Object.keys(products[0]) : [],
+      firstProductHasName: products[0] ? !!products[0].name : false,
+      firstProductName: products[0] ? products[0].name : null,
+      firstProductNameType: products[0] ? typeof products[0].name : null,
+      productsWithoutNames: products.filter(p => !p.name || p.name.trim() === '').length
+    });
+    
+    // Log for debugging
+    console.log('[Product Controller] Products fetched:', {
+      count: products.length,
+      firstProduct: products[0] ? {
+        _id: products[0]._id,
+        name: products[0].name,
+        sku: products[0].sku,
+        hasName: !!products[0].name,
+        nameType: typeof products[0].name,
+        nameValue: String(products[0].name || 'NULL'),
+        allFields: Object.keys(products[0]),
+        franchise: products[0].franchise ? products[0].franchise._id : null
+      } : null,
+      allProductNames: products.slice(0, 5).map(p => ({ id: p._id, name: p.name || 'NO NAME', hasName: !!p.name })),
+      query: JSON.stringify(query)
+    });
+    
+    // Validate products have names (before transformation)
+    const initialProductsWithoutNames = products.filter(p => {
+      const name = p.name;
+      return !name || typeof name !== 'string' || name.trim() === '';
+    });
+    if (initialProductsWithoutNames.length > 0) {
+      console.warn('[Product Controller] WARNING: Some products are missing names:', {
+        count: initialProductsWithoutNames.length,
+        ids: initialProductsWithoutNames.map(p => p._id),
+        firstMissing: initialProductsWithoutNames[0]
+      });
+    }
+    
     // Calculate franchise-specific stock
     const franchiseId = franchise || (user?.franchises?.[0]?.toString());
     const productsWithFranchiseStock = products.map(product => {
       let franchiseStock = product.stockQuantity;
       let isShared = false;
       
-      if (franchiseId && product.franchise._id.toString() !== franchiseId) {
+      // Safely check franchise
+      if (franchiseId && product.franchise && product.franchise._id && product.franchise._id.toString() !== franchiseId) {
         const sharedEntry = product.sharedWith?.find(s => 
           s.franchise?._id?.toString() === franchiseId
         );
@@ -161,23 +249,82 @@ export const getProducts = async (req, res) => {
         stockStatus = 'low-stock';
       }
       
-      return {
+      // Ensure all required fields are present - CRITICAL: name must always be present
+      const productName = product.name || product.productName || 'Unknown Product';
+      if (!product.name && !product.productName) {
+        console.error('[Product Controller] ERROR: Product missing name field:', {
+          productId: product._id,
+          productSku: product.sku,
+          productKeys: Object.keys(product),
+          productData: product
+        });
+      }
+      
+      const productData = {
         ...product,
+        name: String(productName).trim() || 'Unknown Product', // Ensure name is always a non-empty string
+        sku: String(product.sku || '').trim() || '',
+        sellingPrice: Number(product.sellingPrice ?? product.price ?? 0) || 0,
+        buyingPrice: Number(product.buyingPrice ?? product.costPrice ?? 0) || 0,
+        stockQuantity: Number(product.stockQuantity ?? product.stock ?? 0) || 0,
         franchiseStock,
         isShared,
         stockStatus,
-        inventoryValue: franchiseStock * product.buyingPrice
+        inventoryValue: franchiseStock * (product.buyingPrice || product.costPrice || 0)
       };
+      
+      // Final validation
+      if (!productData.name || productData.name === '') {
+        console.error('[Product Controller] CRITICAL: ProductData still missing name after normalization:', {
+          productId: productData._id,
+          productData
+        });
+        productData.name = 'Unknown Product'; // Force set name
+      }
+      
+      return productData;
+    });
+    
+    // Final validation before sending response
+    const productsWithNames = productsWithFranchiseStock.filter(p => {
+      const name = p.name;
+      return name && typeof name === 'string' && name.trim() !== '';
+    });
+    const productsWithoutNames = productsWithFranchiseStock.filter(p => {
+      const name = p.name;
+      return !name || typeof name !== 'string' || name.trim() === '';
+    });
+    
+    if (productsWithoutNames.length > 0) {
+      console.error('[Product Controller] CRITICAL: Sending products without names:', {
+        count: productsWithoutNames.length,
+        products: productsWithoutNames.map(p => ({ id: p._id, sku: p.sku, name: p.name }))
+      });
+      // Force set names for products missing them
+      productsWithoutNames.forEach(p => {
+        p.name = p.name || 'Unknown Product';
+      });
+    }
+    
+    console.log('[Product Controller] Final response:', {
+      totalProducts: productsWithFranchiseStock.length,
+      productsWithNames: productsWithNames.length,
+      productsWithoutNames: productsWithoutNames.length,
+      firstProductName: productsWithFranchiseStock[0]?.name || 'N/A',
+      firstProductHasName: !!productsWithFranchiseStock[0]?.name
     });
     
     res.json({
-      data: productsWithFranchiseStock,
-      pagination: {
-        page: parseInt(page),
-        limit: parseInt(limit),
-        total,
-        pages: Math.ceil(total / parseInt(limit))
-      }
+      success: true,
+      data: {
+        products: productsWithFranchiseStock,
+        pagination: {
+          page: parseInt(page),
+          limit: parseInt(limit),
+          total,
+          pages: Math.ceil(total / parseInt(limit)),
+        },
+      },
     });
   } catch (error) {
     console.error('Error fetching products:', error);
@@ -299,35 +446,92 @@ export const createProduct = async (req, res) => {
   try {
     const {
       name,
-      price,
+      sku,
       category,
+      buyingPrice,
+      sellingPrice,
       stock,
-      franchise
+      stockQuantity,
+      franchise,
+      brand,
+      description,
+      minimumStock,
+      images,
+      status
     } = req.body;
 
-    // ✅ Validation (important)
     if (!franchise) {
       return res.status(400).json({
         success: false,
-        message: "Franchise ID is required"
+        message: 'Franchise ID is required'
+      });
+    }
+    if (!name || typeof name !== 'string' || !name.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Product name is required'
+      });
+    }
+    if (!sku || typeof sku !== 'string' || !sku.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: 'SKU is required'
+      });
+    }
+    const numBuying = Number(buyingPrice);
+    const numSelling = Number(sellingPrice);
+    if (Number.isNaN(numBuying) || numBuying < 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Valid buying price is required'
+      });
+    }
+    if (Number.isNaN(numSelling) || numSelling < 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Valid selling price is required'
+      });
+    }
+
+    const quantity = Number(stock ?? stockQuantity);
+    const stockQty = Number.isNaN(quantity) || quantity < 0 ? 0 : quantity;
+
+    const existing = await Product.findOne({
+      sku: String(sku).toUpperCase(),
+      franchise
+    });
+    if (existing) {
+      return res.status(400).json({
+        success: false,
+        message: `SKU "${sku}" already exists for this franchise`
       });
     }
 
     const product = await Product.create({
-      name,
-      price,
-      category,
-      stock,
-      franchise
+      name: name.trim(),
+      sku: String(sku).trim().toUpperCase(),
+      category: category || 'Other',
+      buyingPrice: numBuying,
+      sellingPrice: numSelling,
+      stockQuantity: stockQty,
+      franchise,
+      brand: brand ? String(brand).trim() : undefined,
+      description: description ? String(description).trim() : undefined,
+      minimumStock: Number(minimumStock) >= 0 ? Number(minimumStock) : 10,
+      images: Array.isArray(images) ? images : undefined,
+      status: status && ['active', 'inactive', 'discontinued'].includes(status) ? status : 'active'
     });
+
+    const populated = await Product.findById(product._id)
+      .populate('franchise', 'name code')
+      .lean();
 
     res.status(201).json({
       success: true,
-      product
+      product: populated || product
     });
-
   } catch (error) {
-    console.error("Error creating product:", error);
+    console.error('Error creating product:', error);
     res.status(500).json({
       success: false,
       message: error.message

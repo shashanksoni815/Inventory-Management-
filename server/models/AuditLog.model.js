@@ -10,7 +10,7 @@ const auditLogSchema = new mongoose.Schema({
   },
   operationType: {
     type: String,
-    enum: ['products', 'sales', 'profit_loss', 'stock_import', 'stock_export', 'inventory'],
+    enum: ['products', 'sales', 'profit_loss', 'stock_import', 'stock_export', 'inventory', 'orders'],
     required: true,
     index: true
   },

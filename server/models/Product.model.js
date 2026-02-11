@@ -48,6 +48,11 @@ const productSchema = new mongoose.Schema({
     min: 0,
     default: 0
   },
+  reservedQuantity: {
+    type: Number,
+    default: 0,
+    min: 0
+  },
   minimumStock: {
     type: Number,
     default: 10

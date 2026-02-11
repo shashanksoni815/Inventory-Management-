@@ -559,16 +559,18 @@ export const exportSalesReport = async (req, res) => {
       productFilter = new mongoose.Types.ObjectId(product);
     }
 
-    // Fetch sales with populated franchise and items
+    // Fetch sales with populated franchise, items, and order (for order-derived sales)
     const sales = await Sale.find(query)
       .populate('franchise', 'name code')
       .populate('items.product', 'name sku')
+      .populate('order', 'orderNumber')
       .sort({ createdAt: -1 })
       .lean();
 
-    // Expand sales into line items (one row per product)
+    // Expand sales into line items (one row per product; includes order-derived sales)
     const lineItems = [];
     sales.forEach(sale => {
+      const orderNo = sale.order?.orderNumber ?? '—';
       sale.items.forEach(item => {
         // Apply product filter if specified
         if (productFilter && item.product?._id?.toString() !== productFilter.toString()) {
@@ -581,6 +583,7 @@ export const exportSalesReport = async (req, res) => {
         
         lineItems.push({
           invoiceNo: sale.invoiceNumber,
+          orderNo,
           saleId: sale._id.toString(),
           date: new Date(sale.createdAt).toISOString().split('T')[0], // ISO format for sorting
           dateFormatted: new Date(sale.createdAt).toLocaleDateString(), // Formatted for display
@@ -639,9 +642,10 @@ export const exportSalesReport = async (req, res) => {
       const workbook = new ExcelJS.Workbook();
       const worksheet = workbook.addWorksheet('Sales Export');
 
-      // Define columns
+      // Define columns (Order # for order-derived sales)
       worksheet.columns = [
         { header: 'Invoice No', key: 'invoiceNo', width: 20 },
+        { header: 'Order #', key: 'orderNo', width: 18 },
         { header: 'Sale ID', key: 'saleId', width: 25 },
         { header: 'Date', key: 'date', width: 12 },
         { header: 'Franchise', key: 'franchise', width: 20 },
@@ -666,6 +670,7 @@ export const exportSalesReport = async (req, res) => {
       lineItems.forEach(item => {
         const row = worksheet.addRow({
           invoiceNo: item.invoiceNo,
+          orderNo: item.orderNo,
           saleId: item.saleId,
           date: item.dateFormatted, // Use formatted date for display
           franchise: item.franchise,
@@ -694,6 +699,7 @@ export const exportSalesReport = async (req, res) => {
       // Add totals row
       const totalsRow = worksheet.addRow({
         invoiceNo: 'TOTALS',
+        orderNo: '',
         saleId: '',
         date: '',
         franchise: '',
@@ -781,8 +787,8 @@ export const exportSalesReport = async (req, res) => {
       doc.fontSize(10);
       const tableTop = doc.y;
       const rowHeight = 20;
-      const colWidths = [60, 80, 50, 70, 90, 60, 50, 40, 60, 60, 60];
-      const headers = ['Invoice', 'Sale ID', 'Date', 'Franchise', 'Product', 'Product ID', 'SKU', 'Qty', 'Revenue', 'Cost', 'Profit'];
+      const colWidths = [55, 45, 70, 45, 60, 80, 55, 45, 35, 55, 55, 55];
+      const headers = ['Invoice', 'Order #', 'Sale ID', 'Date', 'Franchise', 'Product', 'Product ID', 'SKU', 'Qty', 'Revenue', 'Cost', 'Profit'];
 
       // Draw header background
       doc.rect(50, tableTop, 500, rowHeight).fill('#E0E0E0');
@@ -811,10 +817,11 @@ export const exportSalesReport = async (req, res) => {
           doc.rect(50, yPos, 500, rowHeight).fill('#F5F5F5');
         }
 
-        // Draw row data - Structured format: IDs, Names, Dates, Franchise
+        // Draw row data - Structured format: IDs, Names, Dates, Franchise, Order #
         xPos = 55;
         const rowData = [
           item.invoiceNo.substring(0, 12),
+          (item.orderNo || '—').toString().substring(0, 10),
           item.saleId.substring(0, 10),
           item.dateFormatted || item.date, // Use formatted date
           item.franchise.substring(0, 12),
@@ -855,6 +862,7 @@ export const exportSalesReport = async (req, res) => {
         '',
         '',
         '',
+        '',
         totals.totalQty.toString(),
         `$${totals.totalRevenue.toFixed(2)}`,
         `$${totals.totalCost.toFixed(2)}`,
@@ -864,16 +872,6 @@ export const exportSalesReport = async (req, res) => {
       totalsData.forEach((data, i) => {
         doc.text(data || '', xPos, yPos + 5, { width: colWidths[i], align: 'left' });
         xPos += colWidths[i];
-      });
-
-      // Track PDF completion for audit log
-      doc.on('end', async () => {
-        auditLog.fileSize = 0; // PDF size tracked in pipe handler above
-        auditLog.status = 'completed';
-        auditLog.completedAt = new Date();
-        auditLog.duration = Date.now() - startTime;
-        auditLog.exportedRecords = lineItems.length;
-        await auditLog.save().catch(console.error);
       });
 
       // Finalize PDF
@@ -887,17 +885,18 @@ export const exportSalesReport = async (req, res) => {
         `attachment; filename=sales-export-${new Date().toISOString().split('T')[0]}.csv`
       );
 
-      // CSV header
-      const headers = [
-        'Invoice No', 'Sale ID', 'Date', 'Franchise', 'Product Name', 
+      // CSV header (includes Order # for order-derived sales)
+      const csvHeaders = [
+        'Invoice No', 'Order #', 'Sale ID', 'Date', 'Franchise', 'Product Name',
         'Product ID', 'SKU', 'Quantity', 'Revenue', 'Cost', 'Profit'
       ];
-      res.write(headers.join(',') + '\n');
+      res.write(csvHeaders.join(',') + '\n');
 
       // CSV rows
       lineItems.forEach(item => {
         const row = [
           item.invoiceNo,
+          item.orderNo ?? '—',
           item.saleId,
           item.date,
           item.franchise,

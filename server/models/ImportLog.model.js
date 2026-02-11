@@ -4,7 +4,7 @@ import mongoose from 'mongoose';
 const importLogSchema = new mongoose.Schema({
   importType: {
     type: String,
-    enum: ['products', 'sales', 'transfers'],
+    enum: ['products', 'sales', 'transfers', 'orders'],
     required: true
   },
   fileName: {

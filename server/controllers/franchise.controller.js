@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 import Franchise from '../models/Franchise.js';
 import { Product } from '../models/Product.model.js';
 import { Sale } from '../models/Sale.model.js';
+import { Order } from '../models/Order.model.js';
 import Transfer from '../models/Transfer.js';
 
 /** Validate MongoDB ObjectId format (24 hex chars). Reject franchise code or numeric IDs. */
@@ -1555,6 +1556,109 @@ export const getFranchiseDashboard = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to fetch franchise dashboard',
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * GET /api/franchises/:franchiseId/orders-summary
+ * Returns order stats and recent orders for franchise dashboard.
+ */
+export const getFranchiseOrdersSummary = async (req, res) => {
+  try {
+    const { franchiseId } = req.params;
+    const { user } = req;
+
+    if (!franchiseId || !isValidObjectId(franchiseId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid franchise ID',
+      });
+    }
+
+    if (user.role !== 'admin' && user.role !== 'superAdmin' && !user.franchises?.some((f) => f.toString() === franchiseId)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied to this franchise',
+      });
+    }
+
+    const franchise = await Franchise.findById(franchiseId);
+    if (!franchise) {
+      return res.status(404).json({
+        success: false,
+        message: 'Franchise not found',
+      });
+    }
+
+    const franchiseObjId = new mongoose.Types.ObjectId(franchiseId);
+
+    const [statsResult, recentOrders] = await Promise.all([
+      Order.aggregate([
+        { $match: { franchise: franchiseObjId } },
+        {
+          $group: {
+            _id: null,
+            totalOrders: { $sum: 1 },
+            deliveredOrders: { $sum: { $cond: [{ $eq: ['$orderStatus', 'Delivered'] }, 1, 0] } },
+            pendingOrders: {
+              $sum: {
+                $cond: [
+                  { $in: ['$orderStatus', ['Pending', 'Confirmed', 'Packed', 'Shipped']] },
+                  1,
+                  0,
+                ],
+              },
+            },
+            orderRevenue: {
+              $sum: {
+                $cond: [
+                  { $eq: ['$orderStatus', 'Delivered'] },
+                  { $ifNull: ['$totals.grandTotal', 0] },
+                  0,
+                ],
+              },
+            },
+          },
+        },
+      ]),
+      Order.find({ franchise: franchiseObjId })
+        .sort({ createdAt: -1 })
+        .limit(5)
+        .select('_id orderNumber createdAt customer orderStatus totals')
+        .lean(),
+    ]);
+
+    const stats = statsResult[0] || {
+      totalOrders: 0,
+      deliveredOrders: 0,
+      pendingOrders: 0,
+      orderRevenue: 0,
+    };
+
+    res.json({
+      success: true,
+      data: {
+        totalOrders: stats.totalOrders,
+        deliveredOrders: stats.deliveredOrders,
+        pendingOrders: stats.pendingOrders,
+        orderRevenue: stats.orderRevenue,
+        recentOrders: recentOrders.map((o) => ({
+          _id: o._id,
+          orderNumber: o.orderNumber,
+          createdAt: o.createdAt,
+          customer: o.customer,
+          orderStatus: o.orderStatus,
+          grandTotal: o.totals?.grandTotal ?? 0,
+        })),
+      },
+    });
+  } catch (error) {
+    console.error('Error fetching franchise orders summary:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch orders summary',
       error: error.message,
     });
   }

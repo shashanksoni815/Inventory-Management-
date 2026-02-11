@@ -3,7 +3,8 @@
  * 
  * Role-Based Access Control:
  * - Admin/SuperAdmin: Can access all franchises
- * - Franchise Manager: Can only access their assigned franchise(s)
+ * - Franchise Manager: Can access their assigned franchise(s) only
+ * - Staff: Can access their assigned franchise(s) only (read-only elsewhere)
  * 
  * Usage:
  * - Use checkFranchiseAccess(req, res, next) to validate franchise access
@@ -26,13 +27,12 @@ export const hasFranchiseAccess = (user, franchiseId) => {
     return true;
   }
   
-  // Franchise managers can only access their assigned franchises
-  if (user.role === 'franchise_manager') {
+  // Franchise managers and staff can only access their assigned franchises
+  if (user.role === 'franchise_manager' || user.role === 'staff') {
     if (!user.franchises || !Array.isArray(user.franchises) || user.franchises.length === 0) {
       return false; // No franchises assigned
     }
     
-    // Check if franchiseId is in user's franchises array
     const franchiseIdStr = franchiseId?.toString();
     return user.franchises.some(f => f?.toString() === franchiseIdStr);
   }
@@ -60,8 +60,8 @@ export const checkFranchiseAccess = (req, res, next) => {
     return next();
   }
   
-  // Franchise managers need franchise access check
-  if (user.role === 'franchise_manager') {
+  // Franchise managers and staff need franchise access check
+  if (user.role === 'franchise_manager' || user.role === 'staff') {
     // Get franchise ID from query, body, or params
     const franchiseId = req.query.franchise || 
                        req.body.franchise || 
@@ -90,7 +90,7 @@ export const checkFranchiseAccess = (req, res, next) => {
   }
   
   // Unknown role - deny access
-  if (user.role !== 'admin' && user.role !== 'superAdmin' && user.role !== 'franchise_manager') {
+  if (!['admin', 'superAdmin', 'franchise_manager', 'staff'].includes(user.role)) {
     return res.status(403).json({
       success: false,
       message: 'Access denied: Invalid user role',
@@ -120,8 +120,8 @@ export const requireFranchiseAccess = (franchiseParamName = 'franchiseId') => {
       return next();
     }
     
-    // Franchise managers need franchise access check
-    if (user.role === 'franchise_manager') {
+    // Franchise managers and staff need franchise access check
+    if (user.role === 'franchise_manager' || user.role === 'staff') {
       const franchiseId = req.params[franchiseParamName] || 
                           req.query[franchiseParamName] || 
                           req.body[franchiseParamName];
@@ -161,8 +161,8 @@ export const getFranchiseFilter = (user) => {
     return {}; // No filter - show all
   }
   
-  // Franchise managers can only see their assigned franchises
-  if (user.role === 'franchise_manager') {
+  // Franchise managers and staff can only see their assigned franchises
+  if (user.role === 'franchise_manager' || user.role === 'staff') {
     if (!user.franchises || !Array.isArray(user.franchises) || user.franchises.length === 0) {
       return { _id: { $exists: false } }; // No franchises assigned - return empty
     }

@@ -15,6 +15,7 @@ import saleRoutes from './routes/sale.routes.js';
 import franchiseRoutes from './routes/franchise.routes.js';
 import transferRoutes from './routes/transfer.routes.js';
 import adminRoutes from './routes/admin.routes.js';
+import orderRoutes from './routes/order.routes.js';
 
 dotenv.config();
 
@@ -62,6 +63,7 @@ app.use('/api/sales', saleRoutes);
 app.use('/api/franchises', franchiseRoutes);
 app.use('/api/transfers', transferRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/orders', orderRoutes);
 
 // Database connection with better error handling
 const connectDB = async () => {
