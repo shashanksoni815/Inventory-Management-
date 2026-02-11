@@ -73,6 +73,21 @@ export const franchiseApi = {
     api.get<FranchisePerformanceRow[]>('/franchises/admin/performance', { params: { timeRange } }),
   getAdminInsights: async (timeRange: string) =>
     api.get<AdminInsights>('/franchises/admin/insights', { params: { timeRange } }),
+  getOrdersSummary: async (franchiseId: string) =>
+    api.get<{
+      totalOrders: number;
+      deliveredOrders: number;
+      pendingOrders: number;
+      orderRevenue: number;
+      recentOrders: Array<{
+        _id: string;
+        orderNumber: string;
+        createdAt: string;
+        customer?: { name?: string };
+        orderStatus: string;
+        grandTotal: number;
+      }>;
+    }>(`/franchises/${franchiseId}/orders-summary`),
 };
 
 export const productApi = {
@@ -86,8 +101,10 @@ export const productApi = {
     sortOrder?: 'asc' | 'desc';
     minStock?: number;
     maxStock?: number;
-  }): Promise<{ products: Product[]; total: number }> => {
-    return api.get('/products', { params }) as Promise<{ products: Product[]; total: number }>;
+    franchise?: string;
+    isGlobal?: boolean;
+  }): Promise<{ products: Product[]; pagination: { page: number; limit: number; total: number; pages: number } }> => {
+    return api.get('/products', { params }) as Promise<{ products: Product[]; pagination: { page: number; limit: number; total: number; pages: number } }>;
   },
 
   getById: async (id: string) => {
@@ -219,6 +236,28 @@ export const saleApi = {
     });
     return response;
   },
+};
+
+export const orderApi = {
+  getOrders: async (params?: {
+    page?: number;
+    limit?: number;
+    franchise?: string;
+    startDate?: string;
+    endDate?: string;
+    status?: string;
+    search?: string;
+    sortBy?: string;
+    sortOrder?: 'asc' | 'desc';
+  }): Promise<{ orders: unknown[]; pagination: { page: number; limit: number; total: number; totalPages: number } }> => {
+    return api.get('/orders', { params }) as Promise<{ orders: unknown[]; pagination: { page: number; limit: number; total: number; totalPages: number } }>;
+  },
+  getById: async (id: string) => api.get(`/orders/${id}`),
+  create: async (payload: unknown) => api.post('/orders', payload),
+  update: async (id: string, payload: unknown) => api.put(`/orders/${id}`, payload),
+  delete: async (id: string) => api.delete(`/orders/${id}`),
+  updateStatus: async (id: string, orderStatus: string) =>
+    api.patch(`/orders/${id}/status`, { orderStatus }),
 };
 
 export const dashboardApi = {

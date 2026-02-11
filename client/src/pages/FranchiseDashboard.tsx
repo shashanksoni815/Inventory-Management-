@@ -22,6 +22,7 @@ import {
   DollarSign,
   Package,
   ShoppingCart,
+  ShoppingBag,
   Settings,
   ArrowLeft,
   Globe,
@@ -34,6 +35,7 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import { franchiseApi, saleApi, productApi } from '../services/api';
 import { useFranchise } from '../contexts/FranchiseContext';
+import { orderStatusBadgeClass, cn } from '@/lib/utils';
 import KpiCard from '../components/Dashboard/KpiCard';
 import {
   BarChart,
@@ -47,6 +49,22 @@ import {
   Legend,
   ResponsiveContainer,
 } from 'recharts';
+
+/** Orders summary from franchiseApi.getOrdersSummary (interceptor unwraps data) */
+interface FranchiseOrdersSummary {
+  totalOrders: number;
+  deliveredOrders: number;
+  pendingOrders: number;
+  orderRevenue: number;
+  recentOrders: Array<{
+    _id: string;
+    orderNumber: string;
+    createdAt: string;
+    customer?: { name?: string };
+    orderStatus: string;
+    grandTotal: number;
+  }>;
+}
 
 /** Shape returned by franchiseApi.getById (after response interceptor unwraps { success, data }) */
 interface FranchiseDetail {
@@ -117,6 +135,14 @@ const FranchiseDashboard: React.FC = () => {
     queryFn: () => productApi.getAnalytics(franchiseId!, timeRange),
     enabled: !!franchiseId,
   });
+
+  // Fetch orders summary for franchise dashboard (interceptor returns unwrapped data)
+  const { data: ordersSummaryData } = useQuery({
+    queryKey: ['franchise-orders-summary', franchiseId],
+    queryFn: () => franchiseApi.getOrdersSummary(franchiseId!),
+    enabled: !!franchiseId,
+  });
+  const ordersSummary = ordersSummaryData as FranchiseOrdersSummary | undefined;
 
   // API interceptor returns the franchise object directly (no .data wrapper)
   const franchise = franchiseData;
@@ -516,6 +542,38 @@ const FranchiseDashboard: React.FC = () => {
           />
         </div>
 
+        {/* Orders Overview */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <KpiCard
+            title="Total Orders"
+            value={ordersSummary?.totalOrders ?? 0}
+            icon={ShoppingBag}
+            format="number"
+            color="default"
+          />
+          <KpiCard
+            title="Delivered Orders"
+            value={ordersSummary?.deliveredOrders ?? 0}
+            icon={ShoppingBag}
+            format="number"
+            color="default"
+          />
+          <KpiCard
+            title="Pending Orders"
+            value={ordersSummary?.pendingOrders ?? 0}
+            icon={ShoppingBag}
+            format="number"
+            color="default"
+          />
+          <KpiCard
+            title="Order Revenue"
+            value={ordersSummary?.orderRevenue ?? 0}
+            icon={DollarSign}
+            format="currency"
+            color="default"
+          />
+        </div>
+
         {/* Charts Row */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Sales Trend Chart */}
@@ -600,7 +658,7 @@ const FranchiseDashboard: React.FC = () => {
         {/* Quick Actions & Recent Activity */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Quick Actions */}
-          <div className="bg-white rounded-xl border border-gray-200 p-6">
+          <div className="bg-white rounded-xl border border-gray-200 p-6 lg:col-span-1">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
             <div className="space-y-3">
               <button
@@ -647,7 +705,7 @@ const FranchiseDashboard: React.FC = () => {
           </div>
 
           {/* Recent Sales */}
-          <div className="bg-white rounded-xl border border-gray-200 p-6 lg:col-span-2">
+          <div className="bg-white rounded-xl border border-gray-200 p-6 lg:col-span-1">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-gray-900">Recent Sales</h3>
               <button
@@ -689,6 +747,68 @@ const FranchiseDashboard: React.FC = () => {
                     <tr>
                       <td colSpan={5} className="px-4 py-8 text-center text-gray-500">
                         No sales found for this period
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Recent Orders */}
+          <div className="bg-white rounded-xl border border-gray-200 p-6 lg:col-span-1">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Recent Orders</h3>
+              <button
+                onClick={() => navigate('/orders')}
+                className="text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1"
+              >
+                View All
+                <ArrowRight className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="overflow-x-auto -mx-px" aria-label="Recent orders">
+              <table className="w-full min-w-[400px] text-left">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-3 text-xs font-semibold text-gray-700 uppercase">Order #</th>
+                    <th className="px-4 py-3 text-xs font-semibold text-gray-700 uppercase">Date</th>
+                    <th className="px-4 py-3 text-xs font-semibold text-gray-700 uppercase">Customer</th>
+                    <th className="px-4 py-3 text-xs font-semibold text-gray-700 uppercase">Status</th>
+                    <th className="px-4 py-3 text-xs font-semibold text-gray-700 uppercase text-right">Total</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {(ordersSummary?.recentOrders ?? []).map((order: any) => (
+                    <tr
+                      key={order._id}
+                      className="hover:bg-gray-50 cursor-pointer"
+                      onClick={() => navigate(`/orders/${order._id}`)}
+                    >
+                      <td className="px-4 py-3 text-sm font-medium text-gray-900">{order.orderNumber || '—'}</td>
+                      <td className="px-4 py-3 text-sm text-gray-600">
+                        {order.createdAt ? new Date(order.createdAt).toLocaleDateString() : '—'}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-600">{order.customer?.name ?? '—'}</td>
+                      <td className="px-4 py-3">
+                        <span
+                          className={cn(
+                            'inline-flex rounded-full px-2 py-0.5 text-xs font-medium',
+                            orderStatusBadgeClass(order.orderStatus)
+                          )}
+                        >
+                          {order.orderStatus}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-sm font-semibold text-gray-900 text-right">
+                        ${(order.grandTotal ?? 0).toLocaleString()}
+                      </td>
+                    </tr>
+                  ))}
+                  {(!ordersSummary?.recentOrders || ordersSummary.recentOrders.length === 0) && (
+                    <tr>
+                      <td colSpan={5} className="px-4 py-8 text-center text-gray-500">
+                        No orders yet
                       </td>
                     </tr>
                   )}

@@ -1,16 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  Package, 
-  DollarSign, 
-  TrendingUp, 
-  AlertCircle,
+import React, { useState } from 'react';
+import {
+  Package,
+  TrendingUp,
   Edit,
   Share2,
   ArrowRightLeft,
   Eye,
-  Filter,
   Search,
-  ChevronDown
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { productApi } from '../../services/api';
@@ -18,9 +14,9 @@ import { useFranchise } from '../../contexts/FranchiseContext';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Select } from '@/components/ui/select';
 
-interface Product {
+/** Product row shape returned by GET /products when scoped by franchise (includes franchiseStock, stockStatus, etc.) */
+interface FranchiseProductRow {
   _id: string;
   sku: string;
   name: string;
@@ -30,27 +26,22 @@ interface Product {
   sellingPrice: number;
   profitMargin: number;
   stockQuantity: number;
-  franchiseStock: number;
-  isShared: boolean;
-  stockStatus: string;
-  inventoryValue: number;
+  minimumStock?: number;
   totalSold: number;
   totalRevenue: number;
+  /** Backend adds this when scoped by franchise */
+  franchiseStock?: number;
+  isShared?: boolean;
+  stockStatus?: string;
+  inventoryValue?: number;
   franchise: {
     _id: string;
     name: string;
     code: string;
-    metadata?: {
-      color?: string;
-      icon?: string;
-    };
+    metadata?: { color?: string; icon?: string };
   };
   sharedWith?: Array<{
-    franchise: {
-      _id: string;
-      name: string;
-      code: string;
-    };
+    franchise: { _id: string; name: string; code: string };
     quantity: number;
   }>;
 }
@@ -70,16 +61,22 @@ const FranchiseProductTable: React.FC = () => {
 
   const franchiseId = currentFranchise?._id;
 
-  const { data, isLoading, refetch } = useQuery({
+  const { data, isLoading } = useQuery({
     queryKey: ['products', franchiseId, filters],
     queryFn: () => productApi.getAll({
       franchise: franchiseId,
-      ...filters
+      search: filters.search || undefined,
+      category: filters.category === 'all' ? undefined : filters.category,
+      status: filters.status === 'all' ? undefined : filters.status,
+      page: filters.page,
+      limit: filters.limit,
+      sortBy: filters.sortBy,
+      sortOrder: filters.sortOrder === 'desc' ? 'desc' : 'asc',
     }),
     enabled: !!franchiseId && !isNetworkView,
   });
 
-  const products = data?.data || [];
+  const products: FranchiseProductRow[] = (data?.products || []) as unknown as FranchiseProductRow[];
   const pagination = data?.pagination;
 
   const handleFilterChange = (key: string, value: any) => {
@@ -91,26 +88,25 @@ const FranchiseProductTable: React.FC = () => {
   };
 
   const getStockStatusBadge = (status: string) => {
-    const variants = {
+    const variants: Record<string, 'success' | 'warning' | 'danger' | 'outline'> = {
       'in-stock': 'success',
       'low-stock': 'warning',
-      'out-of-stock': 'danger'
+      'out-of-stock': 'danger',
     };
-
-    const labels = {
+    const labels: Record<string, string> = {
       'in-stock': 'In Stock',
       'low-stock': 'Low Stock',
-      'out-of-stock': 'Out of Stock'
+      'out-of-stock': 'Out of Stock',
     };
-
+    const variant = variants[status] ?? 'outline';
     return (
-      <Badge variant={variants[status as keyof typeof variants]}>
-        {labels[status as keyof typeof labels]}
+      <Badge variant={variant}>
+        {labels[status] ?? status}
       </Badge>
     );
   };
 
-  const getFranchiseBadge = (product: Product) => {
+  const getFranchiseBadge = (product: FranchiseProductRow) => {
     if (product.isShared) {
       return (
         <Badge variant="outline" className="border-purple-300 text-purple-700">
@@ -145,32 +141,30 @@ const FranchiseProductTable: React.FC = () => {
               />
             </div>
             
-            <Select
+            <select
               value={filters.category}
-              onChange={(value) => handleFilterChange('category', value)}
-              options={[
-                { value: 'all', label: 'All Categories' },
-                { value: 'Electronics', label: 'Electronics' },
-                { value: 'Clothing', label: 'Clothing' },
-                { value: 'Books', label: 'Books' },
-                { value: 'Home & Kitchen', label: 'Home & Kitchen' },
-                { value: 'Sports', label: 'Sports' },
-                { value: 'Other', label: 'Other' }
-              ]}
-              className="w-40"
-            />
-            
-            <Select
+              onChange={(e) => handleFilterChange('category', e.target.value)}
+              className="h-10 w-40 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+            >
+              <option value="all">All Categories</option>
+              <option value="Electronics">Electronics</option>
+              <option value="Clothing">Clothing</option>
+              <option value="Books">Books</option>
+              <option value="Home & Kitchen">Home & Kitchen</option>
+              <option value="Sports">Sports</option>
+              <option value="Other">Other</option>
+            </select>
+
+            <select
               value={filters.stockStatus}
-              onChange={(value) => handleFilterChange('stockStatus', value)}
-              options={[
-                { value: 'all', label: 'All Stock' },
-                { value: 'in-stock', label: 'In Stock' },
-                { value: 'low-stock', label: 'Low Stock' },
-                { value: 'out-of-stock', label: 'Out of Stock' }
-              ]}
-              className="w-40"
-            />
+              onChange={(e) => handleFilterChange('stockStatus', e.target.value)}
+              className="h-10 w-40 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+            >
+              <option value="all">All Stock</option>
+              <option value="in-stock">In Stock</option>
+              <option value="low-stock">Low Stock</option>
+              <option value="out-of-stock">Out of Stock</option>
+            </select>
           </div>
         </div>
       </div>
@@ -228,7 +222,7 @@ const FranchiseProductTable: React.FC = () => {
                   {/* Product Info */}
                   <td className="px-6 py-4">
                     <div className="flex items-center space-x-3">
-                      <div className="flex-shrink-0">
+                      <div className="shrink-0">
                         <div className="h-10 w-10 rounded-lg bg-blue-100 flex items-center justify-center">
                           <Package className="h-5 w-5 text-blue-600" />
                         </div>
@@ -261,16 +255,16 @@ const FranchiseProductTable: React.FC = () => {
                   <td className="px-6 py-4">
                     <div className="flex items-center space-x-2">
                       <div className="text-lg font-bold text-gray-900">
-                        {product.franchiseStock.toLocaleString()}
+                        {(product.franchiseStock ?? product.stockQuantity).toLocaleString()}
                       </div>
-                      {product.stockQuantity !== product.franchiseStock && (
+                      {product.franchiseStock != null && product.stockQuantity !== product.franchiseStock && (
                         <div className="text-xs text-gray-500">
                           / {product.stockQuantity.toLocaleString()} total
                         </div>
                       )}
                     </div>
                     <div className="text-xs text-gray-500">
-                      Min: {product.minimumStock}
+                      Min: {product.minimumStock ?? 0}
                     </div>
                   </td>
 
@@ -320,7 +314,7 @@ const FranchiseProductTable: React.FC = () => {
                   {/* Inventory Value */}
                   <td className="px-6 py-4">
                     <div className="font-bold text-gray-900">
-                      ${product.inventoryValue.toLocaleString()}
+                      ${(product.inventoryValue ?? product.stockQuantity * product.buyingPrice).toLocaleString()}
                     </div>
                     <div className="text-sm text-gray-500">
                       Unit value: ${product.buyingPrice.toFixed(2)}
@@ -329,7 +323,7 @@ const FranchiseProductTable: React.FC = () => {
 
                   {/* Status */}
                   <td className="px-6 py-4">
-                    {getStockStatusBadge(product.stockStatus)}
+                    {getStockStatusBadge(product.stockStatus ?? 'in-stock')}
                   </td>
 
                   {/* Actions */}

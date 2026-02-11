@@ -14,6 +14,8 @@ import {
 } from 'lucide-react';
 import type { Product, ProductCategory } from '@/types';
 import { cn, calculateProfit } from '@/lib/utils';
+import { useQuery } from '@tanstack/react-query';
+import { franchiseApi } from '@/services/api';
 
 const productSchema = z.object({
   sku: z
@@ -29,6 +31,7 @@ const productSchema = z.object({
   stockQuantity: z.number().min(0, 'Stock cannot be negative').int(),
   minimumStock: z.number().min(0, 'Minimum stock cannot be negative').int(),
   images: z.array(z.object({ url: z.string(), publicId: z.string() })).optional(),
+  franchise: z.string().min(1, 'Franchise is required'),
 });
 
 type ProductFormData = z.infer<typeof productSchema>;
@@ -76,17 +79,33 @@ const ProductForm: React.FC<ProductFormProps> = ({
         }
       : {
           sku: '',
+          name: '',
           category: 'Electronics',
           buyingPrice: 0,
           sellingPrice: 0,
           stockQuantity: 0,
           minimumStock: 10,
+          franchise: '',
         },
     mode: 'onChange',
   });
 
   const buyingPrice = watch('buyingPrice');
   const sellingPrice = watch('sellingPrice');
+
+  // Load franchises for required selection
+  const { data: franchisesData } = useQuery({
+    queryKey: ['franchises'],
+    queryFn: () => franchiseApi.getAll(),
+  });
+
+  const franchises = React.useMemo(() => {
+    const data = franchisesData as any;
+    if (!data) return [] as any[];
+    if (Array.isArray(data)) return data;
+    if (Array.isArray(data.franchises)) return data.franchises;
+    return [] as any[];
+  }, [franchisesData]);
 
   // Calculate profit on price changes
   React.useEffect(() => {
@@ -119,10 +138,21 @@ const ProductForm: React.FC<ProductFormProps> = ({
   }, []);
 
   const handleFormSubmit = async (data: ProductFormData) => {
-    await onSubmit({
-      ...data,
+    const payload: any = {
+      name: data.name,
+      sku: data.sku,
+      category: data.category,
+      brand: data.brand,
+      description: data.description,
+      buyingPrice: data.buyingPrice,
+      sellingPrice: data.sellingPrice,
+      stock: data.stockQuantity,
+      minimumStock: data.minimumStock,
+      franchise: data.franchise,
       images: images.map(url => ({ url, publicId: '' })),
-    } as ProductFormData);
+    };
+
+    await onSubmit(payload);
   };
 
   const steps = [
@@ -256,6 +286,28 @@ const ProductForm: React.FC<ProductFormProps> = ({
                       {errors.sku && (
                         <p className="mt-1 text-sm text-red-600">
                           {errors.sku.message}
+                        </p>
+                      )}
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Franchise *
+                      </label>
+                      <select
+                        {...register('franchise')}
+                        className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                      >
+                        <option value="">Select a franchise</option>
+                        {franchises.map((f: any) => (
+                          <option key={f._id} value={f._id}>
+                            {f.name} {f.code ? `(${f.code})` : ''}
+                          </option>
+                        ))}
+                      </select>
+                      {errors.franchise && (
+                        <p className="mt-1 text-sm text-red-600">
+                          {errors.franchise.message}
                         </p>
                       )}
                     </div>

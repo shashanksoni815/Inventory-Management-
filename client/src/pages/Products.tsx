@@ -22,6 +22,8 @@ const Products: React.FC = () => {
 
   const queryClient = useQueryClient();
   const { currentFranchise } = useFranchise();
+  const selectedFranchiseId =
+    (currentFranchise as any)?._id || (currentFranchise as any)?.id || undefined;
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['products', filters],
@@ -72,16 +74,26 @@ const Products: React.FC = () => {
     }
   }, [deleteMutation]);
 
-  const handleSubmit = useCallback(async (formData: any) => {
-    if (selectedProduct) {
-      await updateMutation.mutateAsync({
-        id: selectedProduct._id,
-        data: formData,
-      });
-    } else {
-      await createMutation.mutateAsync(formData);
-    }
-  }, [selectedProduct, createMutation, updateMutation]);
+  const handleSubmit = useCallback(
+    async (formData: any) => {
+      if (selectedProduct) {
+        await updateMutation.mutateAsync({
+          id: selectedProduct._id,
+          data: formData,
+        });
+      } else {
+        if (!selectedFranchiseId) {
+          window.alert('Please select a franchise before creating a product.');
+          return;
+        }
+        await createMutation.mutateAsync({
+          ...formData,
+          franchise: selectedFranchiseId,
+        });
+      }
+    },
+    [selectedProduct, createMutation, updateMutation, selectedFranchiseId]
+  );
 
   const handleExport = useCallback(async (format: 'excel' | 'pdf' = 'excel') => {
     try {
@@ -223,7 +235,7 @@ const Products: React.FC = () => {
     }
   }, [queryClient, refetch, currentFranchise]);
 
-  const products = (data as any)?.data ?? [];
+  const products = (data as any)?.products ?? [];
 
   return (
     <div className="min-h-0 bg-white p-3 sm:p-4 lg:p-6">
