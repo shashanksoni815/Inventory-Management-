@@ -4,9 +4,7 @@ import {
   Save,
   RefreshCw,
   Building,
-  MapPin,
   Phone,
-  Mail,
   Globe,
   DollarSign,
   Clock,
@@ -20,7 +18,6 @@ import { useFranchise } from '../../contexts/FranchiseContext';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Select } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
@@ -104,10 +101,19 @@ const FranchiseSettings: React.FC = () => {
           </Button>
           <Button
             onClick={() => updateMutation.mutate({})}
-            loading={updateMutation.isPending}
+            disabled={updateMutation.isPending}
           >
-            <Save className="h-4 w-4 mr-2" />
-            Save Changes
+            {updateMutation.isPending ? (
+              <span className="inline-flex items-center gap-2">
+                <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                Saving...
+              </span>
+            ) : (
+              <>
+                <Save className="h-4 w-4 mr-2" />
+                Save Changes
+              </>
+            )}
           </Button>
         </div>
       </div>
@@ -191,14 +197,14 @@ const FranchiseSettings: React.FC = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Status
                   </label>
-                  <Select
+                  <select
                     defaultValue={franchise.status}
-                    options={[
-                      { value: 'active', label: 'Active' },
-                      { value: 'inactive', label: 'Inactive' },
-                      { value: 'maintenance', label: 'Maintenance' }
-                    ]}
-                  />
+                    className="flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                  >
+                    <option value="active">Active</option>
+                    <option value="inactive">Inactive</option>
+                    <option value="maintenance">Maintenance</option>
+                  </select>
                 </div>
 
                 <div className="flex items-center space-x-4">
@@ -269,16 +275,16 @@ const FranchiseSettings: React.FC = () => {
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Currency
                     </label>
-                    <Select
+                    <select
                       defaultValue={franchise.settings?.currency}
-                      options={[
-                        { value: 'USD', label: 'US Dollar (USD)' },
-                        { value: 'EUR', label: 'Euro (EUR)' },
-                        { value: 'GBP', label: 'British Pound (GBP)' },
-                        { value: 'CAD', label: 'Canadian Dollar (CAD)' },
-                        { value: 'AUD', label: 'Australian Dollar (AUD)' }
-                      ]}
-                    />
+                      className="flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                    >
+                      <option value="USD">US Dollar (USD)</option>
+                      <option value="EUR">Euro (EUR)</option>
+                      <option value="GBP">British Pound (GBP)</option>
+                      <option value="CAD">Canadian Dollar (CAD)</option>
+                      <option value="AUD">Australian Dollar (AUD)</option>
+                    </select>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -308,17 +314,17 @@ const FranchiseSettings: React.FC = () => {
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Timezone
                     </label>
-                    <Select
+                    <select
                       defaultValue={franchise.settings?.timezone}
-                      options={[
-                        { value: 'America/New_York', label: 'Eastern Time (ET)' },
-                        { value: 'America/Chicago', label: 'Central Time (CT)' },
-                        { value: 'America/Denver', label: 'Mountain Time (MT)' },
-                        { value: 'America/Los_Angeles', label: 'Pacific Time (PT)' },
-                        { value: 'Europe/London', label: 'London (GMT)' },
-                        { value: 'Europe/Paris', label: 'Paris (CET)' }
-                      ]}
-                    />
+                      className="flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                    >
+                      <option value="America/New_York">Eastern Time (ET)</option>
+                      <option value="America/Chicago">Central Time (CT)</option>
+                      <option value="America/Denver">Mountain Time (MT)</option>
+                      <option value="America/Los_Angeles">Pacific Time (PT)</option>
+                      <option value="Europe/London">London (GMT)</option>
+                      <option value="Europe/Paris">Paris (CET)</option>
+                    </select>
                   </div>
                 </div>
 
@@ -476,13 +482,13 @@ const FranchiseSettings: React.FC = () => {
                 These actions are irreversible. Please proceed with caution.
               </p>
               <div className="space-y-2">
-                <Button variant="danger" className="w-full">
+                <Button variant="destructive" className="w-full">
                   Deactivate Franchise
                 </Button>
-                <Button variant="danger" className="w-full">
+                <Button variant="destructive" className="w-full">
                   Reset All Data
                 </Button>
-                <Button variant="danger" className="w-full">
+                <Button variant="destructive" className="w-full">
                   Delete Franchise
                 </Button>
               </div>

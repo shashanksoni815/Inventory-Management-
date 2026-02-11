@@ -5,6 +5,7 @@ import {
   LayoutDashboard,
   Package,
   ShoppingCart,
+  ShoppingBag,
   BarChart3,
   Settings,
   Menu,
@@ -45,6 +46,7 @@ const Layout: React.FC = () => {
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
     { name: 'Franchises', href: '/franchises', icon: Store },
     { name: 'Products', href: '/products', icon: Package },
+    { name: 'Orders', href: '/orders', icon: ShoppingBag },
     { name: 'Sales', href: '/sales', icon: ShoppingCart },
     { name: 'Reports', href: '/reports', icon: BarChart3 },
     { name: 'Settings', href: '/settings', icon: Settings },
@@ -68,7 +70,8 @@ const Layout: React.FC = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [userMenuOpen]);
 
-  const isActive = (path: string) => location.pathname === path;
+  const isActive = (path: string) =>
+    location.pathname === path || (path === '/orders' && location.pathname.startsWith('/orders/'));
 
   return (
     <div className="flex min-h-screen bg-white">

@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 import Franchise from '../models/Franchise.js';
 import { Product } from '../models/Product.model.js';
 import { Sale } from '../models/Sale.model.js';
+import { Order } from '../models/Order.model.js';
 import Transfer from '../models/Transfer.js';
 
 /** Validate MongoDB ObjectId format (24 hex chars). Reject franchise code or numeric IDs. */
@@ -972,6 +973,693 @@ export const getAdminInsights = async (req, res) => {
       success: false,
       message: 'Failed to fetch admin insights',
       error: error.message
+    });
+  }
+};
+
+/**
+ * Get franchise imports and exports view
+ * GET /api/franchises/:franchiseId/imports
+ * 
+ * Shows:
+ * - Total imports (count & value)
+ * - Total exports (count & value)
+ * - Transfer history table
+ * - Filters by date & product
+ */
+export const getFranchiseImportsExports = async (req, res) => {
+  try {
+    const { franchiseId } = req.params;
+    const { 
+      startDate, 
+      endDate, 
+      productId,
+      status,
+      type, // 'import', 'export', or 'all'
+      page = 1,
+      limit = 20
+    } = req.query;
+    const { user } = req;
+
+    // Validate franchise ID
+    if (!franchiseId || !isValidObjectId(franchiseId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid franchise ID',
+      });
+    }
+
+    // Check access
+    if (user.role !== 'admin' && !user.franchises?.some((f) => f.toString() === franchiseId)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied to this franchise',
+      });
+    }
+
+    // Verify franchise exists
+    const franchise = await Franchise.findById(franchiseId);
+    if (!franchise) {
+      return res.status(404).json({
+        success: false,
+        message: 'Franchise not found',
+      });
+    }
+
+    // Build date filter
+    const dateFilter = {};
+    if (startDate || endDate) {
+      dateFilter.transferDate = {};
+      if (startDate) {
+        const start = new Date(startDate);
+        if (!isNaN(start.getTime())) {
+          dateFilter.transferDate.$gte = start;
+        }
+      }
+      if (endDate) {
+        const end = new Date(endDate);
+        if (!isNaN(end.getTime())) {
+          // Set to end of day
+          end.setHours(23, 59, 59, 999);
+          dateFilter.transferDate.$lte = end;
+        }
+      }
+    }
+
+    // Build query for transfers
+    const transferQuery = {
+      $or: [
+        { toFranchise: franchiseId }, // Imports
+        { fromFranchise: franchiseId } // Exports
+      ],
+      ...dateFilter
+    };
+
+    // Filter by product
+    if (productId && mongoose.Types.ObjectId.isValid(productId)) {
+      transferQuery.product = new mongoose.Types.ObjectId(productId);
+    }
+
+    // Filter by status
+    if (status) {
+      transferQuery.status = status;
+    }
+
+    // Filter by type (import/export)
+    if (type === 'import') {
+      transferQuery.$or = [{ toFranchise: franchiseId }];
+    } else if (type === 'export') {
+      transferQuery.$or = [{ fromFranchise: franchiseId }];
+    }
+
+    // Calculate totals using aggregation
+    const totalsAggregation = await Transfer.aggregate([
+      { $match: transferQuery },
+      {
+        $facet: {
+          imports: [
+            { $match: { toFranchise: new mongoose.Types.ObjectId(franchiseId) } },
+            {
+              $group: {
+                _id: null,
+                count: { $sum: 1 },
+                totalQuantity: { $sum: '$quantity' },
+                totalValue: { $sum: { $ifNull: ['$totalValue', { $multiply: ['$unitPrice', '$quantity'] }] } }
+              }
+            }
+          ],
+          exports: [
+            { $match: { fromFranchise: new mongoose.Types.ObjectId(franchiseId) } },
+            {
+              $group: {
+                _id: null,
+                count: { $sum: 1 },
+                totalQuantity: { $sum: '$quantity' },
+                totalValue: { $sum: { $ifNull: ['$totalValue', { $multiply: ['$unitPrice', '$quantity'] }] } }
+              }
+            }
+          ]
+        }
+      }
+    ]);
+
+    const totals = totalsAggregation[0] || { imports: [], exports: [] };
+    const importsTotal = totals.imports[0] || { count: 0, totalQuantity: 0, totalValue: 0 };
+    const exportsTotal = totals.exports[0] || { count: 0, totalQuantity: 0, totalValue: 0 };
+
+    // Get transfer history with pagination
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    
+    const transfers = await Transfer.find(transferQuery)
+      .populate('product', 'name sku')
+      .populate('fromFranchise', 'name code')
+      .populate('toFranchise', 'name code')
+      .populate('initiatedBy', 'username')
+      .populate('approvedBy', 'username')
+      .sort({ transferDate: -1, createdAt: -1 })
+      .skip(skip)
+      .limit(parseInt(limit))
+      .lean();
+
+    // Format transfer history with type (import/export)
+    const transferHistory = transfers.map(transfer => {
+      const isImport = transfer.toFranchise._id.toString() === franchiseId;
+      return {
+        _id: transfer._id,
+        transferId: transfer._id.toString(),
+        type: isImport ? 'import' : 'export',
+        productId: transfer.product._id.toString(),
+        productName: transfer.product.name,
+        productSku: transfer.product.sku,
+        quantity: transfer.quantity,
+        unitPrice: transfer.unitPrice || 0,
+        totalValue: transfer.totalValue || (transfer.unitPrice || 0) * transfer.quantity,
+        fromFranchise: {
+          _id: transfer.fromFranchise._id.toString(),
+          name: transfer.fromFranchise.name,
+          code: transfer.fromFranchise.code,
+        },
+        toFranchise: {
+          _id: transfer.toFranchise._id.toString(),
+          name: transfer.toFranchise.name,
+          code: transfer.toFranchise.code,
+        },
+        status: transfer.status,
+        transferDate: transfer.transferDate,
+        actualDelivery: transfer.actualDelivery,
+        initiatedBy: transfer.initiatedBy?.username || 'N/A',
+        approvedBy: transfer.approvedBy?.username || null,
+        notes: transfer.notes,
+        createdAt: transfer.createdAt,
+        updatedAt: transfer.updatedAt,
+      };
+    });
+
+    // Get total count for pagination
+    const totalTransfers = await Transfer.countDocuments(transferQuery);
+
+    res.json({
+      success: true,
+      data: {
+        franchise: {
+          _id: franchise._id,
+          name: franchise.name,
+          code: franchise.code,
+        },
+        summary: {
+          imports: {
+            count: importsTotal.count,
+            totalQuantity: importsTotal.totalQuantity,
+            totalValue: importsTotal.totalValue,
+          },
+          exports: {
+            count: exportsTotal.count,
+            totalQuantity: exportsTotal.totalQuantity,
+            totalValue: exportsTotal.totalValue,
+          },
+        },
+        transfers: transferHistory,
+        pagination: {
+          page: parseInt(page),
+          limit: parseInt(limit),
+          total: totalTransfers,
+          pages: Math.ceil(totalTransfers / parseInt(limit)),
+        },
+      },
+    });
+  } catch (error) {
+    console.error('Error fetching franchise imports/exports:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch franchise imports/exports',
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * Get Franchise Dashboard - Sales & Product Overview
+ * GET /api/franchises/:franchiseId/dashboard
+ * 
+ * Returns comprehensive dashboard data for a franchise:
+ * - Total sales (count)
+ * - Total revenue
+ * - Total profit
+ * - Product-wise performance
+ * - Fast-moving products
+ * - Low-stock products
+ * 
+ * All data filtered by franchiseId
+ */
+export const getFranchiseDashboard = async (req, res) => {
+  try {
+    const { franchiseId } = req.params;
+    const { 
+      startDate, 
+      endDate,
+      period = '30d' // 7d, 30d, 90d, 1y, all
+    } = req.query;
+    const { user } = req;
+
+    // Validate franchise ID
+    if (!franchiseId || !isValidObjectId(franchiseId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid franchise ID',
+      });
+    }
+
+    // Check access
+    if (user.role !== 'admin' && !user.franchises?.some((f) => f.toString() === franchiseId)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied to this franchise',
+      });
+    }
+
+    // Verify franchise exists
+    const franchise = await Franchise.findById(franchiseId);
+    if (!franchise) {
+      return res.status(404).json({
+        success: false,
+        message: 'Franchise not found',
+      });
+    }
+
+    // Calculate date range
+    let dateFilter = {};
+    const now = new Date();
+    
+    if (startDate && endDate) {
+      // Use provided date range
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      end.setHours(23, 59, 59, 999);
+      if (!isNaN(start.getTime()) && !isNaN(end.getTime())) {
+        dateFilter = {
+          $gte: start,
+          $lte: end,
+        };
+      }
+    } else {
+      // Use period
+      const start = new Date();
+      switch (period) {
+        case '7d':
+          start.setDate(start.getDate() - 7);
+          break;
+        case '30d':
+          start.setDate(start.getDate() - 30);
+          break;
+        case '90d':
+          start.setDate(start.getDate() - 90);
+          break;
+        case '1y':
+          start.setFullYear(start.getFullYear() - 1);
+          break;
+        case 'all':
+        default:
+          // No date filter for 'all'
+          break;
+      }
+      if (period !== 'all') {
+        dateFilter = {
+          $gte: start,
+          $lte: now,
+        };
+      }
+    }
+
+    // Build base query for sales (filtered by franchise)
+    const salesQuery = {
+      franchise: new mongoose.Types.ObjectId(franchiseId),
+      status: 'completed',
+    };
+    if (Object.keys(dateFilter).length > 0) {
+      salesQuery.createdAt = dateFilter;
+    }
+
+    // Build base query for products (filtered by franchise)
+    const productsQuery = {
+      $or: [
+        { franchise: new mongoose.Types.ObjectId(franchiseId) },
+        { isGlobal: true, 'sharedWith.franchise': new mongoose.Types.ObjectId(franchiseId) },
+        { isGlobal: true, franchise: new mongoose.Types.ObjectId(franchiseId) }
+      ],
+      status: 'active',
+    };
+
+    // Calculate sales statistics using aggregation
+    const salesStats = await Sale.aggregate([
+      { $match: salesQuery },
+      {
+        $group: {
+          _id: null,
+          totalSales: { $sum: 1 },
+          totalRevenue: { $sum: '$grandTotal' },
+          totalProfit: { $sum: '$totalProfit' },
+          avgOrderValue: { $avg: '$grandTotal' },
+        },
+      },
+    ]);
+
+    const salesSummary = salesStats[0] || {
+      totalSales: 0,
+      totalRevenue: 0,
+      totalProfit: 0,
+      avgOrderValue: 0,
+    };
+
+    // Get product-wise performance (top products by revenue)
+    const productPerformance = await Sale.aggregate([
+      { $match: salesQuery },
+      { $unwind: '$items' },
+      {
+        $group: {
+          _id: {
+            productId: '$items.product',
+            productName: '$items.name',
+            productSku: '$items.sku',
+          },
+          revenue: { $sum: { $multiply: ['$items.sellingPrice', '$items.quantity'] } },
+          cost: { $sum: { $multiply: ['$items.buyingPrice', '$items.quantity'] } },
+          profit: { $sum: '$items.profit' },
+          quantitySold: { $sum: '$items.quantity' },
+          saleCount: { $sum: 1 }, // Number of times this product was sold
+        },
+      },
+      {
+        $project: {
+          productId: '$_id.productId',
+          productName: '$_id.productName',
+          productSku: '$_id.productSku',
+          revenue: 1,
+          cost: 1,
+          profit: 1,
+          quantitySold: 1,
+          saleCount: 1,
+          marginPercent: {
+            $cond: [
+              { $gt: ['$revenue', 0] },
+              { $multiply: [{ $divide: ['$profit', '$revenue'] }, 100] },
+              0,
+            ],
+          },
+        },
+      },
+      { $sort: { revenue: -1 } },
+      { $limit: 20 }, // Top 20 products
+    ]);
+
+    // Get fast-moving products (products sold frequently in the period)
+    // Fast-moving = products with high saleCount or high quantitySold
+    const fastMovingProducts = await Sale.aggregate([
+      { $match: salesQuery },
+      { $unwind: '$items' },
+      {
+        $group: {
+          _id: {
+            productId: '$items.product',
+            productName: '$items.name',
+            productSku: '$items.sku',
+          },
+          quantitySold: { $sum: '$items.quantity' },
+          saleCount: { $sum: 1 },
+          revenue: { $sum: { $multiply: ['$items.sellingPrice', '$items.quantity'] } },
+          lastSold: { $max: '$createdAt' },
+        },
+      },
+      {
+        $project: {
+          productId: '$_id.productId',
+          productName: '$_id.productName',
+          productSku: '$_id.productSku',
+          quantitySold: 1,
+          saleCount: 1,
+          revenue: 1,
+          lastSold: 1,
+          // Calculate velocity score (combination of quantity and frequency)
+          velocityScore: {
+            $add: [
+              { $multiply: ['$quantitySold', 0.6] }, // Weight quantity more
+              { $multiply: ['$saleCount', 0.4] }, // Weight frequency less
+            ],
+          },
+        },
+      },
+      { $sort: { velocityScore: -1 } },
+      { $limit: 10 }, // Top 10 fast-moving products
+    ]);
+
+    // Get low-stock products
+    const lowStockProducts = await Product.find({
+      ...productsQuery,
+      $expr: {
+        $lte: [
+          '$stockQuantity',
+          { $ifNull: ['$replenishmentSettings.reorderPoint', '$minimumStock'] },
+        ],
+      },
+    })
+      .select('_id sku name category stockQuantity minimumStock buyingPrice sellingPrice lastSold')
+      .sort({ stockQuantity: 1 })
+      .limit(20)
+      .lean();
+
+    // Format low-stock products
+    const formattedLowStock = lowStockProducts.map((product) => ({
+      productId: product._id.toString(),
+      sku: product.sku,
+      name: product.name,
+      category: product.category,
+      stockQuantity: product.stockQuantity,
+      minimumStock: product.minimumStock || product.replenishmentSettings?.reorderPoint || 10,
+      buyingPrice: product.buyingPrice,
+      sellingPrice: product.sellingPrice,
+      inventoryValue: product.stockQuantity * product.buyingPrice,
+      lastSold: product.lastSold || null,
+      stockStatus: product.stockQuantity === 0 ? 'out-of-stock' : 'low-stock',
+    }));
+
+    // Get total products count
+    const totalProducts = await Product.countDocuments(productsQuery);
+
+    // Get inventory value
+    const inventoryValueAgg = await Product.aggregate([
+      { $match: productsQuery },
+      {
+        $project: {
+          franchiseStock: {
+            $cond: {
+              if: { $eq: ['$franchise', new mongoose.Types.ObjectId(franchiseId)] },
+              then: {
+                quantity: '$stockQuantity',
+                buyingPrice: '$buyingPrice',
+              },
+              else: {
+                $let: {
+                  vars: {
+                    shared: {
+                      $arrayElemAt: [
+                        {
+                          $filter: {
+                            input: { $ifNull: ['$sharedWith', []] },
+                            as: 'item',
+                            cond: {
+                              $eq: [
+                                '$$item.franchise',
+                                new mongoose.Types.ObjectId(franchiseId),
+                              ],
+                            },
+                          },
+                        },
+                        0,
+                      ],
+                    },
+                  },
+                  in: {
+                    quantity: '$$shared.quantity',
+                    buyingPrice: '$buyingPrice',
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      {
+        $project: {
+          value: {
+            $multiply: ['$franchiseStock.quantity', '$franchiseStock.buyingPrice'],
+          },
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          totalValue: { $sum: '$value' },
+        },
+      },
+    ]);
+
+    const inventoryValue = inventoryValueAgg[0]?.totalValue || 0;
+
+    res.json({
+      success: true,
+      data: {
+        franchise: {
+          _id: franchise._id,
+          name: franchise.name,
+          code: franchise.code,
+        },
+        period: {
+          startDate: dateFilter.$gte || null,
+          endDate: dateFilter.$lte || null,
+          period: period,
+        },
+        sales: {
+          totalSales: salesSummary.totalSales,
+          totalRevenue: salesSummary.totalRevenue,
+          totalProfit: salesSummary.totalProfit,
+          avgOrderValue: salesSummary.avgOrderValue,
+        },
+        products: {
+          totalProducts: totalProducts,
+          inventoryValue: inventoryValue,
+        },
+        productPerformance: productPerformance.map((p) => ({
+          productId: p.productId.toString(),
+          productName: p.productName,
+          productSku: p.productSku,
+          revenue: p.revenue,
+          cost: p.cost,
+          profit: p.profit,
+          quantitySold: p.quantitySold,
+          saleCount: p.saleCount,
+          marginPercent: parseFloat(p.marginPercent.toFixed(2)),
+        })),
+        fastMovingProducts: fastMovingProducts.map((p) => ({
+          productId: p.productId.toString(),
+          productName: p.productName,
+          productSku: p.productSku,
+          quantitySold: p.quantitySold,
+          saleCount: p.saleCount,
+          revenue: p.revenue,
+          lastSold: p.lastSold,
+          velocityScore: parseFloat(p.velocityScore.toFixed(2)),
+        })),
+        lowStockProducts: formattedLowStock,
+      },
+    });
+  } catch (error) {
+    console.error('Error fetching franchise dashboard:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch franchise dashboard',
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * GET /api/franchises/:franchiseId/orders-summary
+ * Returns order stats and recent orders for franchise dashboard.
+ */
+export const getFranchiseOrdersSummary = async (req, res) => {
+  try {
+    const { franchiseId } = req.params;
+    const { user } = req;
+
+    if (!franchiseId || !isValidObjectId(franchiseId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid franchise ID',
+      });
+    }
+
+    if (user.role !== 'admin' && user.role !== 'superAdmin' && !user.franchises?.some((f) => f.toString() === franchiseId)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied to this franchise',
+      });
+    }
+
+    const franchise = await Franchise.findById(franchiseId);
+    if (!franchise) {
+      return res.status(404).json({
+        success: false,
+        message: 'Franchise not found',
+      });
+    }
+
+    const franchiseObjId = new mongoose.Types.ObjectId(franchiseId);
+
+    const [statsResult, recentOrders] = await Promise.all([
+      Order.aggregate([
+        { $match: { franchise: franchiseObjId } },
+        {
+          $group: {
+            _id: null,
+            totalOrders: { $sum: 1 },
+            deliveredOrders: { $sum: { $cond: [{ $eq: ['$orderStatus', 'Delivered'] }, 1, 0] } },
+            pendingOrders: {
+              $sum: {
+                $cond: [
+                  { $in: ['$orderStatus', ['Pending', 'Confirmed', 'Packed', 'Shipped']] },
+                  1,
+                  0,
+                ],
+              },
+            },
+            orderRevenue: {
+              $sum: {
+                $cond: [
+                  { $eq: ['$orderStatus', 'Delivered'] },
+                  { $ifNull: ['$totals.grandTotal', 0] },
+                  0,
+                ],
+              },
+            },
+          },
+        },
+      ]),
+      Order.find({ franchise: franchiseObjId })
+        .sort({ createdAt: -1 })
+        .limit(5)
+        .select('_id orderNumber createdAt customer orderStatus totals')
+        .lean(),
+    ]);
+
+    const stats = statsResult[0] || {
+      totalOrders: 0,
+      deliveredOrders: 0,
+      pendingOrders: 0,
+      orderRevenue: 0,
+    };
+
+    res.json({
+      success: true,
+      data: {
+        totalOrders: stats.totalOrders,
+        deliveredOrders: stats.deliveredOrders,
+        pendingOrders: stats.pendingOrders,
+        orderRevenue: stats.orderRevenue,
+        recentOrders: recentOrders.map((o) => ({
+          _id: o._id,
+          orderNumber: o.orderNumber,
+          createdAt: o.createdAt,
+          customer: o.customer,
+          orderStatus: o.orderStatus,
+          grandTotal: o.totals?.grandTotal ?? 0,
+        })),
+      },
+    });
+  } catch (error) {
+    console.error('Error fetching franchise orders summary:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch orders summary',
+      error: error.message,
     });
   }
 };

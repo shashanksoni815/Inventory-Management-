@@ -153,7 +153,7 @@ const DeadStockTable: React.FC<DeadStockTableProps> = ({
                   </td>
                   <td className="whitespace-nowrap px-6 py-4">
                     <div className="text-sm font-medium text-gray-900">
-                      ${inventoryValue.toLocaleString()}
+                    ₹{inventoryValue.toLocaleString()}
                     </div>
                   </td>
                   <td className="whitespace-nowrap px-6 py-4">
@@ -171,7 +171,7 @@ const DeadStockTable: React.FC<DeadStockTableProps> = ({
       <div className="border-t border-gray-200 p-4">
         <div className="flex items-center justify-between">
           <div className="text-sm text-gray-500">
-            Total dead stock value: $
+            Total dead stock value: ₹   
             {data.reduce((sum, item) => sum + getInventoryValue(item), 0).toLocaleString()}
           </div>
           <button className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700">

@@ -109,6 +109,12 @@ const saleSchema = new mongoose.Schema({
     ref: 'Franchise',
     required: true,
     index: true
+  },
+  order: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Order',
+    default: null,
+    index: true
   }
 }, {
   timestamps: true
@@ -137,8 +143,8 @@ saleSchema.pre('save', async function(next) {
   this.grandTotal = this.subTotal - this.totalDiscount + this.totalTax;
   this.totalProfit = this.items.reduce((sum, item) => sum + item.profit, 0);
 
-  // Update product stock and sales data
-  if (this.isNew) {
+  // Update product stock and sales data (skip when sale is from an order - order controller already updated stock)
+  if (this.isNew && !this.order) {
     for (const item of this.items) {
       await mongoose.model('Product').findByIdAndUpdate(item.product, {
         $inc: {

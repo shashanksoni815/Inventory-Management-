@@ -32,6 +32,10 @@ const FranchiseProfitLoss = lazy(() => import('./pages/FranchiseProfitLoss'));
 const NetworkDashboard = lazy(() => import('./pages/NetworkDashboard'));
 const FranchiseSettings = lazy(() => import('./components/Franchise/FranchiseSettings'));
 const AdminDashboard = lazy(() => import('./pages/AdminDashboard'));
+const Orders = lazy(() => import('./pages/Orders'));
+const OrderDetails = lazy(() => import('./pages/OrderDetails'));
+const CreateOrder = lazy(() => import('./pages/CreateOrder'));
+const OrderEdit = lazy(() => import('./pages/OrderEdit'));
 
 // Protected route wrapper
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -114,6 +118,10 @@ function App() {
                   <Route path="dashboard" element={<Dashboard />} />
                   <Route path="products" element={<Products />} />
                   <Route path="sales" element={<Sales />} />
+                  <Route path="orders" element={<Orders />} />
+                  <Route path="orders/new" element={<CreateOrder />} />
+                  <Route path="orders/:orderId" element={<OrderDetails />} />
+                  <Route path="orders/:orderId/edit" element={<OrderEdit />} />
                   <Route path="reports" element={<Reports />} />
                   <Route path="settings" element={<Settings />} />
                   <Route path="franchises" element={<NetworkDashboard />} />

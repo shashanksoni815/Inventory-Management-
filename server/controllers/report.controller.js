@@ -1,6 +1,8 @@
 import mongoose from 'mongoose';
 import { Product } from '../models/Product.model.js';
 import { Sale } from '../models/Sale.model.js';
+import Transfer from '../models/Transfer.js';
+import { AuditLog } from '../models/AuditLog.model.js';
 import ExcelJS from 'exceljs';
 import PDFDocument from 'pdfkit';
 import { startOfMonth, endOfMonth, subMonths, format } from 'date-fns';
@@ -33,9 +35,10 @@ export const generateSalesReport = async (req, res) => {
 
     const sales = await Sale.find(query)
       .populate('items.product', 'name sku category')
+      .populate('order', 'orderNumber')
       .lean();
 
-    // Aggregated data
+    // Aggregated data (includes revenue from order-derived sales)
     const aggregated = await Sale.aggregate([
       { $match: query },
       {
@@ -50,6 +53,9 @@ export const generateSalesReport = async (req, res) => {
           },
           offlineSales: {
             $sum: { $cond: [{ $eq: ['$saleType', 'offline'] }, '$grandTotal', 0] },
+          },
+          revenueFromOrders: {
+            $sum: { $cond: [{ $ne: ['$order', null] }, '$grandTotal', 0] },
           },
         },
       },
@@ -112,6 +118,7 @@ export const generateSalesReport = async (req, res) => {
           { metric: 'Average Order Value', value: summary.avgOrderValue.toFixed(2) },
           { metric: 'Online Sales', value: summary.onlineSales },
           { metric: 'Offline Sales', value: summary.offlineSales },
+          { metric: 'Revenue from Orders (delivered)', value: summary.revenueFromOrders ?? 0 },
         ]);
       }
 
@@ -165,6 +172,7 @@ export const generateSalesReport = async (req, res) => {
         { header: 'Total', key: 'total', width: 15 },
         { header: 'Profit', key: 'profit', width: 15 },
         { header: 'Status', key: 'status', width: 12 },
+        { header: 'Order #', key: 'orderNo', width: 18 },
       ];
       
       sales.forEach(sale => {
@@ -177,6 +185,7 @@ export const generateSalesReport = async (req, res) => {
           total: sale.grandTotal,
           profit: sale.totalProfit,
           status: sale.status,
+          orderNo: sale.order?.orderNumber ?? '—',
         });
       });
 
@@ -218,6 +227,7 @@ export const generateSalesReport = async (req, res) => {
         doc.text(`Total Profit: $${summary.totalProfit.toFixed(2)}`, 50, summaryY + 15);
         doc.text(`Total Sales: ${summary.totalSales}`, 50, summaryY + 30);
         doc.text(`Average Order: $${summary.avgOrderValue.toFixed(2)}`, 50, summaryY + 45);
+        doc.text(`Revenue from Orders (delivered): $${(summary.revenueFromOrders ?? 0).toFixed(2)}`, 50, summaryY + 60);
       }
 
       // Category Performance Table
@@ -245,7 +255,7 @@ export const generateSalesReport = async (req, res) => {
       res.status(200).json({
         success: true,
         data: {
-          summary: aggregated[0] || {},
+          summary: { ...(aggregated[0] || {}), revenueFromOrders: aggregated[0]?.revenueFromOrders ?? 0 },
           dailyTrend,
           categoryPerformance,
           sales: sales.map(s => ({
@@ -254,6 +264,7 @@ export const generateSalesReport = async (req, res) => {
             total: s.grandTotal,
             profit: s.totalProfit,
             type: s.saleType,
+            orderNumber: s.order?.orderNumber ?? null,
           })),
         },
       });
@@ -452,41 +463,79 @@ export const generateProfitLossReport = async (req, res) => {
       });
     }
 
-    // Check access if franchise is specified
-    if (franchise && user.role !== 'admin') {
-      const userFranchises = (user.franchises || []).map((f) => f?.toString() || f);
-      if (!userFranchises.includes(franchise.toString())) {
+    // Role-Based Access Control: Check franchise access
+    if (franchise) {
+      // Admin/SuperAdmin can access all franchises
+      if (user.role === 'admin' || user.role === 'superAdmin') {
+        // No access check needed - admins can access all
+      } else if (user.role === 'franchise_manager') {
+        // Franchise managers can only access their assigned franchises
+        const userFranchises = (user.franchises || []).map((f) => f?.toString() || f);
+        if (!userFranchises.includes(franchise.toString())) {
+          return res.status(403).json({
+            success: false,
+            message: 'Access denied: You do not have access to this franchise',
+          });
+        }
+      } else {
+        // Unknown role - deny access
         return res.status(403).json({
           success: false,
-          message: 'Access denied to this franchise',
+          message: 'Access denied: Invalid user role',
+        });
+      }
+    } else if (user.role === 'franchise_manager') {
+      // Franchise managers must have at least one franchise assigned
+      if (!user.franchises || !Array.isArray(user.franchises) || user.franchises.length === 0) {
+        return res.status(403).json({
+          success: false,
+          message: 'Access denied: No franchises assigned to your account',
         });
       }
     }
 
-    // Build query with franchise filter
-    const query = {
+    // Parse dates
+    const start = startDate ? new Date(startDate) : subMonths(new Date(), 1);
+    const end = endDate ? new Date(endDate) : new Date();
+    end.setHours(23, 59, 59, 999);
+
+    // Build date filter for transfers
+    const transferDateFilter = {
+      transferDate: {
+        $gte: start,
+        $lte: end,
+      },
+      status: 'completed', // Only count completed transfers
+    };
+
+    // Build query with franchise filter for sales
+    const salesQuery = {
       createdAt: {
-        $gte: new Date(startDate || subMonths(new Date(), 1)),
-        $lte: new Date(endDate || new Date()),
+        $gte: start,
+        $lte: end,
       },
       status: 'completed',
     };
 
     // Filter by franchise if provided
-    if (franchise) {
-      query.franchise = new mongoose.Types.ObjectId(franchise);
+    const franchiseFilter = franchise ? new mongoose.Types.ObjectId(franchise) : null;
+    if (franchiseFilter) {
+      salesQuery.franchise = franchiseFilter;
     }
 
-    // Get all completed sales in period (filtered by franchise)
-    const sales = await Sale.find(query)
+    // Get all completed sales in period (filtered by franchise; includes order-derived sales)
+    const sales = await Sale.find(salesQuery)
+      .populate('franchise', 'name code')
       .populate('items.product', 'name sku category')
+      .populate('order', 'orderNumber')
       .lean();
 
-    // Calculate Total Revenue
+    // Calculate Total Revenue from sales
     const totalRevenue = sales.reduce((sum, sale) => sum + (sale.grandTotal || 0), 0);
 
     // Calculate COGS (Cost of Goods Sold) from sale items
-    const cogs = sales.reduce((sum, sale) => {
+    // COGS = Cost of products sold (buyingPrice × quantity sold)
+    const cogsFromSales = sales.reduce((sum, sale) => {
       if (sale.items && Array.isArray(sale.items)) {
         return sum + sale.items.reduce((itemSum, item) => {
           const quantity = item.quantity || 0;
@@ -496,6 +545,148 @@ export const generateProfitLossReport = async (req, res) => {
       }
       return sum;
     }, 0);
+
+    // Calculate imported stock costs (affects COGS - inventory cost)
+    // When stock is imported, the cost is added to inventory and affects COGS when sold
+    const importedStockQuery = {
+      ...transferDateFilter,
+      toFranchise: franchiseFilter || { $exists: true },
+    };
+    if (franchiseFilter) {
+      importedStockQuery.toFranchise = franchiseFilter;
+    }
+
+    const importedStockCosts = await Transfer.aggregate([
+      { $match: importedStockQuery },
+      {
+        $group: {
+          _id: null,
+          totalCost: {
+            $sum: {
+              $ifNull: [
+                '$totalValue',
+                { $multiply: ['$unitPrice', '$quantity'] },
+              ],
+            },
+          },
+          totalQuantity: { $sum: '$quantity' },
+        },
+      },
+    ]);
+
+    const importedStockCost = importedStockCosts[0]?.totalCost || 0;
+
+    // Calculate exported stock value (reduces inventory value)
+    const exportedStockQuery = {
+      ...transferDateFilter,
+      fromFranchise: franchiseFilter || { $exists: true },
+    };
+    if (franchiseFilter) {
+      exportedStockQuery.fromFranchise = franchiseFilter;
+    }
+
+    const exportedStockValue = await Transfer.aggregate([
+      { $match: exportedStockQuery },
+      {
+        $group: {
+          _id: null,
+          totalValue: {
+            $sum: {
+              $ifNull: [
+                '$totalValue',
+                { $multiply: ['$unitPrice', '$quantity'] },
+              ],
+            },
+          },
+          totalQuantity: { $sum: '$quantity' },
+        },
+      },
+    ]);
+
+    const exportedStockValueAmount = exportedStockValue[0]?.totalValue || 0;
+
+    // Calculate current inventory value
+    const inventoryQuery = franchiseFilter
+      ? {
+          $or: [
+            { franchise: franchiseFilter },
+            { isGlobal: true, 'sharedWith.franchise': franchiseFilter },
+            { isGlobal: true, franchise: franchiseFilter },
+          ],
+          status: 'active',
+        }
+      : { status: 'active' };
+
+    const currentInventoryValue = await Product.aggregate([
+      { $match: inventoryQuery },
+      {
+        $project: {
+          franchiseStock: {
+            $cond: {
+              if: franchiseFilter
+                ? { $eq: ['$franchise', franchiseFilter] }
+                : false,
+              then: {
+                quantity: '$stockQuantity',
+                buyingPrice: '$buyingPrice',
+              },
+              else: {
+                $let: {
+                  vars: {
+                    shared: {
+                      $arrayElemAt: [
+                        {
+                          $filter: {
+                            input: { $ifNull: ['$sharedWith', []] },
+                            as: 'item',
+                            cond: franchiseFilter
+                              ? {
+                                  $eq: [
+                                    '$$item.franchise',
+                                    franchiseFilter,
+                                  ],
+                                }
+                              : true,
+                          },
+                        },
+                        0,
+                      ],
+                    },
+                  },
+                  in: {
+                    quantity: '$$shared.quantity',
+                    buyingPrice: '$buyingPrice',
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      {
+        $project: {
+          value: {
+            $multiply: [
+              '$franchiseStock.quantity',
+              '$franchiseStock.buyingPrice',
+            ],
+          },
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          totalValue: { $sum: '$value' },
+        },
+      },
+    ]);
+
+    const inventoryValue = currentInventoryValue[0]?.totalValue || 0;
+
+    // Total COGS = COGS from sales (products sold)
+    // Note: Imported stock cost is part of inventory, and becomes COGS when products are sold
+    // So COGS is already correctly calculated from sales
+    const cogs = cogsFromSales;
 
     // Calculate Gross Profit
     const grossProfit = totalRevenue - cogs;
@@ -513,7 +704,7 @@ export const generateProfitLossReport = async (req, res) => {
 
     // Category-wise breakdown
     const categoryBreakdown = await Sale.aggregate([
-      { $match: query },
+      { $match: salesQuery },
       { $unwind: '$items' },
       {
         $lookup: {
@@ -589,31 +780,405 @@ export const generateProfitLossReport = async (req, res) => {
       netMargin: cat.netMargin || 0,
     }));
 
+    // Calculate beginning inventory value (at start of period)
+    // This requires calculating inventory value before the period started
+    // For simplicity, we'll use current inventory - imports + exports for the period
+    // Beginning Inventory ≈ Current Inventory - Net Imports (Imports - Exports)
+    const netInventoryChange = importedStockCost - exportedStockValueAmount;
+    const beginningInventoryValue = Math.max(0, inventoryValue - netInventoryChange);
+
+    // COGS Calculation (Backend-driven):
+    // COGS = Beginning Inventory + Purchases (Imports) - Ending Inventory
+    // OR: COGS = Cost of products sold (from sales) - this is more accurate
+    // We use the sales-based COGS as it's more accurate for actual goods sold
+    const cogsFromInventoryMethod = beginningInventoryValue + importedStockCost - inventoryValue;
+    
+    // Use sales-based COGS (more accurate) but include inventory context
+    const finalCogs = cogs; // Already calculated from sales
+
+    // Calculate inventory changes
+    const inventoryChanges = {
+      beginningInventory: beginningInventoryValue,
+      importedStockCost: importedStockCost,
+      exportedStockValue: exportedStockValueAmount,
+      endingInventory: inventoryValue,
+      netInventoryChange: netInventoryChange,
+    };
+
     // Build response
     const report = {
       summary: {
         totalRevenue,
-        cogs,
+        cogs: finalCogs,
         grossProfit,
         operatingExpenses,
         netProfit,
         grossMargin,
         netMargin,
+        // Additional P&L metrics
+        inventoryChanges,
       },
       categoryBreakdown: categoryWiseBreakdown,
       period: {
-        startDate: startDate || subMonths(new Date(), 1).toISOString(),
-        endDate: endDate || new Date().toISOString(),
+        startDate: start.toISOString(),
+        endDate: end.toISOString(),
       },
       franchise: franchise || null,
+      // Detailed breakdown for transparency
+      breakdown: {
+        revenue: {
+          totalSales: sales.length,
+          totalRevenue: totalRevenue,
+          avgOrderValue: sales.length > 0 ? totalRevenue / sales.length : 0,
+        },
+        cogs: {
+          cogsFromSales: cogs,
+          cogsFromInventoryMethod: cogsFromInventoryMethod,
+          // Note: Sales-based COGS is more accurate as it reflects actual cost of goods sold
+        },
+        inventory: {
+          beginningValue: beginningInventoryValue,
+          importedCost: importedStockCost,
+          exportedValue: exportedStockValueAmount,
+          endingValue: inventoryValue,
+          netChange: netInventoryChange,
+        },
+      },
     };
 
+    // Check if export format is requested
+    const { format = 'json' } = req.query;
+    
+    // Create audit log entry for export (if format is excel or pdf)
+    let auditLog = null;
+    const startTime = Date.now();
+    if (format === 'excel' || format === 'pdf') {
+      const dateStr = start.toISOString().slice(0, 10);
+      const endDateStr = end.toISOString().slice(0, 10);
+      const fileName = `profit-loss-${franchise || 'all'}-${dateStr}_to_${endDateStr}.${format === 'excel' ? 'xlsx' : 'pdf'}`;
+      auditLog = new AuditLog({
+        actionType: 'export',
+        operationType: 'profit_loss',
+        fileName: fileName,
+        format: format,
+        user: user._id,
+        franchise: franchise || null,
+        totalRecords: sales.length,
+        exportedRecords: sales.length,
+        status: 'processing',
+        startedAt: new Date(),
+        requestParams: new Map(Object.entries({
+          franchise: franchise || 'all',
+          startDate: start.toISOString(),
+          endDate: end.toISOString(),
+          format: format
+        })),
+        ipAddress: req.ip || req.headers['x-forwarded-for'] || req.connection.remoteAddress,
+        userAgent: req.headers['user-agent']
+      });
+      await auditLog.save();
+    }
+    
+    if (format === 'excel') {
+      // Generate Excel export - Structured format: Table with IDs, Names, Dates, Franchise, Totals
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet('Profit & Loss Report');
+
+      // Prepare sales data for table format (sorted by date, latest first; includes order-derived sales)
+      const salesData = sales.map(sale => {
+        const saleRevenue = sale.grandTotal || 0;
+        const saleCost = sale.items?.reduce((sum, item) => 
+          sum + ((item.buyingPrice || 0) * (item.quantity || 0)), 0) || 0;
+        const saleProfit = sale.totalProfit || (saleRevenue - saleCost);
+        
+        return {
+          saleId: sale._id.toString(),
+          invoiceNo: sale.invoiceNumber || 'N/A',
+          orderNo: sale.order?.orderNumber ?? '—',
+          date: new Date(sale.createdAt).toISOString().split('T')[0],
+          dateFormatted: new Date(sale.createdAt).toLocaleDateString(),
+          franchise: sale.franchise?.name || 'N/A',
+          franchiseCode: sale.franchise?.code || 'N/A',
+          customerName: sale.customerName || 'Walk-in Customer',
+          revenue: saleRevenue,
+          cost: saleCost,
+          profit: saleProfit,
+          margin: saleRevenue > 0 ? ((saleProfit / saleRevenue) * 100) : 0,
+        };
+      }).sort((a, b) => b.date.localeCompare(a.date)); // Sort by date descending (latest first)
+
+      // Define columns - Structured format: IDs, Names, Dates, Franchise, Order #
+      worksheet.columns = [
+        { header: 'Sale ID', key: 'saleId', width: 25 },
+        { header: 'Invoice No', key: 'invoiceNo', width: 20 },
+        { header: 'Order #', key: 'orderNo', width: 18 },
+        { header: 'Date', key: 'dateFormatted', width: 12 },
+        { header: 'Franchise', key: 'franchise', width: 20 },
+        { header: 'Franchise Code', key: 'franchiseCode', width: 15 },
+        { header: 'Customer Name', key: 'customerName', width: 25 },
+        { header: 'Revenue', key: 'revenue', width: 15 },
+        { header: 'Cost', key: 'cost', width: 15 },
+        { header: 'Profit', key: 'profit', width: 15 },
+        { header: 'Margin %', key: 'margin', width: 12 },
+      ];
+
+      // Style header row
+      worksheet.getRow(1).font = { bold: true };
+      worksheet.getRow(1).fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFE0E0E0' }
+      };
+
+      // Add data rows (already sorted by date descending)
+      salesData.forEach(sale => {
+        const row = worksheet.addRow({
+          saleId: sale.saleId,
+          invoiceNo: sale.invoiceNo,
+          orderNo: sale.orderNo,
+          dateFormatted: sale.dateFormatted,
+          franchise: sale.franchise,
+          franchiseCode: sale.franchiseCode,
+          customerName: sale.customerName,
+          revenue: sale.revenue,
+          cost: sale.cost,
+          profit: sale.profit,
+          margin: sale.margin / 100, // Convert to decimal for Excel percentage format
+        });
+        
+        // Format numeric columns
+        row.getCell('revenue').numFmt = '$#,##0.00';
+        row.getCell('cost').numFmt = '$#,##0.00';
+        row.getCell('profit').numFmt = '$#,##0.00';
+        row.getCell('margin').numFmt = '0.00%';
+        
+        // Color code profit (red for negative, green for positive)
+        if (sale.profit < 0) {
+          row.getCell('profit').fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FFFFE0E0' }
+          };
+        } else {
+          row.getCell('profit').fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FFE0FFE0' }
+          };
+        }
+      });
+
+      // Add empty row before totals
+      worksheet.addRow([]);
+
+      // Add totals row at bottom
+      const totalsRow = worksheet.addRow({
+        saleId: 'TOTALS',
+        invoiceNo: '',
+        orderNo: '',
+        dateFormatted: '',
+        franchise: '',
+        franchiseCode: '',
+        customerName: '',
+        revenue: totalRevenue,
+        cost: finalCogs,
+        profit: netProfit,
+        margin: totalRevenue > 0 ? (netProfit / totalRevenue) : 0,
+      });
+
+      totalsRow.font = { bold: true };
+      totalsRow.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFD0D0D0' }
+      };
+      
+      // Format totals row numeric columns
+      totalsRow.getCell('revenue').numFmt = '$#,##0.00';
+      totalsRow.getCell('cost').numFmt = '$#,##0.00';
+      totalsRow.getCell('profit').numFmt = '$#,##0.00';
+      totalsRow.getCell('margin').numFmt = '0.00%';
+
+      // Set response headers
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', `attachment; filename=profit-loss-${franchise || 'all'}-${start.toISOString().slice(0, 10)}.xlsx`);
+
+      await workbook.xlsx.write(res);
+      res.end();
+      return;
+    } else if (format === 'pdf') {
+      // Generate PDF export - Structured format: Table with IDs, Names, Dates, Franchise, Totals
+      const doc = new PDFDocument({ margin: 50 });
+      const filename = `profit-loss-${franchise || 'all'}-${start.toISOString().slice(0, 10)}.pdf`;
+      
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename=${filename}`);
+      
+      // Track PDF generation for audit log
+      const chunks = [];
+      doc.on('data', (chunk) => chunks.push(chunk));
+      doc.on('end', async () => {
+        const buffer = Buffer.concat(chunks);
+        if (auditLog) {
+          auditLog.fileSize = buffer.length;
+          auditLog.status = 'completed';
+          auditLog.completedAt = new Date();
+          auditLog.duration = Date.now() - startTime;
+          auditLog.exportedRecords = sales.length;
+          await auditLog.save().catch(console.error);
+        }
+      });
+      
+      doc.pipe(res);
+
+      // Title
+      doc.fontSize(20).text('Profit & Loss Statement', { align: 'center' });
+      doc.moveDown();
+      doc.fontSize(12).text(`Period: ${start.toLocaleDateString()} to ${end.toLocaleDateString()}`, { align: 'center' });
+      if (franchise) {
+        doc.text(`Franchise: ${franchise}`, { align: 'center' });
+      }
+      doc.fontSize(9).fillColor('#555555').text('Revenue includes sales from delivered online orders.', { align: 'center' });
+      doc.fillColor('#000000').moveDown(2);
+
+      // Prepare sales data for table (sorted by date, latest first; includes order-derived sales)
+      const salesData = sales.map(sale => {
+        const saleRevenue = sale.grandTotal || 0;
+        const saleCost = sale.items?.reduce((sum, item) => 
+          sum + ((item.buyingPrice || 0) * (item.quantity || 0)), 0) || 0;
+        const saleProfit = sale.totalProfit || (saleRevenue - saleCost);
+        
+        return {
+          saleId: sale._id.toString().substring(0, 12) + '...',
+          invoiceNo: sale.invoiceNumber || 'N/A',
+          orderNo: sale.order?.orderNumber ?? '—',
+          date: new Date(sale.createdAt).toLocaleDateString(),
+          dateSort: new Date(sale.createdAt).toISOString(),
+          franchise: sale.franchise?.name || 'N/A',
+          franchiseCode: sale.franchise?.code || 'N/A',
+          customerName: (sale.customerName || 'Walk-in').substring(0, 15),
+          revenue: saleRevenue,
+          cost: saleCost,
+          profit: saleProfit,
+          margin: saleRevenue > 0 ? ((saleProfit / saleRevenue) * 100) : 0,
+        };
+      }).sort((a, b) => b.dateSort.localeCompare(a.dateSort)); // Sort by date descending
+
+      // Table header - Structured format: IDs, Names, Dates, Franchise, Order #
+      let y = doc.y;
+      doc.fontSize(10);
+      const colWidths = [45, 50, 42, 42, 50, 40, 45, 45, 45, 45, 40];
+      const headers = ['Sale ID', 'Invoice', 'Order #', 'Date', 'Franchise', 'Code', 'Customer', 'Revenue', 'Cost', 'Profit', 'Margin'];
+      
+      // Draw header background
+      doc.rect(50, y, 500, 20).fill('#E0E0E0');
+      
+      // Draw header text
+      let xPos = 55;
+      headers.forEach((header, i) => {
+        doc.fillColor('#000000')
+          .fontSize(9)
+          .font('Helvetica-Bold')
+          .text(header, xPos, y + 5, { width: colWidths[i], align: 'left' });
+        xPos += colWidths[i];
+      });
+      y += 25;
+      doc.moveTo(50, y).lineTo(550, y).stroke();
+      y += 5;
+
+      // Draw table rows (sorted by date descending)
+      salesData.forEach((sale, index) => {
+        if (y > 700) {
+          doc.addPage();
+          y = 50;
+        }
+        
+        // Alternate row colors
+        if (index % 2 === 0) {
+          doc.rect(50, y, 500, 18).fill('#F5F5F5');
+        }
+        
+        // Draw row data
+        xPos = 55;
+        const rowData = [
+          sale.saleId,
+          sale.invoiceNo.substring(0, 10),
+          (sale.orderNo || '—').toString().substring(0, 10),
+          sale.date,
+          sale.franchise.substring(0, 10),
+          sale.franchiseCode,
+          sale.customerName,
+          `$${sale.revenue.toFixed(2)}`,
+          `$${sale.cost.toFixed(2)}`,
+          `$${sale.profit.toFixed(2)}`,
+          `${sale.margin.toFixed(1)}%`,
+        ];
+        
+        rowData.forEach((data, i) => {
+          doc.fillColor(sale.profit < 0 && i === 8 ? '#FF0000' : '#000000')
+            .fontSize(8)
+            .font('Helvetica')
+            .text(data || '', xPos, y + 3, { width: colWidths[i], align: 'left' });
+          xPos += colWidths[i];
+        });
+        
+        y += 18;
+      });
+
+      // Draw totals row at bottom
+      if (y > 700) {
+        doc.addPage();
+        y = 50;
+      }
+      
+      doc.rect(50, y, 500, 20).fill('#D0D0D0');
+      doc.font('Helvetica-Bold').fontSize(9);
+      xPos = 55;
+      const totalsData = [
+        'TOTALS',
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+        `$${totalRevenue.toFixed(2)}`,
+        `$${finalCogs.toFixed(2)}`,
+        `$${netProfit.toFixed(2)}`,
+        `${netMargin.toFixed(1)}%`,
+      ];
+      
+      totalsData.forEach((data, i) => {
+        doc.text(data || '', xPos, y + 5, { width: colWidths[i], align: 'left' });
+        xPos += colWidths[i];
+      });
+
+      doc.end();
+      return;
+    }
+
+    // Default: return JSON
     res.status(200).json({
       success: true,
       data: report,
     });
   } catch (error) {
     console.error('Error generating profit & loss report:', error);
+    
+    // Update audit log on error
+    if (auditLog) {
+      auditLog.status = 'failed';
+      auditLog.completedAt = new Date();
+      auditLog.duration = Date.now() - (auditLog.startedAt?.getTime() || Date.now());
+      auditLog.errors.push({
+        row: 0,
+        field: 'export',
+        message: error.message || 'Export failed',
+        value: null
+      });
+      await auditLog.save().catch(console.error);
+    }
+    
     res.status(500).json({
       success: false,
       message: 'Failed to generate profit & loss report',

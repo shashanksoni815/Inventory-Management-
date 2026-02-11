@@ -1,22 +1,11 @@
-import React, { useState } from 'react';
-import {
-  Share2,
-  Package,
-  Globe,
-  Building,
-  Check,
-  X,
-  Search,
-  Filter,
-  RefreshCw
-} from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Share2, Package, Globe, Building, Search, RefreshCw } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { productApi, franchiseApi } from '../../services/api';
+import { productApi } from '../../services/api';
 import { useFranchise } from '../../contexts/FranchiseContext';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Select } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 
@@ -28,7 +17,7 @@ const SharedProductsManager: React.FC = () => {
   const [search, setSearch] = useState('');
 
   // Fetch global products from current franchise
-  const { data: products, isLoading } = useQuery({
+  const { data: productsData, isLoading } = useQuery({
     queryKey: ['global-products', currentFranchise?._id],
     queryFn: () => productApi.getAll({
       franchise: currentFranchise?._id,
@@ -72,9 +61,18 @@ const SharedProductsManager: React.FC = () => {
     });
   };
 
+  const productList = (productsData as any)?.products || [];
+  const selectAllCheckboxRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const el = selectAllCheckboxRef.current;
+    if (!el) return;
+    el.indeterminate = selectedProducts.length > 0 && selectedProducts.length < productList.length;
+  }, [selectedProducts.length, productList.length]);
+
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      setSelectedProducts((products?.data || []).map((p: any) => p._id));
+      setSelectedProducts(productList.map((p: any) => p._id));
     } else {
       setSelectedProducts([]);
     }
@@ -87,8 +85,6 @@ const SharedProductsManager: React.FC = () => {
       setSelectedProducts(prev => prev.filter(id => id !== productId));
     }
   };
-
-  const productList = products?.data || [];
 
   return (
     <div className="space-y-6">
@@ -129,28 +125,37 @@ const SharedProductsManager: React.FC = () => {
             <label className="block text-sm font-medium text-gray-700 mb-2">
               With Franchise
             </label>
-            <Select
+            <select
               value={targetFranchise}
-              onChange={setTargetFranchise}
-              options={[
-                { value: '', label: 'Select franchise...', disabled: true },
-                ...availableFranchises.map(f => ({
-                  value: f._id,
-                  label: `${f.name} (${f.code})`
-                }))
-              ]}
-            />
+              onChange={(e) => setTargetFranchise(e.target.value)}
+              className="flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+            >
+              <option value="">Select franchise...</option>
+              {availableFranchises.map((f) => (
+                <option key={f._id} value={f._id}>
+                  {f.name} ({f.code})
+                </option>
+              ))}
+            </select>
           </div>
           
           <div className="flex items-end">
             <Button
               onClick={handleShare}
               disabled={selectedProducts.length === 0 || !targetFranchise || shareMutation.isPending}
-              loading={shareMutation.isPending}
               className="w-full"
             >
-              <Share2 className="h-4 w-4 mr-2" />
-              Share Products
+              {shareMutation.isPending ? (
+                <span className="inline-flex items-center gap-2">
+                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                  Sharing...
+                </span>
+              ) : (
+                <>
+                  <Share2 className="h-4 w-4 mr-2" />
+                  Share Products
+                </>
+              )}
             </Button>
           </div>
         </div>
@@ -175,9 +180,9 @@ const SharedProductsManager: React.FC = () => {
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase w-12">
                   <Checkbox
+                    ref={selectAllCheckboxRef}
                     checked={selectedProducts.length === productList.length && productList.length > 0}
-                    indeterminate={selectedProducts.length > 0 && selectedProducts.length < productList.length}
-                    onChange={handleSelectAll}
+                    onChange={(e) => handleSelectAll(e.target.checked)}
                   />
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
@@ -223,9 +228,9 @@ const SharedProductsManager: React.FC = () => {
                   <tr key={product._id} className="hover:bg-gray-50">
                     {/* Checkbox */}
                     <td className="px-6 py-4">
-                      <Checkbox
+                        <Checkbox
                         checked={selectedProducts.includes(product._id)}
-                        onChange={(checked) => handleSelectProduct(product._id, checked)}
+                        onChange={(e) => handleSelectProduct(product._id, e.target.checked)}
                       />
                     </td>
 

@@ -14,6 +14,8 @@ import {
 } from 'lucide-react';
 import type { Product, ProductCategory } from '@/types';
 import { cn, calculateProfit } from '@/lib/utils';
+import { useQuery } from '@tanstack/react-query';
+import { franchiseApi } from '@/services/api';
 
 const productSchema = z.object({
   sku: z
@@ -29,6 +31,7 @@ const productSchema = z.object({
   stockQuantity: z.number().min(0, 'Stock cannot be negative').int(),
   minimumStock: z.number().min(0, 'Minimum stock cannot be negative').int(),
   images: z.array(z.object({ url: z.string(), publicId: z.string() })).optional(),
+  franchise: z.string().min(1, 'Franchise is required'),
 });
 
 type ProductFormData = z.infer<typeof productSchema>;
@@ -76,17 +79,33 @@ const ProductForm: React.FC<ProductFormProps> = ({
         }
       : {
           sku: '',
+          name: '',
           category: 'Electronics',
           buyingPrice: 0,
           sellingPrice: 0,
           stockQuantity: 0,
           minimumStock: 10,
+          franchise: '',
         },
     mode: 'onChange',
   });
 
   const buyingPrice = watch('buyingPrice');
   const sellingPrice = watch('sellingPrice');
+
+  // Load franchises for required selection
+  const { data: franchisesData } = useQuery({
+    queryKey: ['franchises'],
+    queryFn: () => franchiseApi.getAll(),
+  });
+
+  const franchises = React.useMemo(() => {
+    const data = franchisesData as any;
+    if (!data) return [] as any[];
+    if (Array.isArray(data)) return data;
+    if (Array.isArray(data.franchises)) return data.franchises;
+    return [] as any[];
+  }, [franchisesData]);
 
   // Calculate profit on price changes
   React.useEffect(() => {
@@ -119,10 +138,21 @@ const ProductForm: React.FC<ProductFormProps> = ({
   }, []);
 
   const handleFormSubmit = async (data: ProductFormData) => {
-    await onSubmit({
-      ...data,
+    const payload: any = {
+      name: data.name,
+      sku: data.sku,
+      category: data.category,
+      brand: data.brand,
+      description: data.description,
+      buyingPrice: data.buyingPrice,
+      sellingPrice: data.sellingPrice,
+      stock: data.stockQuantity,
+      minimumStock: data.minimumStock,
+      franchise: data.franchise,
       images: images.map(url => ({ url, publicId: '' })),
-    } as ProductFormData);
+    };
+
+    await onSubmit(payload);
   };
 
   const steps = [
@@ -259,6 +289,28 @@ const ProductForm: React.FC<ProductFormProps> = ({
                         </p>
                       )}
                     </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Franchise *
+                      </label>
+                      <select
+                        {...register('franchise')}
+                        className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                      >
+                        <option value="">Select a franchise</option>
+                        {franchises.map((f: any) => (
+                          <option key={f._id} value={f._id}>
+                            {f.name} {f.code ? `(${f.code})` : ''}
+                          </option>
+                        ))}
+                      </select>
+                      {errors.franchise && (
+                        <p className="mt-1 text-sm text-red-600">
+                          {errors.franchise.message}
+                        </p>
+                      )}
+                    </div>
                   </div>
 
                   <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
@@ -362,7 +414,7 @@ const ProductForm: React.FC<ProductFormProps> = ({
                       </label>
                       <div className="relative">
                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">
-                          $
+                        ₹
                         </span>
                         <input
                           {...register('buyingPrice', { valueAsNumber: true })}
@@ -385,7 +437,7 @@ const ProductForm: React.FC<ProductFormProps> = ({
                       </label>
                       <div className="relative">
                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">
-                          $
+                          ₹
                         </span>
                         <input
                           {...register('sellingPrice', { valueAsNumber: true })}
@@ -438,7 +490,7 @@ const ProductForm: React.FC<ProductFormProps> = ({
                               : 'text-red-600'
                           )}
                         >
-                          ${profitData.profit.toFixed(2)}
+                          ₹{profitData.profit.toFixed(2)}
                         </p>
                       </div>
                       <div className="text-center">
@@ -446,7 +498,7 @@ const ProductForm: React.FC<ProductFormProps> = ({
                           Revenue per Unit
                         </p>
                         <p className="text-2xl font-bold text-gray-900">
-                          ${profitData.revenue.toFixed(2)}
+                          ₹{profitData.revenue.toFixed(2)}
                         </p>
                       </div>
                     </div>
@@ -549,7 +601,7 @@ const ProductForm: React.FC<ProductFormProps> = ({
                             Inventory Value
                           </p>
                           <p className="text-xl font-bold text-blue-700 dark:text-blue-300">
-                            $
+                            ₹
                             {((watch('stockQuantity') || 0) * (watch('buyingPrice') || 0)).toFixed(
                               2
                             )}
@@ -560,7 +612,7 @@ const ProductForm: React.FC<ProductFormProps> = ({
                             Potential Revenue
                           </p>
                           <p className="text-xl font-bold text-green-700 dark:text-green-300">
-                            $
+                            ₹
                             {((watch('stockQuantity') || 0) * (watch('sellingPrice') || 0)).toFixed(
                               2
                             )}
@@ -600,11 +652,11 @@ const ProductForm: React.FC<ProductFormProps> = ({
                       <div className="grid grid-cols-2 gap-4">
                         <div>
                           <p className="text-sm text-gray-500">Buying Price</p>
-                          <p className="font-medium">${watch('buyingPrice')?.toFixed(2) || '0.00'}</p>
+                          <p className="font-medium">₹{watch('buyingPrice')?.toFixed(2) || '0.00'}</p>
                         </div>
                         <div>
                           <p className="text-sm text-gray-500">Selling Price</p>
-                          <p className="font-medium">${watch('sellingPrice')?.toFixed(2) || '0.00'}</p>
+                          <p className="font-medium">₹{watch('sellingPrice')?.toFixed(2) || '0.00'}</p>
                         </div>
                       </div>
 

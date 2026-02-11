@@ -9,7 +9,7 @@
  */
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Shield, FileText, FileSpreadsheet, DollarSign, TrendingUp, Receipt, Store, ShoppingCart, Package, ArrowDownToLine, ArrowUpFromLine, BarChart3, ChevronUp, ChevronDown, Truck, AlertTriangle, TrendingDown, PackageX, PieChart } from 'lucide-react';
+import { Shield, FileText, FileSpreadsheet, IndianRupee, TrendingUp, Receipt, Store, ShoppingCart, Package, ArrowDownToLine, ArrowUpFromLine, BarChart3, ChevronUp, ChevronDown, Truck, AlertTriangle, TrendingDown, PackageX, PieChart } from 'lucide-react';
 import {
   AreaChart,
   Area,
@@ -40,7 +40,7 @@ function getStatus(row: FranchisePerformanceRow): PerfStatus {
 type TimeRange = '7d' | '30d' | '90d' | '1y';
 
 const KPI_CARDS: { key: keyof AdminKpis; title: string; description: string; icon: React.ElementType; format: 'currency' | 'number'; profitLoss?: boolean }[] = [
-  { key: 'totalRevenue', title: 'Total Revenue', description: 'Sum of all franchise sales', icon: DollarSign, format: 'currency' },
+  { key: 'totalRevenue', title: 'Total Revenue', description: 'Sum of all franchise sales', icon: IndianRupee, format: 'currency' },
   { key: 'totalProfit', title: 'Total Profit', description: 'Net profit across all outlets', icon: TrendingUp, format: 'currency', profitLoss: true },
   { key: 'totalSales', title: 'Total Sales', description: 'Count of all invoices', icon: Receipt, format: 'number' },
   { key: 'activeFranchises', title: 'Active Franchises', description: 'Franchises with sales in range', icon: Store, format: 'number' },

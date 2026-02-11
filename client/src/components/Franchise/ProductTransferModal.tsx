@@ -1,17 +1,10 @@
 import React, { useState } from 'react';
-import { 
-  X, 
-  ArrowRightLeft, 
-  Package,
-  AlertCircle,
-  Check
-} from 'lucide-react';
+import { X, ArrowRightLeft, Package, AlertCircle } from 'lucide-react';
 import { useFranchise } from '../../contexts/FranchiseContext';
-import { useMutation, useQuery } from '@tanstack/react-query';
-import { productApi, franchiseApi } from '../../services/api';
+import { useMutation } from '@tanstack/react-query';
+import { productApi } from '../../services/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Select } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 
 interface ProductTransferModalProps {
@@ -148,21 +141,21 @@ const ProductTransferModal: React.FC<ProductTransferModalProps> = ({
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Transfer To
               </label>
-              <Select
+              <select
                 value={transferData.toFranchiseId}
-                onChange={(value) => setTransferData(prev => ({ 
-                  ...prev, 
-                  toFranchiseId: value 
+                onChange={(e) => setTransferData(prev => ({
+                  ...prev,
+                  toFranchiseId: e.target.value,
                 }))}
-                options={[
-                  { value: '', label: 'Select a franchise', disabled: true },
-                  ...availableFranchises.map(f => ({
-                    value: f._id,
-                    label: `${f.name} (${f.code})`,
-                    subLabel: f.location
-                  }))
-                ]}
-              />
+                className="flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+              >
+                <option value="">Select a franchise</option>
+                {availableFranchises.map((f) => (
+                  <option key={f._id} value={f._id}>
+                    {f.name} ({f.code})
+                  </option>
+                ))}
+              </select>
             </div>
 
             {/* Quantity */}
@@ -250,7 +243,7 @@ const ProductTransferModal: React.FC<ProductTransferModalProps> = ({
             {/* Error Message */}
             {transferData.quantity > product.stockQuantity && (
               <div className="p-3 bg-red-50 rounded-lg border border-red-200 flex items-start space-x-2">
-                <AlertCircle className="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" />
+                <AlertCircle className="h-5 w-5 text-red-500 shrink-0 mt-0.5" />
                 <div className="text-sm text-red-700">
                   Cannot transfer more than available stock. 
                   Available: {product.stockQuantity}
@@ -277,10 +270,18 @@ const ProductTransferModal: React.FC<ProductTransferModalProps> = ({
                   transferData.quantity > product.stockQuantity ||
                   transferMutation.isPending
                 }
-                loading={transferMutation.isPending}
               >
-                <ArrowRightLeft className="h-4 w-4 mr-2" />
-                Confirm Transfer
+                {transferMutation.isPending ? (
+                  <span className="inline-flex items-center gap-2">
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                    Confirming...
+                  </span>
+                ) : (
+                  <>
+                    <ArrowRightLeft className="h-4 w-4 mr-2" />
+                    Confirm Transfer
+                  </>
+                )}
               </Button>
             </div>
           </div>

@@ -9,7 +9,7 @@ import {
   Filter,
   Download,
   ArrowUpRight,
-  ArrowDownRight
+  ArrowDownRight,
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { transferApi } from '../../services/api';
@@ -17,9 +17,14 @@ import { useFranchise } from '../../contexts/FranchiseContext';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Select } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import TransferDetailsModal from './TransferDetailsModal';
+
+/** Response shape from GET /transfers (backend returns { success, data }) */
+interface TransfersListResponse {
+  success?: boolean;
+  data?: any[];
+}
 
 const TransferManagement: React.FC = () => {
   const { currentFranchise, isNetworkView } = useFranchise();
@@ -28,21 +33,28 @@ const TransferManagement: React.FC = () => {
     search: '',
     direction: 'all',
     page: 1,
-    limit: 20
+    limit: 20,
   });
   const [selectedTransfer, setSelectedTransfer] = useState<any>(null);
 
-  const { data: transfers, isLoading } = useQuery({
+  const { data: transfersResponse, isLoading } = useQuery({
     queryKey: ['transfers', currentFranchise?._id, filters],
-    queryFn: () => transferApi.getAll({
-      franchise: currentFranchise?._id,
-      ...filters
-    }),
+    queryFn: async () => {
+      const res = await transferApi.getAll({
+        franchise: currentFranchise?._id ?? undefined,
+        ...(filters.status !== 'all' && { status: filters.status }),
+        ...(filters.direction !== 'all' && {
+          ...(filters.direction === 'outgoing' && { fromFranchise: currentFranchise?._id }),
+          ...(filters.direction === 'incoming' && { toFranchise: currentFranchise?._id }),
+        }),
+      });
+      return res as TransfersListResponse;
+    },
     enabled: !isNetworkView,
   });
 
-  const transferList = transfers?.data || [];
-  const pagination = transfers?.pagination;
+  const transferList = transfersResponse?.data ?? [];
+  const pagination = (transfersResponse as any)?.pagination as { page?: number; pages?: number; total?: number; limit?: number } | undefined;
 
   const handleFilterChange = (key: string, value: any) => {
     setFilters(prev => ({ ...prev, [key]: value, page: 1 }));
@@ -135,34 +147,34 @@ const TransferManagement: React.FC = () => {
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Status
             </label>
-            <Select
+            <select
               value={filters.status}
-              onChange={(value) => handleFilterChange('status', value)}
-              options={[
-                { value: 'all', label: 'All Status' },
-                { value: 'pending', label: 'Pending' },
-                { value: 'approved', label: 'Approved' },
-                { value: 'in_transit', label: 'In Transit' },
-                { value: 'completed', label: 'Completed' },
-                { value: 'rejected', label: 'Rejected' },
-                { value: 'cancelled', label: 'Cancelled' }
-              ]}
-            />
+              onChange={(e) => handleFilterChange('status', e.target.value)}
+              className="h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+            >
+              <option value="all">All Status</option>
+              <option value="pending">Pending</option>
+              <option value="approved">Approved</option>
+              <option value="in_transit">In Transit</option>
+              <option value="completed">Completed</option>
+              <option value="rejected">Rejected</option>
+              <option value="cancelled">Cancelled</option>
+            </select>
           </div>
-          
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Direction
             </label>
-            <Select
+            <select
               value={filters.direction}
-              onChange={(value) => handleFilterChange('direction', value)}
-              options={[
-                { value: 'all', label: 'All Directions' },
-                { value: 'outgoing', label: 'Outgoing' },
-                { value: 'incoming', label: 'Incoming' }
-              ]}
-            />
+              onChange={(e) => handleFilterChange('direction', e.target.value)}
+              className="h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+            >
+              <option value="all">All Directions</option>
+              <option value="outgoing">Outgoing</option>
+              <option value="incoming">Incoming</option>
+            </select>
           </div>
           
           <div>
@@ -336,31 +348,31 @@ const TransferManagement: React.FC = () => {
           </table>
         </div>
 
-        {/* Pagination */}
-        {pagination && pagination.pages > 1 && (
+        {/* Pagination - backend does not return pagination; show when we add server-side pagination later */}
+        {pagination && (pagination.pages ?? 0) > 1 && (
           <div className="px-6 py-4 border-t border-gray-200">
             <div className="flex items-center justify-between">
               <div className="text-sm text-gray-700">
                 Showing <span className="font-medium">{((filters.page - 1) * filters.limit) + 1}</span> to{' '}
                 <span className="font-medium">
-                  {Math.min(filters.page * filters.limit, pagination.total)}
+                  {Math.min(filters.page * filters.limit, pagination.total ?? 0)}
                 </span> of{' '}
-                <span className="font-medium">{pagination.total}</span> results
+                <span className="font-medium">{pagination.total ?? 0}</span> results
               </div>
               <div className="flex space-x-2">
                 <Button
                   variant="outline"
                   size="sm"
                   disabled={filters.page === 1}
-                  onClick={() => handleFilterChange('page', filters.page - 1)}
+                  onClick={() => handleFilterChange('page', (filters.page ?? 1) - 1)}
                 >
                   Previous
                 </Button>
                 <Button
                   variant="outline"
                   size="sm"
-                  disabled={filters.page === pagination.pages}
-                  onClick={() => handleFilterChange('page', filters.page + 1)}
+                  disabled={filters.page === (pagination.pages ?? 1)}
+                  onClick={() => handleFilterChange('page', (filters.page ?? 1) + 1)}
                 >
                   Next
                 </Button>
