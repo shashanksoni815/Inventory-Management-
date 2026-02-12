@@ -102,6 +102,51 @@ const FranchiseDashboard: React.FC = () => {
     return start.toISOString();
   }
 
+  // Fetch comparison sales data (today vs yesterday, this week vs last week)
+  const { data: comparisonSalesData } = useQuery({
+    queryKey: ['franchise-sales-comparison', franchiseId],
+    queryFn: async () => {
+      if (!franchiseId) return null;
+      
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const yesterday = new Date(today);
+      yesterday.setDate(yesterday.getDate() - 1);
+      
+      const thisWeekStart = new Date(today);
+      thisWeekStart.setDate(today.getDate() - today.getDay()); // Start of week (Sunday)
+      const lastWeekStart = new Date(thisWeekStart);
+      lastWeekStart.setDate(lastWeekStart.getDate() - 7);
+      const lastWeekEnd = new Date(thisWeekStart);
+      lastWeekEnd.setDate(lastWeekEnd.getDate() - 1);
+      
+      const [todaySales, yesterdaySales, thisWeekSales, lastWeekSales] = await Promise.all([
+        saleApi.getAll({ franchise: franchiseId, startDate: today.toISOString(), endDate: now.toISOString() }),
+        saleApi.getAll({ franchise: franchiseId, startDate: yesterday.toISOString(), endDate: new Date(yesterday.getTime() + 24 * 60 * 60 * 1000 - 1).toISOString() }),
+        saleApi.getAll({ franchise: franchiseId, startDate: thisWeekStart.toISOString(), endDate: now.toISOString() }),
+        saleApi.getAll({ franchise: franchiseId, startDate: lastWeekStart.toISOString(), endDate: lastWeekEnd.toISOString() }),
+      ]);
+      
+      const calculateStats = (salesData: any) => {
+        const sales = Array.isArray(salesData) ? salesData : (salesData as { sales?: any[] })?.sales || [];
+        const revenue = sales.reduce((sum: number, sale: any) => sum + (sale.grandTotal || 0), 0);
+        const profit = sales.reduce((sum: number, sale: any) => sum + (sale.totalProfit || 0), 0);
+        const count = sales.length;
+        return { revenue, profit, count };
+      };
+      
+      return {
+        today: calculateStats(todaySales),
+        yesterday: calculateStats(yesterdaySales),
+        thisWeek: calculateStats(thisWeekSales),
+        lastWeek: calculateStats(lastWeekSales),
+      };
+    },
+    enabled: !!franchiseId,
+    staleTime: 1 * 60 * 1000, // 1 minute - comparison data updates frequently
+    refetchOnWindowFocus: false,
+  });
+
   // Fetch franchise details — use franchiseId from URL as-is (do NOT parse or transform)
   const {
     data: franchiseData,
@@ -116,17 +161,31 @@ const FranchiseDashboard: React.FC = () => {
     },
     enabled: !!franchiseId,
     retry: false, // Do not retry 404/unauthorized
+    staleTime: 5 * 60 * 1000, // 5 minutes - franchise data doesn't change often
+    refetchOnWindowFocus: false,
   });
 
-  // Fetch sales data filtered by franchise (outlet)
+  // Fetch franchise dashboard data (includes aggregated sales stats)
+  const { data: dashboardData } = useQuery({
+    queryKey: ['franchise-dashboard', franchiseId, timeRange],
+    queryFn: () => franchiseApi.getDashboard(franchiseId!, { period: timeRange }),
+    enabled: !!franchiseId,
+    staleTime: 2 * 60 * 1000, // 2 minutes - dashboard data can be cached
+    refetchOnWindowFocus: false,
+  });
+
+  // Fetch detailed sales data for charts and recent sales
   const { data: salesData } = useQuery({
     queryKey: ['franchise-sales', franchiseId, timeRange],
     queryFn: () => saleApi.getAll({
       startDate: getStartDate(timeRange),
       endDate: new Date().toISOString(),
       franchise: franchiseId,
+      limit: 1000, // Get more sales for detailed analysis
     }),
     enabled: !!franchiseId,
+    staleTime: 1 * 60 * 1000, // 1 minute - sales data updates frequently
+    refetchOnWindowFocus: false,
   });
 
   // Fetch product analytics
@@ -134,6 +193,8 @@ const FranchiseDashboard: React.FC = () => {
     queryKey: ['franchise-product-analytics', franchiseId, timeRange],
     queryFn: () => productApi.getAnalytics(franchiseId!, timeRange),
     enabled: !!franchiseId,
+    staleTime: 2 * 60 * 1000, // 2 minutes - analytics can be cached
+    refetchOnWindowFocus: false,
   });
 
   // Fetch orders summary for franchise dashboard (interceptor returns unwrapped data)
@@ -141,6 +202,8 @@ const FranchiseDashboard: React.FC = () => {
     queryKey: ['franchise-orders-summary', franchiseId],
     queryFn: () => franchiseApi.getOrdersSummary(franchiseId!),
     enabled: !!franchiseId,
+    staleTime: 1 * 60 * 1000, // 1 minute - orders update frequently
+    refetchOnWindowFocus: false,
   });
   const ordersSummary = ordersSummaryData as FranchiseOrdersSummary | undefined;
 
@@ -151,8 +214,32 @@ const FranchiseDashboard: React.FC = () => {
     ? (productAnalytics as { data?: any }).data
     : (productAnalytics || {});
 
-  // Calculate sales summary
+  // Use dashboard data for sales summary if available, otherwise calculate from sales array
   const salesSummary = useMemo(() => {
+    const dashboardSalesData = dashboardData as any;
+    if (dashboardSalesData?.sales) {
+      const dashboardSales = dashboardSalesData.sales;
+      // Calculate totalCost from sales array for P&L
+      const totalCost = sales.reduce((sum, sale) => {
+        const saleCost = sale.items?.reduce((itemSum: number, item: any) => 
+          itemSum + ((item.buyingPrice || 0) * (item.quantity || 0)), 0) || 0;
+        return sum + saleCost;
+      }, 0);
+      const profitMargin = dashboardSales.totalRevenue > 0 
+        ? ((dashboardSales.totalProfit / dashboardSales.totalRevenue) * 100) 
+        : 0;
+      
+      return {
+        totalRevenue: dashboardSales.totalRevenue,
+        totalProfit: dashboardSales.totalProfit,
+        totalCost,
+        totalSales: dashboardSales.totalSales,
+        avgOrderValue: dashboardSales.avgOrderValue,
+        profitMargin,
+      };
+    }
+    
+    // Fallback: calculate from sales array
     const totalRevenue = sales.reduce((sum, sale) => sum + (sale.grandTotal || 0), 0);
     const totalProfit = sales.reduce((sum, sale) => sum + (sale.totalProfit || 0), 0);
     const totalCost = sales.reduce((sum, sale) => {
@@ -165,7 +252,7 @@ const FranchiseDashboard: React.FC = () => {
     const profitMargin = totalRevenue > 0 ? ((totalProfit / totalRevenue) * 100) : 0;
     
     return { totalRevenue, totalProfit, totalCost, totalSales, avgOrderValue, profitMargin };
-  }, [sales]);
+  }, [sales, dashboardData]);
 
   // Prepare sales trend data
   const salesTrendData = useMemo(() => {
@@ -493,6 +580,9 @@ const FranchiseDashboard: React.FC = () => {
             icon={DollarSign}
             format="currency"
             color="default"
+            description={comparisonSalesData && comparisonSalesData.yesterday.revenue > 0 ? 
+              `Today: ₹${comparisonSalesData.today.revenue.toLocaleString()} (${((comparisonSalesData.today.revenue / comparisonSalesData.yesterday.revenue - 1) * 100).toFixed(1)}% vs yesterday)` : 
+              comparisonSalesData ? `Today: ₹${comparisonSalesData.today.revenue.toLocaleString()}` : undefined}
           />
           <KpiCard
             title="Total Profit"
@@ -500,6 +590,9 @@ const FranchiseDashboard: React.FC = () => {
             icon={TrendingUp}
             format="currency"
             color={salesSummary.totalProfit >= 0 ? 'profit' : 'loss'}
+            description={comparisonSalesData && comparisonSalesData.yesterday.profit > 0 ? 
+              `Today: ₹${comparisonSalesData.today.profit.toLocaleString()} (${((comparisonSalesData.today.profit / comparisonSalesData.yesterday.profit - 1) * 100).toFixed(1)}% vs yesterday)` : 
+              comparisonSalesData ? `Today: ₹${comparisonSalesData.today.profit.toLocaleString()}` : undefined}
           />
           <KpiCard
             title="Total Sales"
@@ -507,6 +600,9 @@ const FranchiseDashboard: React.FC = () => {
             icon={ShoppingCart}
             format="number"
             color="default"
+            description={comparisonSalesData && comparisonSalesData.yesterday.count > 0 ? 
+              `Today: ${comparisonSalesData.today.count} sales (${((comparisonSalesData.today.count / comparisonSalesData.yesterday.count - 1) * 100).toFixed(1)}% vs yesterday)` : 
+              comparisonSalesData ? `Today: ${comparisonSalesData.today.count} sales` : undefined}
           />
           <KpiCard
             title="Profit Margin"
@@ -514,8 +610,86 @@ const FranchiseDashboard: React.FC = () => {
             icon={BarChart3}
             format="percent"
             color={salesSummary.profitMargin >= 20 ? 'profit' : salesSummary.profitMargin >= 10 ? 'default' : 'loss'}
+            description={comparisonSalesData && comparisonSalesData.thisWeek.revenue > 0 && comparisonSalesData.lastWeek.revenue > 0 ? 
+              `This week: ${((comparisonSalesData.thisWeek.profit / comparisonSalesData.thisWeek.revenue) * 100).toFixed(1)}% (${((comparisonSalesData.thisWeek.profit / comparisonSalesData.lastWeek.profit - 1) * 100).toFixed(1)}% vs last week)` : undefined}
           />
         </div>
+
+        {/* Sales Comparison Cards */}
+        {comparisonSalesData && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="bg-white rounded-xl border border-gray-200 p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Today vs Yesterday</h3>
+              <div className="space-y-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-600">Revenue</span>
+                  <div className="text-right">
+                    <span className="font-semibold text-gray-900">₹{comparisonSalesData.today.revenue.toLocaleString()}</span>
+                    {comparisonSalesData.yesterday.revenue > 0 && (
+                      <span className={cn(
+                        'ml-2 text-sm',
+                        comparisonSalesData.today.revenue >= comparisonSalesData.yesterday.revenue ? 'text-green-600' : 'text-red-600'
+                      )}>
+                        {comparisonSalesData.today.revenue >= comparisonSalesData.yesterday.revenue ? '↑' : '↓'} 
+                        {Math.abs(((comparisonSalesData.today.revenue / comparisonSalesData.yesterday.revenue - 1) * 100)).toFixed(1)}%
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-600">Sales Count</span>
+                  <div className="text-right">
+                    <span className="font-semibold text-gray-900">{comparisonSalesData.today.count}</span>
+                    {comparisonSalesData.yesterday.count > 0 && (
+                      <span className={cn(
+                        'ml-2 text-sm',
+                        comparisonSalesData.today.count >= comparisonSalesData.yesterday.count ? 'text-green-600' : 'text-red-600'
+                      )}>
+                        {comparisonSalesData.today.count >= comparisonSalesData.yesterday.count ? '↑' : '↓'} 
+                        {Math.abs(((comparisonSalesData.today.count / comparisonSalesData.yesterday.count - 1) * 100)).toFixed(1)}%
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="bg-white rounded-xl border border-gray-200 p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">This Week vs Last Week</h3>
+              <div className="space-y-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-600">Revenue</span>
+                  <div className="text-right">
+                    <span className="font-semibold text-gray-900">₹{comparisonSalesData.thisWeek.revenue.toLocaleString()}</span>
+                    {comparisonSalesData.lastWeek.revenue > 0 && (
+                      <span className={cn(
+                        'ml-2 text-sm',
+                        comparisonSalesData.thisWeek.revenue >= comparisonSalesData.lastWeek.revenue ? 'text-green-600' : 'text-red-600'
+                      )}>
+                        {comparisonSalesData.thisWeek.revenue >= comparisonSalesData.lastWeek.revenue ? '↑' : '↓'} 
+                        {Math.abs(((comparisonSalesData.thisWeek.revenue / comparisonSalesData.lastWeek.revenue - 1) * 100)).toFixed(1)}%
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-600">Sales Count</span>
+                  <div className="text-right">
+                    <span className="font-semibold text-gray-900">{comparisonSalesData.thisWeek.count}</span>
+                    {comparisonSalesData.lastWeek.count > 0 && (
+                      <span className={cn(
+                        'ml-2 text-sm',
+                        comparisonSalesData.thisWeek.count >= comparisonSalesData.lastWeek.count ? 'text-green-600' : 'text-red-600'
+                      )}>
+                        {comparisonSalesData.thisWeek.count >= comparisonSalesData.lastWeek.count ? '↑' : '↓'} 
+                        {Math.abs(((comparisonSalesData.thisWeek.count / comparisonSalesData.lastWeek.count - 1) * 100)).toFixed(1)}%
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Secondary Metrics */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -541,6 +715,69 @@ const FranchiseDashboard: React.FC = () => {
             color={(salesSummary.totalRevenue - salesSummary.totalCost) >= 0 ? 'profit' : 'loss'}
           />
         </div>
+
+        {/* Top Selling Products from Sales */}
+        {((dashboardData as any)?.productPerformance && Array.isArray((dashboardData as any).productPerformance) && (dashboardData as any).productPerformance.length > 0) && (
+          <div className="bg-white rounded-xl border border-gray-200 p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Top Selling Products</h3>
+              <button
+                onClick={() => navigate('/products')}
+                className="text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1"
+              >
+                View All Products
+                <ArrowRight className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-3 text-xs font-semibold text-gray-700 uppercase">Product</th>
+                    <th className="px-4 py-3 text-xs font-semibold text-gray-700 uppercase">SKU</th>
+                    <th className="px-4 py-3 text-xs font-semibold text-gray-700 uppercase text-right">Qty Sold</th>
+                    <th className="px-4 py-3 text-xs font-semibold text-gray-700 uppercase text-right">Revenue</th>
+                    <th className="px-4 py-3 text-xs font-semibold text-gray-700 uppercase text-right">Profit</th>
+                    <th className="px-4 py-3 text-xs font-semibold text-gray-700 uppercase text-right">Margin</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {((dashboardData as any).productPerformance as Array<{
+                    productId: string;
+                    productName: string;
+                    productSku: string;
+                    revenue: number;
+                    profit: number;
+                    quantitySold: number;
+                    marginPercent: number;
+                  }>).slice(0, 10).map((product) => (
+                    <tr key={product.productId} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 text-sm font-medium text-gray-900">{product.productName}</td>
+                      <td className="px-4 py-3 text-sm text-gray-600">{product.productSku}</td>
+                      <td className="px-4 py-3 text-sm text-gray-600 text-right">{product.quantitySold}</td>
+                      <td className="px-4 py-3 text-sm font-semibold text-green-600 text-right">
+                        ₹{product.revenue.toLocaleString()}
+                      </td>
+                      <td className="px-4 py-3 text-sm font-semibold text-blue-600 text-right">
+                        ₹{product.profit.toLocaleString()}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-600 text-right">
+                        <span className={cn(
+                          'inline-flex rounded-full px-2 py-0.5 text-xs font-medium',
+                          product.marginPercent >= 30 ? 'bg-green-100 text-green-800' :
+                          product.marginPercent >= 15 ? 'bg-blue-100 text-blue-800' :
+                          'bg-orange-100 text-orange-800'
+                        )}>
+                          {product.marginPercent.toFixed(1)}%
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
 
         {/* Orders Overview */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">

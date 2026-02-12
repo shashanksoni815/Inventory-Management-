@@ -32,6 +32,7 @@ const productSchema = z.object({
   minimumStock: z.number().min(0, 'Minimum stock cannot be negative').int(),
   images: z.array(z.object({ url: z.string(), publicId: z.string() })).optional(),
   franchise: z.string().min(1, 'Franchise is required'),
+  isGlobal: z.boolean().optional(),
 });
 
 type ProductFormData = z.infer<typeof productSchema>;
@@ -76,6 +77,8 @@ const ProductForm: React.FC<ProductFormProps> = ({
           stockQuantity: product.stockQuantity,
           minimumStock: product.minimumStock,
           images: product.images ?? [],
+          franchise: product.franchise || '',
+          isGlobal: product.isGlobal || false,
         }
       : {
           sku: '',
@@ -86,6 +89,7 @@ const ProductForm: React.FC<ProductFormProps> = ({
           stockQuantity: 0,
           minimumStock: 10,
           franchise: '',
+          isGlobal: false,
         },
     mode: 'onChange',
   });
@@ -149,6 +153,7 @@ const ProductForm: React.FC<ProductFormProps> = ({
       stock: data.stockQuantity,
       minimumStock: data.minimumStock,
       franchise: data.franchise,
+      isGlobal: data.isGlobal || false,
       images: images.map(url => ({ url, publicId: '' })),
     };
 
@@ -310,6 +315,18 @@ const ProductForm: React.FC<ProductFormProps> = ({
                           {errors.franchise.message}
                         </p>
                       )}
+                    </div>
+
+                    <div className="flex items-center space-x-2">
+                      <input
+                        {...register('isGlobal')}
+                        type="checkbox"
+                        id="isGlobal"
+                        className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      />
+                      <label htmlFor="isGlobal" className="text-sm font-medium text-gray-700">
+                        Available to all franchises
+                      </label>
                     </div>
                   </div>
 

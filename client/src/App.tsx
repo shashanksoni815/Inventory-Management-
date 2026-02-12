@@ -14,13 +14,14 @@ import ErrorBoundary from './components/Common/ErrorBoundary';
 import LoadingSpinner from './components/Common/LoadingSpinner';
 import toast, { Toaster } from 'react-hot-toast';
 import { FranchiseProvider } from './contexts/FranchiseContext';
+import { AuthProvider } from './contexts/AuthContext';
+import ProtectedRoute from './components/Common/ProtectedRoute';
 import type { UserRole } from './types';
 
 // Lazy load pages
 const Login = lazy(() => import('./pages/Login'));
 const Register = lazy(() => import('./pages/Register'));
 const Layout = lazy(() => import('./components/Layout/Layout'));
-const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Products = lazy(() => import('./pages/Products'));
 const Sales = lazy(() => import('./pages/Sales'));
 const Reports = lazy(() => import('./pages/Reports'));
@@ -36,51 +37,7 @@ const Orders = lazy(() => import('./pages/Orders'));
 const OrderDetails = lazy(() => import('./pages/OrderDetails'));
 const CreateOrder = lazy(() => import('./pages/CreateOrder'));
 const OrderEdit = lazy(() => import('./pages/OrderEdit'));
-
-// Protected route wrapper
-const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const token = localStorage.getItem('token');
-  
-  if (!token) {
-    return <Navigate to="/login" replace />;
-  }
-  
-  return <>{children}</>;
-};
-
-/** Super Admin only. Franchise managers are blocked and redirected to /dashboard. */
-const AdminRoute = ({ children }: { children: React.ReactNode }) => {
-  const [allowed, setAllowed] = React.useState<boolean | null>(null);
-
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem('user');
-      const user = raw ? (JSON.parse(raw) as { role?: UserRole }) : null;
-      const role = user?.role;
-      const isSuperAdminOrAdmin = role === 'superAdmin' || role === 'admin';
-      const isFranchiseManager = role === 'franchise_manager';
-
-      if (isFranchiseManager || !isSuperAdminOrAdmin) {
-        setAllowed(false);
-        if (isFranchiseManager) {
-          toast.error('Access denied. Admin Master Dashboard is for Super Admin only.');
-        }
-      } else {
-        setAllowed(true);
-      }
-    } catch {
-      setAllowed(false);
-    }
-  }, []);
-
-  if (allowed === null) {
-    return <LoadingSpinner fullScreen />;
-  }
-  if (!allowed) {
-    return <Navigate to="/dashboard" replace />;
-  }
-  return <>{children}</>;
-};
+const Unauthorized = lazy(() => import('./pages/Unauthorized'));
 
 // Scroll to top on route change
 const ScrollToTop = () => {
@@ -98,51 +55,168 @@ function App() {
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <ThemeProvider>
-          <Router>
-            <ScrollToTop />
-            <Suspense fallback={<LoadingSpinner fullScreen />}>
-              <Routes>
-                <Route path="/login" element={<Login />} />
-                <Route path="/register" element={<Register />} />
-                <Route
-                  path="/"
-                  element={
-                    <ProtectedRoute>
-                      <FranchiseProvider>
-                        <Layout />
-                      </FranchiseProvider>
-                    </ProtectedRoute>
-                  }
-                >
-                  <Route index element={<Navigate to="/dashboard" replace />} />
-                  <Route path="dashboard" element={<Dashboard />} />
-                  <Route path="products" element={<Products />} />
-                  <Route path="sales" element={<Sales />} />
-                  <Route path="orders" element={<Orders />} />
-                  <Route path="orders/new" element={<CreateOrder />} />
-                  <Route path="orders/:orderId" element={<OrderDetails />} />
-                  <Route path="orders/:orderId/edit" element={<OrderEdit />} />
-                  <Route path="reports" element={<Reports />} />
-                  <Route path="settings" element={<Settings />} />
-                  <Route path="franchises" element={<NetworkDashboard />} />
-                  {/* Franchise routes - order matters: more specific routes first */}
-                  <Route path="franchise/:franchiseId/sales" element={<FranchiseSalesDashboard />} />
-                  <Route path="franchise/:franchiseId/imports" element={<FranchiseImportsDashboard />} />
-                  <Route path="franchise/:franchiseId/profit-loss" element={<FranchiseProfitLoss />} />
-                  <Route path="franchise/:franchiseId/settings" element={<FranchiseSettings />} />
-                  <Route path="franchise/:franchiseId" element={<FranchiseDashboard />} />
+          <AuthProvider>
+            <Router>
+              <ScrollToTop />
+              <Suspense fallback={<LoadingSpinner fullScreen />}>
+                <Routes>
+                  {/* Public routes */}
+                  <Route path="/login" element={<Login />} />
+                  <Route path="/register" element={<Register />} />
+                  <Route path="/unauthorized" element={<Unauthorized />} />
+                  
+                  {/* Protected routes */}
                   <Route
-                    path="admin/dashboard"
+                    path="/"
                     element={
-                      <AdminRoute>
-                        <AdminDashboard />
-                      </AdminRoute>
+                      <ProtectedRoute>
+                        <FranchiseProvider>
+                          <Layout />
+                        </FranchiseProvider>
+                      </ProtectedRoute>
                     }
+                  >
+                    {/* Default redirect based on role */}
+                    <Route 
+                      index 
+                      element={
+                        <ProtectedRoute>
+                          <Navigate 
+                            to={
+                              (() => {
+                                try {
+                                  const raw = localStorage.getItem('user');
+                                  const user = raw ? (JSON.parse(raw) as { role?: UserRole }) : null;
+                                  return user?.role === 'admin' ? '/dashboard' : '/products';
+                                } catch {
+                                  return '/products';
+                                }
+                              })()
+                            } 
+                            replace 
+                          />
+                        </ProtectedRoute>
+                      } 
+                    />
+                    
+                    {/* Admin-only routes */}
+                    <Route
+                      path="dashboard"
+                      element={
+                        <ProtectedRoute roles={['admin']}>
+                          <AdminDashboard />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="admin/dashboard"
+                      element={
+                        <ProtectedRoute roles={['admin']}>
+                          <AdminDashboard />
+                        </ProtectedRoute>
+                      }
+                    />
+                    
+                    {/* Admin and Manager routes */}
+                    <Route path="reports" element={
+                      <ProtectedRoute roles={['admin', 'manager']}>
+                        <Reports />
+                      </ProtectedRoute>
+                    } />
+                    
+                    {/* All authenticated users (admin, manager, sales) */}
+                    <Route path="products" element={
+                      <ProtectedRoute roles={['admin', 'manager', 'sales']}>
+                        <Products />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="sales" element={
+                      <ProtectedRoute roles={['admin', 'manager', 'sales']}>
+                        <Sales />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="orders" element={
+                      <ProtectedRoute roles={['admin', 'manager', 'sales']}>
+                        <Orders />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="orders/new" element={
+                      <ProtectedRoute roles={['admin', 'manager', 'sales']}>
+                        <CreateOrder />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="orders/:orderId" element={
+                      <ProtectedRoute roles={['admin', 'manager', 'sales']}>
+                        <OrderDetails />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="orders/:orderId/edit" element={
+                      <ProtectedRoute roles={['admin', 'manager', 'sales']}>
+                        <OrderEdit />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="settings" element={
+                      <ProtectedRoute>
+                        <Settings />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="franchises" element={
+                      <ProtectedRoute roles={['admin', 'manager', 'sales']}>
+                        <NetworkDashboard />
+                      </ProtectedRoute>
+                    } />
+                    
+                    {/* Franchise routes - accessible to all authenticated users */}
+                    <Route path="franchise/:franchiseId/sales" element={
+                      <ProtectedRoute roles={['admin', 'manager', 'sales']}>
+                        <FranchiseSalesDashboard />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="franchise/:franchiseId/imports" element={
+                      <ProtectedRoute roles={['admin', 'manager', 'sales']}>
+                        <FranchiseImportsDashboard />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="franchise/:franchiseId/profit-loss" element={
+                      <ProtectedRoute roles={['admin', 'manager', 'sales']}>
+                        <FranchiseProfitLoss />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="franchise/:franchiseId/settings" element={
+                      <ProtectedRoute roles={['admin', 'manager']}>
+                        <FranchiseSettings />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="franchise/:franchiseId" element={
+                      <ProtectedRoute roles={['admin', 'manager', 'sales']}>
+                        <FranchiseDashboard />
+                      </ProtectedRoute>
+                    } />
+                  </Route>
+                  
+                  {/* 404 - redirect based on authentication */}
+                  <Route 
+                    path="*" 
+                    element={
+                      <Navigate 
+                        to={
+                          (() => {
+                            try {
+                              const raw = localStorage.getItem('user');
+                              const user = raw ? (JSON.parse(raw) as { role?: UserRole }) : null;
+                              if (!user) return '/login';
+                              return user?.role === 'admin' ? '/dashboard' : '/products';
+                            } catch {
+                              return '/login';
+                            }
+                          })()
+                        } 
+                        replace 
+                      />
+                    } 
                   />
-                </Route>
-                <Route path="*" element={<Navigate to="/dashboard" replace />} />
-              </Routes>
-            </Suspense>
+                </Routes>
+              </Suspense>
             <Toaster
               position="top-right"
               toastOptions={{

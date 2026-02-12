@@ -16,13 +16,20 @@ import {
   LogOut,
   ChevronDown,
   Store,
+  Users,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useFranchise } from '@/contexts/FranchiseContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { useQuery } from '@tanstack/react-query';
+import { notificationApi } from '@/services/api';
+import NotificationDropdown from '@/components/Notifications/NotificationDropdown';
+import type { UserRole } from '@/types';
 
 const Layout: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [notificationOpen, setNotificationOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const location = useLocation();
@@ -33,6 +40,21 @@ const Layout: React.FC = () => {
     switchToNetworkView,
   } = useFranchise();
 
+  // Get user from AuthContext
+  const { user, logout } = useAuth();
+  const userRole = user?.role;
+
+  // Fetch unread notification count
+  const { data: notificationData } = useQuery({
+    queryKey: ['notifications', 'unread-count'],
+    queryFn: () => notificationApi.getAll({ limit: 1, unreadOnly: true }),
+    staleTime: 15 * 1000, // 15 seconds - cache unread count
+    refetchInterval: 30000, // Auto-refresh every 30 seconds in background
+    refetchOnWindowFocus: false,
+  });
+
+  const unreadCount = (notificationData as { unreadCount?: number })?.unreadCount || 0;
+
   // Sync context with URL: when franchiseId in route changes, update context to prevent stale data
   const franchiseMatch = useMatch('/franchise/:franchiseId/*');
   const franchiseIdFromRoute = franchiseMatch?.params?.franchiseId;
@@ -42,18 +64,46 @@ const Layout: React.FC = () => {
     }
   }, [franchiseIdFromRoute, switchFranchise]);
 
-  const navigation = [
-    { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-    { name: 'Franchises', href: '/franchises', icon: Store },
-    { name: 'Products', href: '/products', icon: Package },
-    { name: 'Orders', href: '/orders', icon: ShoppingBag },
-    { name: 'Sales', href: '/sales', icon: ShoppingCart },
-    { name: 'Reports', href: '/reports', icon: BarChart3 },
-    { name: 'Settings', href: '/settings', icon: Settings },
-  ];
+  // Build navigation menu based on user role
+  const navigation = React.useMemo(() => {
+    const menuItems: Array<{ name: string; href: string; icon: React.ComponentType<{ className?: string }> }> = [];
+
+    if (userRole === 'admin') {
+      // Admin menu items
+      menuItems.push(
+        { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+        { name: 'Franchises', href: '/franchises', icon: Store },
+        { name: 'Users', href: '/users', icon: Users },
+        { name: 'Reports', href: '/reports', icon: BarChart3 }
+      );
+    } else if (userRole === 'manager') {
+      // Manager menu items
+      if (user?.franchise) {
+        menuItems.push(
+          { name: 'Franchise Dashboard', href: `/franchise/${user.franchise.id}`, icon: LayoutDashboard }
+        );
+      }
+      menuItems.push(
+        { name: 'Products', href: '/products', icon: Package },
+        { name: 'Sales', href: '/sales', icon: ShoppingCart },
+        { name: 'Orders', href: '/orders', icon: ShoppingBag }
+      );
+    } else if (userRole === 'sales') {
+      // Sales menu items (view only)
+      menuItems.push(
+        { name: 'Sales', href: '/sales', icon: ShoppingCart },
+        { name: 'Orders', href: '/orders', icon: ShoppingBag }
+      );
+    }
+
+    // Settings is available to all authenticated users
+    menuItems.push({ name: 'Settings', href: '/settings', icon: Settings });
+
+    return menuItems;
+  }, [userRole, user?.franchise]);
 
   const handleLogout = () => {
-    localStorage.removeItem('token');
+    logout();
     navigate('/login');
   };
 
@@ -265,10 +315,22 @@ const Layout: React.FC = () => {
             <div className="flex items-center gap-1 sm:gap-3 flex-shrink-0">
               {/* Notifications */}
               <div className="relative">
-                <button className="relative rounded-lg p-2 text-gray-500 hover:bg-gray-100">
+                <button
+                  onClick={() => setNotificationOpen(!notificationOpen)}
+                  className="relative rounded-lg p-2 text-gray-500 hover:bg-gray-100"
+                  aria-label="Notifications"
+                >
                   <Bell className="h-5 w-5" />
-                  <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-red-500" />
+                  {unreadCount > 0 && (
+                    <span className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-xs font-medium text-white">
+                      {unreadCount > 99 ? '99+' : unreadCount}
+                    </span>
+                  )}
                 </button>
+                <NotificationDropdown
+                  isOpen={notificationOpen}
+                  onClose={() => setNotificationOpen(false)}
+                />
               </div>
 
               {/* User menu */}
@@ -283,11 +345,11 @@ const Layout: React.FC = () => {
                     <User className="h-4 w-4 text-blue-600" />
                   </div>
                   <div className="hidden text-left lg:block">
-                    <p className="text-sm font-medium text-gray-900">
-                      Admin User
+                    <p className="text-sm font-medium text-gray-900 truncate max-w-[120px]">
+                      {user?.name || 'User'}
                     </p>
-                    <p className="text-xs text-gray-500">
-                      Administrator
+                    <p className="text-xs text-gray-500 capitalize">
+                      {userRole === 'admin' ? 'Administrator' : userRole === 'manager' ? 'Manager' : userRole === 'sales' ? 'Sales' : 'User'}
                     </p>
                   </div>
                   <ChevronDown className="h-4 w-4 text-gray-400" />

@@ -23,7 +23,9 @@ const Dashboard: React.FC = () => {
   const { data: dashboardData, isLoading } = useQuery<DashboardStats>({
     queryKey: ['dashboard-stats'],
     queryFn: dashboardApi.getDashboardStats,
-    refetchInterval: 30000, // Auto-refresh every 30 seconds
+    staleTime: 1 * 60 * 1000, // 1 minute - cache dashboard stats
+    refetchInterval: 30000, // Auto-refresh every 30 seconds in background
+    refetchOnWindowFocus: false,
   });
 
   const kpis: Array<{

@@ -39,22 +39,46 @@ api.interceptors.response.use(
     const errPayload = error.response?.data as { message?: string; error?: string } | undefined;
     const message = errPayload?.message ?? errPayload?.error ?? (error as Error).message;
     return Promise.reject(
-      typeof errPayload === 'object' && errPayload !== null ? { ...errPayload, message } : { message }
+      typeof errPayload === 'object' && errPayload !== null 
+        ? { ...errPayload, message, response: error.response } 
+        : { message, response: error.response }
     );
   }
 );
 
 export const authApi = {
-  login: async (username: string, password: string): Promise<{ token: string; user: unknown }> => {
-    return api.post('/auth/login', { username, password }) as Promise<{ token: string; user: unknown }>;
+  login: async (email: string, password: string): Promise<{ token: string; user: unknown }> => {
+    return api.post('/auth/login', { email, password }) as Promise<{ token: string; user: unknown }>;
   },
 
-  register: async (username: string, password: string): Promise<{ token: string; user: unknown }> => {
-    return api.post('/auth/register', { username, password }) as Promise<{ token: string; user: unknown }>;
+  register: async (data: {
+    name: string;
+    email: string;
+    password: string;
+    role?: 'admin' | 'manager' | 'sales';
+    franchise?: string;
+  }): Promise<{ token: string; user: unknown }> => {
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/3fc7926a-846a-45b6-a134-1306e0ccfd99',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:61',message:'authApi.register called',data:{payload:data,hasName:!!data.name,hasEmail:!!data.email,hasPassword:!!data.password,role:data.role,franchise:data.franchise},timestamp:Date.now(),runId:'run1',hypothesisId:'A,B'})}).catch(()=>{});
+    // #endregion
+    return api.post('/auth/register', data) as Promise<{ token: string; user: unknown }>;
   },
 
   logout: async () => {
     localStorage.removeItem('token');
+    localStorage.removeItem('user');
+  },
+
+  getProfile: async () => {
+    return api.get('/auth/profile') as Promise<unknown>;
+  },
+
+  updateProfile: async (data: { name?: string; email?: string; settings?: unknown }) => {
+    return api.put('/auth/profile', data) as Promise<unknown>;
+  },
+
+  changePassword: async (currentPassword: string, newPassword: string) => {
+    return api.post('/auth/change-password', { currentPassword, newPassword });
   },
 };
 
@@ -88,6 +112,55 @@ export const franchiseApi = {
         grandTotal: number;
       }>;
     }>(`/franchises/${franchiseId}/orders-summary`),
+  getDashboard: async (franchiseId: string, params?: { startDate?: string; endDate?: string; period?: string }) =>
+    api.get<{
+      franchise: { _id: string; name: string; code: string };
+      period: { startDate: string | null; endDate: string | null; period: string };
+      sales: {
+        totalSales: number;
+        totalRevenue: number;
+        totalProfit: number;
+        avgOrderValue: number;
+      };
+      products: {
+        totalProducts: number;
+        inventoryValue: number;
+      };
+      productPerformance: Array<{
+        productId: string;
+        productName: string;
+        productSku: string;
+        revenue: number;
+        cost: number;
+        profit: number;
+        quantitySold: number;
+        saleCount: number;
+        marginPercent: number;
+      }>;
+      fastMovingProducts: Array<{
+        productId: string;
+        productName: string;
+        productSku: string;
+        quantitySold: number;
+        saleCount: number;
+        revenue: number;
+        lastSold: string;
+        velocityScore: number;
+      }>;
+      lowStockProducts: Array<{
+        productId: string;
+        sku: string;
+        name: string;
+        category: string;
+        stockQuantity: number;
+        minimumStock: number;
+        buyingPrice: number;
+        sellingPrice: number;
+        inventoryValue: number;
+        lastSold: string | null;
+        stockStatus: 'out-of-stock' | 'low-stock';
+      }>;
+    }>(`/franchises/${franchiseId}/dashboard`, { params }),
 };
 
 export const productApi = {
@@ -204,12 +277,14 @@ export const saleApi = {
   },
 
   create: async (sale: {
+    franchise: string;
     items: Array<{ product: string; sku: string; name: string; quantity: number; buyingPrice: number; sellingPrice: number; discount: number; tax: number; profit: number }>;
     customerName?: string;
     customerEmail?: string;
     paymentMethod: Sale['paymentMethod'];
     saleType: Sale['saleType'];
     notes?: string;
+    total?: number;
   }) => {
     const response = await api.post<ApiResponse<Sale>>('/sales', sale);
     return response;
@@ -271,6 +346,62 @@ export const dashboardApi = {
     });
     return data;
   },
+
+  getAdminDashboard: async () => {
+    return api.get<{
+      totalFranchises: number;
+      totalProducts: number;
+      totalRevenue: number;
+      totalProfit: number;
+      totalOrders: number;
+      pendingOrders: number;
+      lowStockCount: number;
+      todayRevenue: number;
+      todayProfit: number;
+      todaySales: number;
+      revenueTrend: Array<{
+        date: string;
+        revenue: number;
+        profit: number;
+        sales: number;
+      }>;
+      franchisePerformance: Array<{
+        franchiseId: string;
+        franchiseName: string;
+        franchiseCode: string;
+        totalRevenue: number;
+        totalProfit: number;
+        totalSales: number;
+        avgOrderValue: number;
+        profitMargin: number;
+      }>;
+      orderStats: {
+        total: number;
+        pending: number;
+        byStatus: Array<{
+          status: string;
+          count: number;
+          totalRevenue: number;
+        }>;
+        recentOrders: Array<{
+          _id: string;
+          orderNumber: string;
+          orderStatus: string;
+          customerName: string;
+          grandTotal: number;
+          createdAt: string;
+        }>;
+      };
+      categoryBreakdown: Array<{
+        category: string;
+        revenue: number;
+        cost: number;
+        profit: number;
+        quantitySold: number;
+        profitMargin: number;
+      }>;
+    }>('/dashboard/admin');
+  },
 };
 
 export const reportApi = {
@@ -315,6 +446,61 @@ export const exportApi = {
   }): Promise<Blob> => {
     const blob = await api.get(`/reports/inventory`, { params, responseType: 'blob' });
     return blob as unknown as Blob;
+  },
+};
+
+export const notificationApi = {
+  getAll: async (params?: {
+    limit?: number;
+    offset?: number;
+    unreadOnly?: boolean;
+    type?: string;
+    category?: string;
+  }) => {
+    return api.get<{
+      notifications: Array<{
+        _id: string;
+        title: string;
+        message: string;
+        type: string;
+        category: string;
+        isRead: boolean;
+        readAt: string | null;
+        link: string | null;
+        metadata: Record<string, unknown>;
+        priority: string;
+        createdAt: string;
+        updatedAt: string;
+      }>;
+      pagination: {
+        total: number;
+        limit: number;
+        offset: number;
+        hasMore: boolean;
+      };
+      unreadCount: number;
+    }>('/notifications', { params });
+  },
+
+  markAsRead: async (id: string) => {
+    return api.patch<{
+      notification: {
+        _id: string;
+        isRead: boolean;
+        readAt: string | null;
+      };
+      unreadCount: number;
+    }>(`/notifications/${id}/read`);
+  },
+
+  markAllAsRead: async () => {
+    return api.patch<{
+      updatedCount: number;
+    }>('/notifications/read-all');
+  },
+
+  delete: async (id: string) => {
+    return api.delete(`/notifications/${id}`);
   },
 };
 

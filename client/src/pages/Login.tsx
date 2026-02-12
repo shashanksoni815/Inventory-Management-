@@ -4,12 +4,13 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Lock, User, Eye, EyeOff, Shield } from 'lucide-react';
+import { Lock, Mail, Eye, EyeOff, Shield } from 'lucide-react';
 import { authApi } from '@/services/api';
+import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 
 const loginSchema = z.object({
-  username: z.string().min(1, 'Username is required'),
+  email: z.string().email('Please enter a valid email address').min(1, 'Email is required'),
   password: z.string().min(1, 'Password is required'),
 });
 
@@ -17,6 +18,7 @@ type LoginFormData = z.infer<typeof loginSchema>;
 
 const Login: React.FC = () => {
   const navigate = useNavigate();
+  const { login } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
@@ -34,14 +36,19 @@ const Login: React.FC = () => {
     setError('');
     
     try {
-      const response = await authApi.login(data.username, data.password);
+      await login(data.email, data.password);
       
-      if (response?.token) {
-        localStorage.setItem('token', response.token);
-        localStorage.setItem('user', JSON.stringify(response.user));
-        
-        // Redirect to dashboard
-        navigate('/dashboard', { replace: true });
+      // Redirect based on user role
+      const userStr = localStorage.getItem('user');
+      if (userStr) {
+        const user = JSON.parse(userStr);
+        if (user?.role === 'admin') {
+          navigate('/dashboard', { replace: true });
+        } else {
+          navigate('/products', { replace: true });
+        }
+      } else {
+        navigate('/products', { replace: true });
       }
     } catch (err: unknown) {
       const message = err && typeof err === 'object' && 'message' in err ? String((err as { message: string }).message) : 'Login failed. Please check your credentials.';
@@ -90,31 +97,31 @@ const Login: React.FC = () => {
               </div>
             )}
 
-            {/* Username Field */}
+            {/* Email Field */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Username
+                Email
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <User className="h-5 w-5 text-gray-400" />
+                  <Mail className="h-5 w-5 text-gray-400" />
                 </div>
                 <input
-                  {...register('username')}
-                  type="text"
-                  autoComplete="username"
+                  {...register('email')}
+                  type="email"
+                  autoComplete="email"
                   className={cn(
                     'block w-full pl-10 pr-3 py-3 rounded-lg border bg-white border-gray-300',
                     'text-gray-900 placeholder-gray-500',
                     'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent',
-                    errors.username && 'border-red-500'
+                    errors.email && 'border-red-500'
                   )}
-                  placeholder="Enter your username"
+                  placeholder="Enter your email"
                 />
               </div>
-              {errors.username && (
+              {errors.email && (
                 <p className="mt-1 text-sm text-red-600">
-                  {errors.username.message}
+                  {errors.email.message}
                 </p>
               )}
             </div>
@@ -208,7 +215,7 @@ const Login: React.FC = () => {
                 Demo Credentials
               </p>
               <div className="text-xs text-gray-500 space-y-1">
-                <p>Username: <span className="font-mono">admin</span></p>
+                <p>Email: <span className="font-mono">admin@example.com</span></p>
                 <p>Password: <span className="font-mono">admin123</span></p>
               </div>
             </div>
