@@ -6,6 +6,7 @@ import { Product } from '../models/Product.model.js';
 import Franchise from '../models/Franchise.js';
 import { ImportLog } from '../models/ImportLog.model.js';
 import { AuditLog } from '../models/AuditLog.model.js';
+import { applyFranchiseFilter } from '../utils/franchiseFilter.js';
 
 // Helper function to create audit log from import log
 const createAuditLogFromImportLog = async (importLog, req) => {
@@ -70,31 +71,35 @@ export const getProducts = async (req, res) => {
       userFranchises: user?.franchises
     });
     
-    // Build base query
+    // Build base query with franchise isolation
     let baseQuery = {};
     
     // Apply franchise filtering
-    if (franchise && franchise !== 'all') {
-      // Explicit franchise filter: include products owned by this franchise
-      // AND all global products (isGlobal: true), regardless of origin franchise.
-      baseQuery = {
-        $or: [
-          { franchise: franchise },
-          { isGlobal: true },
-        ],
-      };
-    } else if (user && user.role !== 'admin' && Array.isArray(user.franchises) && user.franchises.length > 0) {
-      // Non-admin users with assigned franchises: see products from their franchises
-      // and any global products that are available or shared to those franchises.
-      baseQuery = {
-        $or: user.franchises.map(franchiseId => ({
+    if (user && user.role === 'admin') {
+      // Admin: can see all products or filter by explicit franchise param
+      if (franchise && franchise !== 'all') {
+        baseQuery = {
           $or: [
-            { franchise: franchiseId },
-            { isGlobal: true, 'sharedWith.franchise': franchiseId },
-            { isGlobal: true, franchise: franchiseId }
-          ]
-        })),
-      };
+            { franchise: franchise },
+            { isGlobal: true },
+          ],
+        };
+      }
+      // If franchise === 'all' or not provided, admin sees all (no filter)
+    } else {
+      // Non-admin users: apply franchise isolation (includes global products)
+      baseQuery = applyFranchiseFilter(req, {}, { includeGlobal: true });
+      
+      // If explicit franchise param provided and user is manager/sales, validate it matches their franchise
+      if (franchise && franchise !== 'all') {
+        const userFranchise = user?.franchise?.toString();
+        if (userFranchise && userFranchise !== franchise.toString()) {
+          return res.status(403).json({
+            success: false,
+            message: 'Access denied: You can only view products from your assigned franchise',
+          });
+        }
+      }
     }
     
     // Apply additional filters
@@ -453,6 +458,7 @@ export const createProduct = async (req, res) => {
       stock,
       stockQuantity,
       franchise,
+      isGlobal,
       brand,
       description,
       minimumStock,
@@ -496,25 +502,29 @@ export const createProduct = async (req, res) => {
     const quantity = Number(stock ?? stockQuantity);
     const stockQty = Number.isNaN(quantity) || quantity < 0 ? 0 : quantity;
 
-    const existing = await Product.findOne({
-      sku: String(sku).toUpperCase(),
-      franchise
-    });
+    // Check for existing SKU: if isGlobal, check globally; otherwise check within franchise
+    const skuUpper = String(sku).trim().toUpperCase();
+    const existingQuery = isGlobal 
+      ? { sku: skuUpper, isGlobal: true }
+      : { sku: skuUpper, franchise };
+    
+    const existing = await Product.findOne(existingQuery);
     if (existing) {
       return res.status(400).json({
         success: false,
-        message: `SKU "${sku}" already exists for this franchise`
+        message: `SKU "${sku}" already exists${isGlobal ? ' globally' : ` for this franchise`}`
       });
     }
 
     const product = await Product.create({
       name: name.trim(),
-      sku: String(sku).trim().toUpperCase(),
+      sku: skuUpper,
       category: category || 'Other',
       buyingPrice: numBuying,
       sellingPrice: numSelling,
       stockQuantity: stockQty,
       franchise,
+      isGlobal: Boolean(isGlobal) || false,
       brand: brand ? String(brand).trim() : undefined,
       description: description ? String(description).trim() : undefined,
       minimumStock: Number(minimumStock) >= 0 ? Number(minimumStock) : 10,

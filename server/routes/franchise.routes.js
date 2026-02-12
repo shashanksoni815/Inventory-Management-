@@ -13,23 +13,25 @@ import {
   getFranchiseDashboard,
   getFranchiseOrdersSummary,
 } from '../controllers/franchise.controller.js';
-import { authMiddleware } from '../middleware/auth.middleware.js';
+import { protect, authorize } from '../middleware/auth.middleware.js';
 
 const router = express.Router();
 
-router.use(authMiddleware);
+// Admin-only routes
+router.get('/network/stats', protect, authorize('admin'), getNetworkStats);
+router.get('/admin/kpis', protect, authorize('admin'), getAdminKpis);
+router.get('/admin/charts', protect, authorize('admin'), getAdminCharts);
+router.get('/admin/performance', protect, authorize('admin'), getAdminFranchisePerformance);
+router.get('/admin/insights', protect, authorize('admin'), getAdminInsights);
+router.post('/', protect, authorize('admin'), createFranchise);
+router.put('/:id', protect, authorize('admin'), updateFranchise);
 
+// Public route for registration (franchise list needed during signup)
 router.get('/', getFranchises);
-router.get('/network/stats', getNetworkStats);
-router.get('/admin/kpis', getAdminKpis);
-router.get('/admin/charts', getAdminCharts);
-router.get('/admin/performance', getAdminFranchisePerformance);
-router.get('/admin/insights', getAdminInsights);
-router.get('/:franchiseId/dashboard', getFranchiseDashboard);
-router.get('/:franchiseId/imports', getFranchiseImportsExports);
-router.get('/:franchiseId/orders-summary', getFranchiseOrdersSummary);
-router.get('/:id', getFranchise);
-router.post('/', createFranchise);
-router.put('/:id', updateFranchise);
+// View routes - accessible to all authenticated users (admin, manager, sales)
+router.get('/:id', protect, authorize('admin', 'manager', 'sales'), getFranchise);
+router.get('/:franchiseId/dashboard', protect, authorize('admin', 'manager', 'sales'), getFranchiseDashboard);
+router.get('/:franchiseId/imports', protect, authorize('admin', 'manager', 'sales'), getFranchiseImportsExports);
+router.get('/:franchiseId/orders-summary', protect, authorize('admin', 'manager', 'sales'), getFranchiseOrdersSummary);
 
 export default router;

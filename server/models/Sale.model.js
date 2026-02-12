@@ -40,7 +40,6 @@ const saleItemSchema = new mongoose.Schema({
 const saleSchema = new mongoose.Schema({
   invoiceNumber: {
     type: String,
-    required: true,
     unique: true,
     uppercase: true
   },

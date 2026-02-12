@@ -12,26 +12,42 @@ function isValidObjectId(id) {
 }
 
 // Get all franchises accessible to user
+// Public access for registration, authenticated access for other use cases
 export const getFranchises = async (req, res) => {
   try {
     const { user } = req;
+    console.log('[FRANCHISES] GET request', {hasUser:!!user,userRole:user?.role,userFranchise:user?.franchise});
     
     let query = {};
     
-    // Non-admin users can only see their assigned franchises
-    if (user.role !== 'admin') {
-      query._id = { $in: user.franchises };
+    // If user is authenticated, apply role-based filtering
+    if (user) {
+      // Non-admin users can only see their assigned franchises
+      if (user.role !== 'admin') {
+        // For manager/sales, they have a single franchise assigned
+        if (user.franchise) {
+          query._id = user.franchise;
+        } else {
+          // No franchise assigned, return empty
+          query._id = { $exists: false };
+        }
+      }
+      // Admin sees all franchises (query remains empty)
     }
+    // If no user (public access), return all franchises for registration
     
     const franchises = await Franchise.find(query)
       .sort({ name: 1 })
       .lean();
+    
+    console.log('[FRANCHISES] Returning', {count:franchises.length,query});
     
     res.json({
       success: true,
       data: franchises
     });
   } catch (error) {
+    console.error('[FRANCHISES] Error:', error);
     res.status(500).json({
       success: false,
       message: 'Error fetching franchises',
@@ -1309,143 +1325,129 @@ export const getFranchiseDashboard = async (req, res) => {
       status: 'active',
     };
 
-    // Calculate sales statistics using aggregation
-    const salesStats = await Sale.aggregate([
-      { $match: salesQuery },
-      {
-        $group: {
-          _id: null,
-          totalSales: { $sum: 1 },
-          totalRevenue: { $sum: '$grandTotal' },
-          totalProfit: { $sum: '$totalProfit' },
-          avgOrderValue: { $avg: '$grandTotal' },
-        },
-      },
-    ]);
-
-    const salesSummary = salesStats[0] || {
-      totalSales: 0,
-      totalRevenue: 0,
-      totalProfit: 0,
-      avgOrderValue: 0,
-    };
-
-    // Get product-wise performance (top products by revenue)
-    const productPerformance = await Sale.aggregate([
-      { $match: salesQuery },
-      { $unwind: '$items' },
-      {
-        $group: {
-          _id: {
-            productId: '$items.product',
-            productName: '$items.name',
-            productSku: '$items.sku',
-          },
-          revenue: { $sum: { $multiply: ['$items.sellingPrice', '$items.quantity'] } },
-          cost: { $sum: { $multiply: ['$items.buyingPrice', '$items.quantity'] } },
-          profit: { $sum: '$items.profit' },
-          quantitySold: { $sum: '$items.quantity' },
-          saleCount: { $sum: 1 }, // Number of times this product was sold
-        },
-      },
-      {
-        $project: {
-          productId: '$_id.productId',
-          productName: '$_id.productName',
-          productSku: '$_id.productSku',
-          revenue: 1,
-          cost: 1,
-          profit: 1,
-          quantitySold: 1,
-          saleCount: 1,
-          marginPercent: {
-            $cond: [
-              { $gt: ['$revenue', 0] },
-              { $multiply: [{ $divide: ['$profit', '$revenue'] }, 100] },
-              0,
-            ],
+    // Parallel queries using Promise.all for optimal performance
+    const [
+      salesStatsResult,
+      productPerformanceResult,
+      fastMovingProductsResult,
+      lowStockProductsResult,
+      totalProductsResult,
+      inventoryValueResult
+    ] = await Promise.all([
+      // Calculate sales statistics using aggregation
+      Sale.aggregate([
+        { $match: salesQuery },
+        {
+          $group: {
+            _id: null,
+            totalSales: { $sum: 1 },
+            totalRevenue: { $sum: '$grandTotal' },
+            totalProfit: { $sum: '$totalProfit' },
+            avgOrderValue: { $avg: '$grandTotal' },
           },
         },
-      },
-      { $sort: { revenue: -1 } },
-      { $limit: 20 }, // Top 20 products
-    ]);
+      ]),
 
-    // Get fast-moving products (products sold frequently in the period)
-    // Fast-moving = products with high saleCount or high quantitySold
-    const fastMovingProducts = await Sale.aggregate([
-      { $match: salesQuery },
-      { $unwind: '$items' },
-      {
-        $group: {
-          _id: {
-            productId: '$items.product',
-            productName: '$items.name',
-            productSku: '$items.sku',
-          },
-          quantitySold: { $sum: '$items.quantity' },
-          saleCount: { $sum: 1 },
-          revenue: { $sum: { $multiply: ['$items.sellingPrice', '$items.quantity'] } },
-          lastSold: { $max: '$createdAt' },
-        },
-      },
-      {
-        $project: {
-          productId: '$_id.productId',
-          productName: '$_id.productName',
-          productSku: '$_id.productSku',
-          quantitySold: 1,
-          saleCount: 1,
-          revenue: 1,
-          lastSold: 1,
-          // Calculate velocity score (combination of quantity and frequency)
-          velocityScore: {
-            $add: [
-              { $multiply: ['$quantitySold', 0.6] }, // Weight quantity more
-              { $multiply: ['$saleCount', 0.4] }, // Weight frequency less
-            ],
+      // Get product-wise performance (top products by revenue)
+      Sale.aggregate([
+        { $match: salesQuery },
+        { $unwind: '$items' },
+        {
+          $group: {
+            _id: {
+              productId: '$items.product',
+              productName: '$items.name',
+              productSku: '$items.sku',
+            },
+            revenue: { $sum: { $multiply: ['$items.sellingPrice', '$items.quantity'] } },
+            cost: { $sum: { $multiply: ['$items.buyingPrice', '$items.quantity'] } },
+            profit: { $sum: '$items.profit' },
+            quantitySold: { $sum: '$items.quantity' },
+            saleCount: { $sum: 1 }, // Number of times this product was sold
           },
         },
-      },
-      { $sort: { velocityScore: -1 } },
-      { $limit: 10 }, // Top 10 fast-moving products
-    ]);
+        {
+          $project: {
+            productId: '$_id.productId',
+            productName: '$_id.productName',
+            productSku: '$_id.productSku',
+            revenue: 1,
+            cost: 1,
+            profit: 1,
+            quantitySold: 1,
+            saleCount: 1,
+            marginPercent: {
+              $cond: [
+                { $gt: ['$revenue', 0] },
+                { $multiply: [{ $divide: ['$profit', '$revenue'] }, 100] },
+                0,
+              ],
+            },
+          },
+        },
+        { $sort: { revenue: -1 } },
+        { $limit: 20 }, // Top 20 products
+      ]),
 
-    // Get low-stock products
-    const lowStockProducts = await Product.find({
-      ...productsQuery,
-      $expr: {
-        $lte: [
-          '$stockQuantity',
-          { $ifNull: ['$replenishmentSettings.reorderPoint', '$minimumStock'] },
-        ],
-      },
-    })
-      .select('_id sku name category stockQuantity minimumStock buyingPrice sellingPrice lastSold')
-      .sort({ stockQuantity: 1 })
-      .limit(20)
-      .lean();
+      // Get fast-moving products (products sold frequently in the period)
+      Sale.aggregate([
+        { $match: salesQuery },
+        { $unwind: '$items' },
+        {
+          $group: {
+            _id: {
+              productId: '$items.product',
+              productName: '$items.name',
+              productSku: '$items.sku',
+            },
+            quantitySold: { $sum: '$items.quantity' },
+            saleCount: { $sum: 1 },
+            revenue: { $sum: { $multiply: ['$items.sellingPrice', '$items.quantity'] } },
+            lastSold: { $max: '$createdAt' },
+          },
+        },
+        {
+          $project: {
+            productId: '$_id.productId',
+            productName: '$_id.productName',
+            productSku: '$_id.productSku',
+            quantitySold: 1,
+            saleCount: 1,
+            revenue: 1,
+            lastSold: 1,
+            // Calculate velocity score (combination of quantity and frequency)
+            velocityScore: {
+              $add: [
+                { $multiply: ['$quantitySold', 0.6] }, // Weight quantity more
+                { $multiply: ['$saleCount', 0.4] }, // Weight frequency less
+              ],
+            },
+          },
+        },
+        { $sort: { velocityScore: -1 } },
+        { $limit: 10 }, // Top 10 fast-moving products
+      ]),
 
-    // Format low-stock products
-    const formattedLowStock = lowStockProducts.map((product) => ({
-      productId: product._id.toString(),
-      sku: product.sku,
-      name: product.name,
-      category: product.category,
-      stockQuantity: product.stockQuantity,
-      minimumStock: product.minimumStock || product.replenishmentSettings?.reorderPoint || 10,
-      buyingPrice: product.buyingPrice,
-      sellingPrice: product.sellingPrice,
-      inventoryValue: product.stockQuantity * product.buyingPrice,
-      lastSold: product.lastSold || null,
-      stockStatus: product.stockQuantity === 0 ? 'out-of-stock' : 'low-stock',
-    }));
+      // Get low-stock products
+      Product.find({
+        ...productsQuery,
+        $expr: {
+          $lte: [
+            '$stockQuantity',
+            { $ifNull: ['$replenishmentSettings.reorderPoint', '$minimumStock'] },
+          ],
+        },
+      })
+        .select('_id sku name category stockQuantity minimumStock buyingPrice sellingPrice lastSold')
+        .sort({ stockQuantity: 1 })
+        .limit(20)
+        .lean(),
 
-    // Get total products count
-    const totalProducts = await Product.countDocuments(productsQuery);
+      // Get total products count
+      Product.countDocuments(productsQuery),
 
-    // Get inventory value
-    const inventoryValueAgg = await Product.aggregate([
+      // Get inventory value
+      Product.aggregate([
       { $match: productsQuery },
       {
         $project: {
@@ -1500,9 +1502,10 @@ export const getFranchiseDashboard = async (req, res) => {
           totalValue: { $sum: '$value' },
         },
       },
+    ]),
     ]);
 
-    const inventoryValue = inventoryValueAgg[0]?.totalValue || 0;
+    const inventoryValue = inventoryValueResult[0]?.totalValue || 0;
 
     res.json({
       success: true,
@@ -1518,10 +1521,10 @@ export const getFranchiseDashboard = async (req, res) => {
           period: period,
         },
         sales: {
-          totalSales: salesSummary.totalSales,
-          totalRevenue: salesSummary.totalRevenue,
-          totalProfit: salesSummary.totalProfit,
-          avgOrderValue: salesSummary.avgOrderValue,
+          totalSales: salesStats.totalSales,
+          totalRevenue: salesStats.totalRevenue,
+          totalProfit: salesStats.totalProfit,
+          avgOrderValue: salesStats.avgOrderValue,
         },
         products: {
           totalProducts: totalProducts,

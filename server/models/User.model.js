@@ -2,27 +2,40 @@ import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
 
 const userSchema = new mongoose.Schema({
-  username: {
+  name: {
     type: String,
-    required: true,
+    required: [true, 'Name is required'],
+    trim: true
+  },
+  email: {
+    type: String,
+    required: [true, 'Email is required'],
     unique: true,
     trim: true,
-    lowercase: true
+    lowercase: true,
+    match: [/^\S+@\S+\.\S+$/, 'Please provide a valid email address']
   },
   password: {
     type: String,
-    required: true,
-    minlength: 8
+    required: [true, 'Password is required'],
+    minlength: [8, 'Password must be at least 8 characters']
   },
   role: {
     type: String,
-    enum: ['superAdmin', 'admin', 'franchise_manager', 'staff'],
-    default: 'admin'
+    enum: {
+      values: ['admin', 'manager', 'sales'],
+      message: 'Role must be one of: admin, manager, sales'
+    },
+    required: [true, 'Role is required']
   },
-  franchises: [{
+  franchise: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Franchise'
-  }],
+    ref: 'Franchise',
+    required: function() {
+      // franchise is required for manager and sales, but NOT for admin
+      return this.role === 'manager' || this.role === 'sales';
+    }
+  },
   isActive: {
     type: Boolean,
     default: true
@@ -55,6 +68,25 @@ const userSchema = new mongoose.Schema({
   }
 }, {
   timestamps: true
+});
+
+// Index for email (already unique, but adding explicit index for performance)
+userSchema.index({ email: 1 });
+// Index for franchise (for franchise-scoped queries)
+userSchema.index({ franchise: 1 });
+// Index for role (for role-based queries)
+userSchema.index({ role: 1 });
+
+// Validate franchise requirement before saving
+userSchema.pre('validate', function(next) {
+  if ((this.role === 'manager' || this.role === 'sales') && !this.franchise) {
+    this.invalidate('franchise', 'Franchise is required for manager and sales roles');
+  }
+  // Ensure admin doesn't have a franchise assigned
+  if (this.role === 'admin' && this.franchise) {
+    this.invalidate('franchise', 'Admin role cannot be assigned to a franchise');
+  }
+  next();
 });
 
 // Hash password before saving

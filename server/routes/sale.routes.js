@@ -10,20 +10,22 @@ import {
   importSales,
 } from '../controllers/sale.controller.js';
 import { uploadExcel } from '../middleware/upload.middleware.js';
-import { authMiddleware } from '../middleware/auth.middleware.js';
+import { protect, authorize } from '../middleware/auth.middleware.js';
 
 const router = express.Router();
 
-// Apply auth middleware to all sale routes
-router.use(authMiddleware);
+// View routes - accessible to all authenticated users (admin, manager, sales)
+router.get('/', protect, authorize('admin', 'manager', 'sales'), getAllSales);
+router.get('/summary', protect, authorize('admin', 'manager', 'sales'), getSalesSummary);
+router.get('/export', protect, authorize('admin', 'manager', 'sales'), exportSalesReport);
+router.get('/:id', protect, authorize('admin', 'manager', 'sales'), getSaleById);
+router.get('/:id/invoice', protect, authorize('admin', 'manager', 'sales'), generateInvoice);
 
-router.get('/', getAllSales);
-router.get('/summary', getSalesSummary);
-router.get('/export', exportSalesReport);
-router.post('/import', uploadExcel, importSales); // Import route before /:id to avoid route conflict
-router.get('/:id', getSaleById);
-router.get('/:id/invoice', generateInvoice);
-router.post('/', createSale);
-router.post('/:id/refund', refundSale);
+// Create sale - accessible to all authenticated users (admin, manager, sales)
+router.post('/', protect, authorize('admin', 'manager', 'sales'), createSale);
+
+// Management routes - admin and manager only
+router.post('/import', protect, authorize('admin', 'manager'), uploadExcel, importSales); // Import route before /:id to avoid route conflict
+router.post('/:id/refund', protect, authorize('admin', 'manager'), refundSale);
 
 export default router;

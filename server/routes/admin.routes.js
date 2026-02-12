@@ -1,12 +1,11 @@
 // routes/admin.routes.js
 import express from 'express';
 import { getAdminDashboard } from '../controllers/admin.controller.js';
-import { authMiddleware } from '../middleware/auth.middleware.js';
+import { protect, authorize } from '../middleware/auth.middleware.js';
 
 const router = express.Router();
 
-router.use(authMiddleware);
-
-router.get('/dashboard', getAdminDashboard);
+// Admin-only route
+router.get('/dashboard', protect, authorize('admin'), getAdminDashboard);
 
 export default router;

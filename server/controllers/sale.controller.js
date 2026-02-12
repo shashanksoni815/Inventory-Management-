@@ -1,10 +1,13 @@
 import mongoose from 'mongoose';
 import ExcelJS from 'exceljs';
+import fs from 'fs';
+import path from 'path';
 import { Sale } from '../models/Sale.model.js';
 import { Product } from '../models/Product.model.js';
 import Franchise from '../models/Franchise.js';
 import { ImportLog } from '../models/ImportLog.model.js';
 import { AuditLog } from '../models/AuditLog.model.js';
+import { applyFranchiseFilter } from '../utils/franchiseFilter.js';
 
 // Helper function to create audit log from import log
 const createAuditLogFromImportLog = async (importLog, req) => {
@@ -48,12 +51,20 @@ export const getAllSales = async (req, res) => {
     const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 20));
     const { startDate, endDate, type, paymentMethod, status, search, franchise, sortBy = 'createdAt', sortOrder = 'desc' } = req.query;
 
-    const query = {};
+    // Build base query
+    const baseQuery = {};
 
-    // STRICT FRANCHISE SCOPING: Filter by franchise if provided
-    if (franchise) {
-      query.franchise = franchise;
+    // Apply franchise filter (admin sees all, manager/sales see only their franchise)
+    // If explicit franchise param provided and user is admin, use it; otherwise use user's franchise
+    if (req.user && req.user.role === 'admin' && franchise) {
+      baseQuery.franchise = franchise;
+    } else {
+      // Apply franchise isolation filter
+      const franchiseFilter = applyFranchiseFilter(req);
+      Object.assign(baseQuery, franchiseFilter);
     }
+
+    const query = { ...baseQuery };
 
     // Date range filter (defensive parsing)
     if (startDate || endDate) {
@@ -82,7 +93,7 @@ export const getAllSales = async (req, res) => {
 
     const sortOptions = { [sortBy]: sortOrder === 'asc' ? 1 : -1 };
 
-    // STRICT FRANCHISE SCOPING: Query already filtered by franchise if provided
+    // Query already filtered by franchise isolation
     const [sales, total] = await Promise.all([
       Sale.find(query)
         .sort(sortOptions)
@@ -93,9 +104,9 @@ export const getAllSales = async (req, res) => {
       Sale.countDocuments(query),
     ]);
 
-    // Calculate summary - STRICTLY SCOPED BY FRANCHISE
+    // Calculate summary - scoped by franchise isolation
     const summaryAgg = await Sale.aggregate([
-      { $match: query }, // Query already includes franchise filter if provided
+      { $match: query }, // Query already includes franchise filter
       {
         $group: {
           _id: null,
@@ -143,8 +154,41 @@ export const getAllSales = async (req, res) => {
 
 export const createSale = async (req, res) => {
   try {
+    // #region agent log
+    console.error('[DEBUG] ===== CREATE SALE CALLED =====');
+    console.error('[DEBUG] Request body:', JSON.stringify(req.body, null, 2));
+    console.error('[DEBUG] Request body type:', typeof req.body);
+    console.error('[DEBUG] Request body keys:', Object.keys(req.body || {}));
+    console.error('[DEBUG] Items:', req.body?.items);
+    console.error('[DEBUG] Franchise:', req.body?.franchise);
+    console.error('[DEBUG] PaymentMethod:', req.body?.paymentMethod);
+    console.error('[DEBUG] SaleType:', req.body?.saleType);
+    
+    const logDir = path.join(process.cwd(), '.cursor');
+    const logPath = path.join(logDir, 'debug.log');
+    try {
+      if (!fs.existsSync(logDir)) {
+        fs.mkdirSync(logDir, { recursive: true });
+      }
+      const logEntry = JSON.stringify({location:'sale.controller.js:146',message:'Request body received',data:{body:req.body,itemsCount:req.body.items?.length,items:req.body.items,franchise:req.body.franchise,paymentMethod:req.body.paymentMethod,saleType:req.body.saleType},timestamp:Date.now(),runId:'run1',hypothesisId:'A,B,C,D,E'})+'\n';
+      fs.appendFileSync(logPath, logEntry);
+    } catch(e) {
+      console.error('[DEBUG] Logging failed', e);
+    }
+    // #endregion
+    
+    // Check if request body exists
+    if (!req.body || typeof req.body !== 'object') {
+      console.error('[DEBUG] Request body is missing or invalid', { body: req.body });
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid request body',
+      });
+    }
+    
     const {
       items,
+      franchise,
       customerName,
       customerEmail,
       paymentMethod,
@@ -154,14 +198,67 @@ export const createSale = async (req, res) => {
 
     // Validate required fields
     if (!items || !Array.isArray(items) || items.length === 0) {
+      // #region agent log
+      const logPath2 = path.join(process.cwd(), '.cursor', 'debug.log');
+      const logEntry2 = JSON.stringify({location:'sale.controller.js:157',message:'Validation failed: items',data:{items:items,itemsType:typeof items,isArray:Array.isArray(items)},timestamp:Date.now(),runId:'run1',hypothesisId:'B'})+'\n';
+      try { fs.appendFileSync(logPath2, logEntry2); } catch(e) {}
+      console.error('[DEBUG] Validation failed: items', { items, itemsType: typeof items, isArray: Array.isArray(items) });
+      // #endregion
       return res.status(400).json({
         success: false,
         message: 'At least one item is required',
       });
     }
 
+    // FRANCHISE SCOPING: Require franchise in request body
+    if (!franchise) {
+      // #region agent log
+      const logPath3 = path.join(process.cwd(), '.cursor', 'debug.log');
+      const logEntry3 = JSON.stringify({location:'sale.controller.js:165',message:'Validation failed: franchise missing',data:{franchise:franchise},timestamp:Date.now(),runId:'run1',hypothesisId:'A'})+'\n';
+      try { fs.appendFileSync(logPath3, logEntry3); } catch(e) {}
+      console.error('[DEBUG] Validation failed: franchise missing', { franchise });
+      // #endregion
+      return res.status(400).json({
+        success: false,
+        message: 'Franchise is required for sale creation',
+      });
+    }
+
+    // Validate franchise is a valid ObjectId
+    if (!mongoose.Types.ObjectId.isValid(franchise)) {
+      // #region agent log
+      const logPath4 = path.join(process.cwd(), '.cursor', 'debug.log');
+      const logEntry4 = JSON.stringify({location:'sale.controller.js:173',message:'Validation failed: invalid franchise format',data:{franchise:franchise,franchiseType:typeof franchise},timestamp:Date.now(),runId:'run1',hypothesisId:'A'})+'\n';
+      try { fs.appendFileSync(logPath4, logEntry4); } catch(e) {}
+      console.error('[DEBUG] Validation failed: invalid franchise format', { franchise, franchiseType: typeof franchise });
+      // #endregion
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid franchise ID format',
+      });
+    }
+
+    // Enforce franchise isolation: non-admin users can only create sales for their franchise
+    if (req.user && req.user.role !== 'admin') {
+      const userFranchise = req.user.franchise?.toString();
+      const saleFranchise = franchise.toString();
+      
+      if (!userFranchise || userFranchise !== saleFranchise) {
+        return res.status(403).json({
+          success: false,
+          message: 'Access denied: You can only create sales for your assigned franchise',
+        });
+      }
+    }
+
     const validPaymentMethods = ['cash', 'card', 'upi', 'bank_transfer', 'credit'];
     if (!paymentMethod || !validPaymentMethods.includes(paymentMethod)) {
+      // #region agent log
+      const logPath5 = path.join(process.cwd(), '.cursor', 'debug.log');
+      const logEntry5 = JSON.stringify({location:'sale.controller.js:181',message:'Validation failed: paymentMethod',data:{paymentMethod:paymentMethod,validMethods:validPaymentMethods},timestamp:Date.now(),runId:'run1',hypothesisId:'C'})+'\n';
+      try { fs.appendFileSync(logPath5, logEntry5); } catch(e) {}
+      console.error('[DEBUG] Validation failed: paymentMethod', { paymentMethod, validMethods: validPaymentMethods });
+      // #endregion
       return res.status(400).json({
         success: false,
         message: 'Valid payment method is required',
@@ -170,6 +267,12 @@ export const createSale = async (req, res) => {
 
     const validSaleTypes = ['online', 'offline'];
     if (!saleType || !validSaleTypes.includes(saleType)) {
+      // #region agent log
+      const logPath6 = path.join(process.cwd(), '.cursor', 'debug.log');
+      const logEntry6 = JSON.stringify({location:'sale.controller.js:189',message:'Validation failed: saleType',data:{saleType:saleType,validTypes:validSaleTypes},timestamp:Date.now(),runId:'run1',hypothesisId:'C'})+'\n';
+      try { fs.appendFileSync(logPath6, logEntry6); } catch(e) {}
+      console.error('[DEBUG] Validation failed: saleType', { saleType, validTypes: validSaleTypes });
+      // #endregion
       return res.status(400).json({
         success: false,
         message: 'Sale type must be online or offline',
@@ -177,15 +280,40 @@ export const createSale = async (req, res) => {
     }
 
     // Normalize items: ensure product and quantity exist and are valid
-    for (const item of items) {
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
       if (!item.product) {
+        // #region agent log
+        const logPath7 = path.join(process.cwd(), '.cursor', 'debug.log');
+        const logEntry7 = JSON.stringify({location:'sale.controller.js:198',message:'Validation failed: item missing product',data:{item:item,itemIndex:i},timestamp:Date.now(),runId:'run1',hypothesisId:'D'})+'\n';
+        try { fs.appendFileSync(logPath7, logEntry7); } catch(e) {}
+        console.error('[DEBUG] Validation failed: item missing product', { item, itemIndex: i });
+        // #endregion
         return res.status(400).json({
           success: false,
           message: 'Each item must have a product id',
         });
       }
+      
+      // Convert product ID to ObjectId if it's a string
+      if (typeof item.product === 'string') {
+        if (!mongoose.Types.ObjectId.isValid(item.product)) {
+          return res.status(400).json({
+            success: false,
+            message: `Invalid product ID format: ${item.product}`,
+          });
+        }
+        item.product = new mongoose.Types.ObjectId(item.product);
+      }
+      
       const qty = Number(item.quantity);
       if (!Number.isInteger(qty) || qty < 1) {
+        // #region agent log
+        const logPath8 = path.join(process.cwd(), '.cursor', 'debug.log');
+        const logEntry8 = JSON.stringify({location:'sale.controller.js:204',message:'Validation failed: invalid quantity',data:{item:item,quantity:item.quantity,qty:qty,isInteger:Number.isInteger(qty)},timestamp:Date.now(),runId:'run1',hypothesisId:'E'})+'\n';
+        try { fs.appendFileSync(logPath8, logEntry8); } catch(e) {}
+        console.error('[DEBUG] Validation failed: invalid quantity', { item, quantity: item.quantity, qty, isInteger: Number.isInteger(qty) });
+        // #endregion
         return res.status(400).json({
           success: false,
           message: `Invalid quantity for product ${item.product}`,
@@ -194,8 +322,8 @@ export const createSale = async (req, res) => {
       item.quantity = qty;
     }
 
-    // STRICT FRANCHISE SCOPING: Determine franchise from products
-    let saleFranchise = null;
+    // FRANCHISE SCOPING: Use franchise from request body (already validated as required)
+    const saleFranchise = franchise;
     const user = req.user;
     
     // Validate items and attach product data
@@ -214,16 +342,8 @@ export const createSale = async (req, res) => {
         });
       }
 
-      // STRICT FRANCHISE SCOPING: Set franchise from first product
-      // All products in a sale must belong to the same franchise
-      if (!saleFranchise) {
-        saleFranchise = product.franchise;
-      } else if (product.franchise.toString() !== saleFranchise.toString()) {
-        return res.status(400).json({
-          success: false,
-          message: 'All products in a sale must belong to the same franchise',
-        });
-      }
+      // Products can be sold by any franchise (global products available to all)
+      // Stock is shared across franchises, so no franchise validation needed
 
       // Attach product data to item (ensure numbers for schema)
       item.sku = product.sku;
@@ -244,26 +364,11 @@ export const createSale = async (req, res) => {
     const grandTotal = subTotal - totalDiscount + totalTax;
     const totalProfit = items.reduce((sum, item) => sum + item.profit, 0);
 
-    const date = new Date();
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
-    const invoiceNumber = `INV-${year}${month}${day}-${random}`;
-
-    // STRICT FRANCHISE SCOPING: Ensure franchise is set
-    if (!saleFranchise) {
-      // Fallback: use user's franchise if available
-      if (user && user.franchises && user.franchises.length > 0) {
-        saleFranchise = user.franchises[0];
-      } else {
-        return res.status(400).json({
-          success: false,
-          message: 'Unable to determine franchise for sale',
-        });
-      }
-    }
-
+    // FRANCHISE SCOPING: Create sale with franchise from request body
+    // Invoice number will be generated by pre-save hook
+    // Convert franchise string to ObjectId
+    const franchiseObjectId = new mongoose.Types.ObjectId(saleFranchise);
+    
     const saleDoc = {
       items,
       customerName: customerName?.trim() || undefined,
@@ -272,14 +377,20 @@ export const createSale = async (req, res) => {
       saleType,
       notes: notes?.trim() || undefined,
       status: 'completed',
-      invoiceNumber,
       subTotal,
       totalDiscount,
       totalTax,
       grandTotal,
       totalProfit,
-      franchise: saleFranchise, // STRICT FRANCHISE SCOPING
+      franchise: franchiseObjectId, // FRANCHISE SCOPING: Converted to ObjectId
     };
+
+    // #region agent log
+    const logPath9 = path.join(process.cwd(), '.cursor', 'debug.log');
+    const logEntry9 = JSON.stringify({location:'sale.controller.js:329',message:'Creating sale document',data:{saleDoc:{...saleDoc,items: saleDoc.items.map(i=>({product:i.product,quantity:i.quantity}))},franchiseObjectId:franchiseObjectId.toString()},timestamp:Date.now(),runId:'run1',hypothesisId:'A'})+'\n';
+    try { fs.appendFileSync(logPath9, logEntry9); } catch(e) {}
+    console.error('[DEBUG] Creating sale document', { franchiseObjectId: franchiseObjectId.toString(), itemsCount: saleDoc.items.length });
+    // #endregion
 
     const sale = await Sale.create(saleDoc);
 
@@ -289,11 +400,27 @@ export const createSale = async (req, res) => {
       message: 'Sale completed successfully',
     });
   } catch (error) {
-    console.error('Create sale error:', error);
-    res.status(500).json({
+    // #region agent log
+    const logPath10 = path.join(process.cwd(), '.cursor', 'debug.log');
+    const logEntry10 = JSON.stringify({location:'sale.controller.js:352',message:'Error in createSale',data:{errorName:error?.name,errorMessage:error?.message,errorStack:error?.stack,errorErrors:error?.errors},timestamp:Date.now(),runId:'run1',hypothesisId:'A,B,C,D,E'})+'\n';
+    try { fs.appendFileSync(logPath10, logEntry10); } catch(e) {}
+    console.error('[DEBUG] Error in createSale', { errorName: error?.name, errorMessage: error?.message, errorErrors: error?.errors });
+    // #endregion
+    
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    let errorDetails = errorMessage;
+    let statusCode = 500;
+    
+    if (error instanceof Error && error.name === 'ValidationError') {
+      const validationErrors = error.errors || {};
+      errorDetails = Object.values(validationErrors).map((e) => e.message).join(', ');
+      statusCode = 400; // Validation errors should be 400, not 500
+    }
+    
+    res.status(statusCode).json({
       success: false,
       message: 'Failed to create sale',
-      error: error.message,
+      error: errorDetails || 'Unknown error occurred',
     });
   }
 };
@@ -309,6 +436,19 @@ export const getSaleById = async (req, res) => {
         success: false,
         message: 'Sale not found',
       });
+    }
+
+    // Enforce franchise isolation: non-admin users can only access their franchise sales
+    if (req.user && req.user.role !== 'admin') {
+      const userFranchise = req.user.franchise?.toString();
+      const saleFranchise = sale.franchise?.toString();
+      
+      if (!userFranchise || userFranchise !== saleFranchise) {
+        return res.status(403).json({
+          success: false,
+          message: 'Access denied: You do not have permission to view this sale',
+        });
+      }
     }
 
     res.status(200).json({
@@ -336,6 +476,19 @@ export const refundSale = async (req, res) => {
         success: false,
         message: 'Sale not found',
       });
+    }
+
+    // Enforce franchise isolation: non-admin users can only refund their franchise sales
+    if (req.user && req.user.role !== 'admin') {
+      const userFranchise = req.user.franchise?.toString();
+      const saleFranchise = sale.franchise?.toString();
+      
+      if (!userFranchise || userFranchise !== saleFranchise) {
+        return res.status(403).json({
+          success: false,
+          message: 'Access denied: You do not have permission to refund this sale',
+        });
+      }
     }
 
     if (sale.status === 'refunded') {
@@ -400,6 +553,19 @@ export const generateInvoice = async (req, res) => {
         success: false,
         message: 'Sale not found',
       });
+    }
+
+    // Enforce franchise isolation: non-admin users can only generate invoices for their franchise sales
+    if (req.user && req.user.role !== 'admin') {
+      const userFranchise = req.user.franchise?.toString();
+      const saleFranchise = sale.franchise?.toString();
+      
+      if (!userFranchise || userFranchise !== saleFranchise) {
+        return res.status(403).json({
+          success: false,
+          message: 'Access denied: You do not have permission to generate invoice for this sale',
+        });
+      }
     }
 
     // Create PDF document
@@ -506,39 +672,19 @@ export const exportSalesReport = async (req, res) => {
     
     const user = req.user;
 
-    // Role-Based Access Control: Check franchise access
-    if (franchise) {
-      // Validate franchise access for franchise managers
-      if (user.role === 'franchise_manager') {
-        if (!user.franchises || !Array.isArray(user.franchises) || 
-            !user.franchises.some(f => f?.toString() === franchise.toString())) {
-          return res.status(403).json({
-            success: false,
-            message: 'Access denied: You do not have access to this franchise',
-          });
-        }
-      }
-      // Admin/SuperAdmin can access all franchises - no check needed
-    } else if (user.role === 'franchise_manager') {
-      // Franchise managers must have at least one franchise assigned
-      if (!user.franchises || !Array.isArray(user.franchises) || user.franchises.length === 0) {
-        return res.status(403).json({
-          success: false,
-          message: 'Access denied: No franchises assigned to your account',
-        });
-      }
+    // Build query with franchise isolation
+    const baseQuery = { status: 'completed' };
+    
+    // Apply franchise filter (admin sees all, manager/sales see only their franchise)
+    if (user && user.role === 'admin' && franchise) {
+      baseQuery.franchise = franchise;
+    } else {
+      // Apply franchise isolation filter
+      const franchiseFilter = applyFranchiseFilter(req);
+      Object.assign(baseQuery, franchiseFilter);
     }
 
-    // Build query
-    const query = { status: 'completed' };
-    
-    // Franchise filter
-    if (franchise) {
-      query.franchise = franchise;
-    } else if (user && user.role !== 'admin' && user.role !== 'superAdmin' && Array.isArray(user.franchises) && user.franchises.length > 0) {
-      // Franchise managers: only see sales from their franchises
-      query.franchise = { $in: user.franchises };
-    }
+    const query = { ...baseQuery };
     
     // Date range filter
     if (startDate || endDate) {
@@ -1012,13 +1158,22 @@ export const getSalesSummary = async (req, res) => {
         endDate = new Date();
     }
 
-    const dateMatch = {
+    // Build date match with franchise isolation
+    const baseDateMatch = {
       createdAt: { $gte: startDate, $lte: endDate },
       status: 'completed',
     };
-    if (franchise) {
-      dateMatch.franchise = franchise;
+    
+    // Apply franchise filter (admin sees all, manager/sales see only their franchise)
+    if (req.user && req.user.role === 'admin' && franchise) {
+      baseDateMatch.franchise = franchise;
+    } else {
+      // Apply franchise isolation filter
+      const franchiseFilter = applyFranchiseFilter(req);
+      Object.assign(baseDateMatch, franchiseFilter);
     }
+    
+    const dateMatch = baseDateMatch;
 
     const summary = await Sale.aggregate([
       {
