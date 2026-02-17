@@ -154,32 +154,10 @@ export const getAllSales = async (req, res) => {
 
 export const createSale = async (req, res) => {
   try {
-    // #region agent log
-    console.error('[DEBUG] ===== CREATE SALE CALLED =====');
-    console.error('[DEBUG] Request body:', JSON.stringify(req.body, null, 2));
-    console.error('[DEBUG] Request body type:', typeof req.body);
-    console.error('[DEBUG] Request body keys:', Object.keys(req.body || {}));
-    console.error('[DEBUG] Items:', req.body?.items);
-    console.error('[DEBUG] Franchise:', req.body?.franchise);
-    console.error('[DEBUG] PaymentMethod:', req.body?.paymentMethod);
-    console.error('[DEBUG] SaleType:', req.body?.saleType);
-    
-    const logDir = path.join(process.cwd(), '.cursor');
-    const logPath = path.join(logDir, 'debug.log');
-    try {
-      if (!fs.existsSync(logDir)) {
-        fs.mkdirSync(logDir, { recursive: true });
-      }
-      const logEntry = JSON.stringify({location:'sale.controller.js:146',message:'Request body received',data:{body:req.body,itemsCount:req.body.items?.length,items:req.body.items,franchise:req.body.franchise,paymentMethod:req.body.paymentMethod,saleType:req.body.saleType},timestamp:Date.now(),runId:'run1',hypothesisId:'A,B,C,D,E'})+'\n';
-      fs.appendFileSync(logPath, logEntry);
-    } catch(e) {
-      console.error('[DEBUG] Logging failed', e);
-    }
-    // #endregion
+    // Debug logging removed for cleaner console output
     
     // Check if request body exists
     if (!req.body || typeof req.body !== 'object') {
-      console.error('[DEBUG] Request body is missing or invalid', { body: req.body });
       return res.status(400).json({
         success: false,
         message: 'Invalid request body',
@@ -198,12 +176,6 @@ export const createSale = async (req, res) => {
 
     // Validate required fields
     if (!items || !Array.isArray(items) || items.length === 0) {
-      // #region agent log
-      const logPath2 = path.join(process.cwd(), '.cursor', 'debug.log');
-      const logEntry2 = JSON.stringify({location:'sale.controller.js:157',message:'Validation failed: items',data:{items:items,itemsType:typeof items,isArray:Array.isArray(items)},timestamp:Date.now(),runId:'run1',hypothesisId:'B'})+'\n';
-      try { fs.appendFileSync(logPath2, logEntry2); } catch(e) {}
-      console.error('[DEBUG] Validation failed: items', { items, itemsType: typeof items, isArray: Array.isArray(items) });
-      // #endregion
       return res.status(400).json({
         success: false,
         message: 'At least one item is required',
@@ -212,12 +184,6 @@ export const createSale = async (req, res) => {
 
     // FRANCHISE SCOPING: Require franchise in request body
     if (!franchise) {
-      // #region agent log
-      const logPath3 = path.join(process.cwd(), '.cursor', 'debug.log');
-      const logEntry3 = JSON.stringify({location:'sale.controller.js:165',message:'Validation failed: franchise missing',data:{franchise:franchise},timestamp:Date.now(),runId:'run1',hypothesisId:'A'})+'\n';
-      try { fs.appendFileSync(logPath3, logEntry3); } catch(e) {}
-      console.error('[DEBUG] Validation failed: franchise missing', { franchise });
-      // #endregion
       return res.status(400).json({
         success: false,
         message: 'Franchise is required for sale creation',
@@ -226,12 +192,6 @@ export const createSale = async (req, res) => {
 
     // Validate franchise is a valid ObjectId
     if (!mongoose.Types.ObjectId.isValid(franchise)) {
-      // #region agent log
-      const logPath4 = path.join(process.cwd(), '.cursor', 'debug.log');
-      const logEntry4 = JSON.stringify({location:'sale.controller.js:173',message:'Validation failed: invalid franchise format',data:{franchise:franchise,franchiseType:typeof franchise},timestamp:Date.now(),runId:'run1',hypothesisId:'A'})+'\n';
-      try { fs.appendFileSync(logPath4, logEntry4); } catch(e) {}
-      console.error('[DEBUG] Validation failed: invalid franchise format', { franchise, franchiseType: typeof franchise });
-      // #endregion
       return res.status(400).json({
         success: false,
         message: 'Invalid franchise ID format',
@@ -253,12 +213,6 @@ export const createSale = async (req, res) => {
 
     const validPaymentMethods = ['cash', 'card', 'upi', 'bank_transfer', 'credit'];
     if (!paymentMethod || !validPaymentMethods.includes(paymentMethod)) {
-      // #region agent log
-      const logPath5 = path.join(process.cwd(), '.cursor', 'debug.log');
-      const logEntry5 = JSON.stringify({location:'sale.controller.js:181',message:'Validation failed: paymentMethod',data:{paymentMethod:paymentMethod,validMethods:validPaymentMethods},timestamp:Date.now(),runId:'run1',hypothesisId:'C'})+'\n';
-      try { fs.appendFileSync(logPath5, logEntry5); } catch(e) {}
-      console.error('[DEBUG] Validation failed: paymentMethod', { paymentMethod, validMethods: validPaymentMethods });
-      // #endregion
       return res.status(400).json({
         success: false,
         message: 'Valid payment method is required',
@@ -267,12 +221,6 @@ export const createSale = async (req, res) => {
 
     const validSaleTypes = ['online', 'offline'];
     if (!saleType || !validSaleTypes.includes(saleType)) {
-      // #region agent log
-      const logPath6 = path.join(process.cwd(), '.cursor', 'debug.log');
-      const logEntry6 = JSON.stringify({location:'sale.controller.js:189',message:'Validation failed: saleType',data:{saleType:saleType,validTypes:validSaleTypes},timestamp:Date.now(),runId:'run1',hypothesisId:'C'})+'\n';
-      try { fs.appendFileSync(logPath6, logEntry6); } catch(e) {}
-      console.error('[DEBUG] Validation failed: saleType', { saleType, validTypes: validSaleTypes });
-      // #endregion
       return res.status(400).json({
         success: false,
         message: 'Sale type must be online or offline',
@@ -283,12 +231,6 @@ export const createSale = async (req, res) => {
     for (let i = 0; i < items.length; i++) {
       const item = items[i];
       if (!item.product) {
-        // #region agent log
-        const logPath7 = path.join(process.cwd(), '.cursor', 'debug.log');
-        const logEntry7 = JSON.stringify({location:'sale.controller.js:198',message:'Validation failed: item missing product',data:{item:item,itemIndex:i},timestamp:Date.now(),runId:'run1',hypothesisId:'D'})+'\n';
-        try { fs.appendFileSync(logPath7, logEntry7); } catch(e) {}
-        console.error('[DEBUG] Validation failed: item missing product', { item, itemIndex: i });
-        // #endregion
         return res.status(400).json({
           success: false,
           message: 'Each item must have a product id',
@@ -308,12 +250,6 @@ export const createSale = async (req, res) => {
       
       const qty = Number(item.quantity);
       if (!Number.isInteger(qty) || qty < 1) {
-        // #region agent log
-        const logPath8 = path.join(process.cwd(), '.cursor', 'debug.log');
-        const logEntry8 = JSON.stringify({location:'sale.controller.js:204',message:'Validation failed: invalid quantity',data:{item:item,quantity:item.quantity,qty:qty,isInteger:Number.isInteger(qty)},timestamp:Date.now(),runId:'run1',hypothesisId:'E'})+'\n';
-        try { fs.appendFileSync(logPath8, logEntry8); } catch(e) {}
-        console.error('[DEBUG] Validation failed: invalid quantity', { item, quantity: item.quantity, qty, isInteger: Number.isInteger(qty) });
-        // #endregion
         return res.status(400).json({
           success: false,
           message: `Invalid quantity for product ${item.product}`,
@@ -385,12 +321,7 @@ export const createSale = async (req, res) => {
       franchise: franchiseObjectId, // FRANCHISE SCOPING: Converted to ObjectId
     };
 
-    // #region agent log
-    const logPath9 = path.join(process.cwd(), '.cursor', 'debug.log');
-    const logEntry9 = JSON.stringify({location:'sale.controller.js:329',message:'Creating sale document',data:{saleDoc:{...saleDoc,items: saleDoc.items.map(i=>({product:i.product,quantity:i.quantity}))},franchiseObjectId:franchiseObjectId.toString()},timestamp:Date.now(),runId:'run1',hypothesisId:'A'})+'\n';
-    try { fs.appendFileSync(logPath9, logEntry9); } catch(e) {}
-    console.error('[DEBUG] Creating sale document', { franchiseObjectId: franchiseObjectId.toString(), itemsCount: saleDoc.items.length });
-    // #endregion
+    // Creating sale document
 
     const sale = await Sale.create(saleDoc);
 
@@ -400,12 +331,6 @@ export const createSale = async (req, res) => {
       message: 'Sale completed successfully',
     });
   } catch (error) {
-    // #region agent log
-    const logPath10 = path.join(process.cwd(), '.cursor', 'debug.log');
-    const logEntry10 = JSON.stringify({location:'sale.controller.js:352',message:'Error in createSale',data:{errorName:error?.name,errorMessage:error?.message,errorStack:error?.stack,errorErrors:error?.errors},timestamp:Date.now(),runId:'run1',hypothesisId:'A,B,C,D,E'})+'\n';
-    try { fs.appendFileSync(logPath10, logEntry10); } catch(e) {}
-    console.error('[DEBUG] Error in createSale', { errorName: error?.name, errorMessage: error?.message, errorErrors: error?.errors });
-    // #endregion
     
     const errorMessage = error instanceof Error ? error.message : String(error);
     let errorDetails = errorMessage;

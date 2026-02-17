@@ -93,16 +93,11 @@ export const login = async (req, res) => {
 
 export const register = async (req, res) => {
   try {
-    // #region agent log
-    console.log('[REGISTER] Request received:', JSON.stringify({body:req.body,bodyKeys:Object.keys(req.body),name:req.body.name,email:req.body.email,password:req.body.password?'***':'',role:req.body.role,franchise:req.body.franchise},null,2));
-    // #endregion
+    // Registration request received
     const { name, email, password, role, franchise } = req.body;
     
     // Validate required fields
     if (!name || !email || !password) {
-      // #region agent log
-      console.log('[REGISTER] Validation failed: missing required fields', {hasName:!!name,hasEmail:!!email,hasPassword:!!password});
-      // #endregion
       return res.status(400).json({
         success: false,
         message: 'Name, email, and password are required',
@@ -131,9 +126,6 @@ export const register = async (req, res) => {
     // Check for both undefined/null and empty string
     const hasFranchise = franchise && String(franchise).trim() !== '';
     if ((userRole === 'manager' || userRole === 'sales') && !hasFranchise) {
-      // #region agent log
-      console.log('[REGISTER] Validation failed: franchise required for manager/sales', {userRole,franchise,hasFranchise,franchiseType:typeof franchise});
-      // #endregion
       return res.status(400).json({
         success: false,
         message: 'Franchise is required for manager and sales roles',
@@ -161,7 +153,7 @@ export const register = async (req, res) => {
       isActive: true,
       settings: {
         theme: 'light',
-        currency: 'USD',
+        currency: 'INR',
         taxRate: 10,
         lowStockThreshold: 10,
         refreshInterval: 30,
@@ -171,9 +163,6 @@ export const register = async (req, res) => {
     // Validate franchise assignment: admin should NOT have franchise
     const adminHasFranchise = franchise && String(franchise).trim() !== '';
     if (userRole === 'admin' && adminHasFranchise) {
-      // #region agent log
-      console.log('[REGISTER] Validation: admin cannot have franchise', {userRole,franchise});
-      // #endregion
       return res.status(400).json({
         success: false,
         message: 'Admin role cannot be assigned to a franchise',
@@ -186,7 +175,6 @@ export const register = async (req, res) => {
       
       // Validate franchise ID format
       if (!mongoose.Types.ObjectId.isValid(franchiseId)) {
-        console.log('[REGISTER] Invalid franchise ID format', {franchiseId});
         return res.status(400).json({
           success: false,
           message: 'Invalid franchise ID format',
@@ -196,7 +184,6 @@ export const register = async (req, res) => {
       // Verify franchise exists
       const franchiseExists = await Franchise.findById(franchiseId);
       if (!franchiseExists) {
-        console.log('[REGISTER] Franchise not found', {franchiseId});
         return res.status(400).json({
           success: false,
           message: 'Selected franchise does not exist',
@@ -229,9 +216,7 @@ export const register = async (req, res) => {
       { expiresIn: '1d' } // JWT expires in 1 day
     );
 
-    // #region agent log
-    console.log('[REGISTER] Registration successful', {userId:user._id.toString(),role:user.role,hasFranchise:!!user.franchise});
-    // #endregion
+    // Registration successful
     
     res.status(201).json({
       success: true,
@@ -253,9 +238,6 @@ export const register = async (req, res) => {
       message: 'Registration successful',
     });
   } catch (error) {
-    // #region agent log
-    console.error('[REGISTER] Registration catch error:', {errorName:error?.name,errorMessage:error?.message,errorCode:error?.code,errorErrors:error?.errors,errorStack:error?.stack?.substring(0,500)});
-    // #endregion
     console.error('Registration error:', error);
     // Mongoose duplicate key (email already exists)
     if (error.code === 11000) {

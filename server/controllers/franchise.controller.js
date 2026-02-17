@@ -16,7 +16,6 @@ function isValidObjectId(id) {
 export const getFranchises = async (req, res) => {
   try {
     const { user } = req;
-    console.log('[FRANCHISES] GET request', {hasUser:!!user,userRole:user?.role,userFranchise:user?.franchise});
     
     let query = {};
     
@@ -39,8 +38,6 @@ export const getFranchises = async (req, res) => {
     const franchises = await Franchise.find(query)
       .sort({ name: 1 })
       .lean();
-    
-    console.log('[FRANCHISES] Returning', {count:franchises.length,query});
     
     res.json({
       success: true,
@@ -82,7 +79,9 @@ export const getFranchise = async (req, res) => {
     }
 
     // Check access (after load so we can distinguish 404 from 403 if desired)
-    if (user.role !== 'admin' && !user.franchises.some((f) => String(f) === String(id))) {
+    // User model has franchise (singular) for manager/sales; admin sees all
+    const userFranchiseId = user.franchise?._id?.toString() || user.franchise?.toString();
+    if (user.role !== 'admin' && user.role !== 'superAdmin' && (!userFranchiseId || userFranchiseId !== String(id))) {
       return res.status(403).json({
         success: false,
         message: 'Access denied to this franchise'
@@ -132,20 +131,15 @@ export const getFranchise = async (req, res) => {
         }
       ]),
       
-      // Total inventory value
+      // Total inventory value (Product uses stockQuantity and buyingPrice)
       Product.aggregate([
         {
-          $match: { franchise: id }
-        },
-        {
-          $project: {
-            value: { $multiply: ['$quantity', '$cost'] }
-          }
+          $match: { franchise: new mongoose.Types.ObjectId(id) }
         },
         {
           $group: {
             _id: null,
-            total: { $sum: '$value' }
+            total: { $sum: { $multiply: [{ $ifNull: ['$stockQuantity', 0] }, { $ifNull: ['$buyingPrice', 0] }] } }
           }
         }
       ])
@@ -252,23 +246,57 @@ export const updateFranchise = async (req, res) => {
   }
 };
 
-// Get consolidated network stats (admin only)
+// Get consolidated network stats (admin: all; manager/sales: their franchise only)
 export const getNetworkStats = async (req, res) => {
   try {
     const { user } = req;
     
-    if (user.role !== 'admin') {
-      return res.status(403).json({
-        success: false,
-        message: 'Admin access required'
-      });
+    const franchiseFilter = {};
+    let franchiseCountQuery = {};
+    if (user.role === 'manager' || user.role === 'sales') {
+      const userFranchiseId = user.franchise?._id?.toString() || user.franchise?.toString();
+      if (!userFranchiseId) {
+        return res.status(200).json({
+          success: true,
+          data: {
+            franchiseCount: 0,
+            activeFranchises: 0,
+            todayRevenue: 0,
+            weekRevenue: 0,
+            monthRevenue: 0,
+            todayProfit: 0,
+            weekProfit: 0,
+            monthProfit: 0,
+            revenueTrendToday: 0,
+            revenueTrendWeek: 0,
+            revenueTrendMonth: 0,
+            profitTrendToday: 0,
+            profitTrendWeek: 0,
+            profitTrendMonth: 0,
+            topProducts: [],
+            franchisePerformance: [],
+          },
+        });
+      }
+      const oid = new mongoose.Types.ObjectId(userFranchiseId);
+      franchiseFilter.franchise = oid;
+      franchiseCountQuery = { _id: oid };
     }
     
-    const today = new Date();
-    const weekAgo = new Date(today);
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const weekAgo = new Date(now);
     weekAgo.setDate(weekAgo.getDate() - 7);
-    const monthAgo = new Date(today);
+    const monthAgo = new Date(now);
     monthAgo.setMonth(monthAgo.getMonth() - 1);
+    const yesterdayStart = new Date(todayStart);
+    yesterdayStart.setDate(yesterdayStart.getDate() - 1);
+    const twoWeeksAgo = new Date(now);
+    twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
+    const twoMonthsAgo = new Date(now);
+    twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2);
+    
+    const baseCountQuery = Object.keys(franchiseCountQuery).length ? franchiseCountQuery : {};
     
     const [
       franchiseCount,
@@ -276,17 +304,27 @@ export const getNetworkStats = async (req, res) => {
       totalRevenueToday,
       totalRevenueWeek,
       totalRevenueMonth,
+      totalProfitToday,
+      totalProfitWeek,
+      totalProfitMonth,
+      prevRevenueToday,
+      prevRevenueWeek,
+      prevRevenueMonth,
+      prevProfitToday,
+      prevProfitWeek,
+      prevProfitMonth,
       topProducts,
       franchisePerformance
     ] = await Promise.all([
-      Franchise.countDocuments(),
-      Franchise.countDocuments({ status: 'active' }),
+      Franchise.countDocuments(baseCountQuery),
+      Franchise.countDocuments({ ...baseCountQuery, status: 'active' }),
       
-      // Today's revenue across all franchises
+      // Today's revenue
       Sale.aggregate([
         {
           $match: {
-            createdAt: { $gte: today },
+            ...franchiseFilter,
+            createdAt: { $gte: todayStart },
             status: 'completed'
           }
         },
@@ -302,6 +340,7 @@ export const getNetworkStats = async (req, res) => {
       Sale.aggregate([
         {
           $match: {
+            ...franchiseFilter,
             createdAt: { $gte: weekAgo },
             status: 'completed'
           }
@@ -318,6 +357,7 @@ export const getNetworkStats = async (req, res) => {
       Sale.aggregate([
         {
           $match: {
+            ...franchiseFilter,
             createdAt: { $gte: monthAgo },
             status: 'completed'
           }
@@ -330,10 +370,134 @@ export const getNetworkStats = async (req, res) => {
         }
       ]),
       
-      // Top selling products across franchises
+      // Today's profit
       Sale.aggregate([
         {
           $match: {
+            ...franchiseFilter,
+            createdAt: { $gte: todayStart },
+            status: 'completed'
+          }
+        },
+        {
+          $group: {
+            _id: null,
+            total: { $sum: { $ifNull: ['$totalProfit', 0] } }
+          }
+        }
+      ]),
+      
+      // Weekly profit
+      Sale.aggregate([
+        {
+          $match: {
+            ...franchiseFilter,
+            createdAt: { $gte: weekAgo },
+            status: 'completed'
+          }
+        },
+        {
+          $group: {
+            _id: null,
+            total: { $sum: { $ifNull: ['$totalProfit', 0] } }
+          }
+        }
+      ]),
+      
+      // Monthly profit
+      Sale.aggregate([
+        {
+          $match: {
+            ...franchiseFilter,
+            createdAt: { $gte: monthAgo },
+            status: 'completed'
+          }
+        },
+        {
+          $group: {
+            _id: null,
+            total: { $sum: { $ifNull: ['$totalProfit', 0] } }
+          }
+        }
+      ]),
+      
+      // Previous period: yesterday's revenue
+      Sale.aggregate([
+        {
+          $match: {
+            ...franchiseFilter,
+            createdAt: { $gte: yesterdayStart, $lt: todayStart },
+            status: 'completed'
+          }
+        },
+        { $group: { _id: null, total: { $sum: '$grandTotal' } } }
+      ]),
+      
+      // Previous period: last week (week-2 to week-1)
+      Sale.aggregate([
+        {
+          $match: {
+            ...franchiseFilter,
+            createdAt: { $gte: twoWeeksAgo, $lt: weekAgo },
+            status: 'completed'
+          }
+        },
+        { $group: { _id: null, total: { $sum: '$grandTotal' } } }
+      ]),
+      
+      // Previous period: last month (month-2 to month-1)
+      Sale.aggregate([
+        {
+          $match: {
+            ...franchiseFilter,
+            createdAt: { $gte: twoMonthsAgo, $lt: monthAgo },
+            status: 'completed'
+          }
+        },
+        { $group: { _id: null, total: { $sum: '$grandTotal' } } }
+      ]),
+      
+      // Previous period: yesterday's profit
+      Sale.aggregate([
+        {
+          $match: {
+            ...franchiseFilter,
+            createdAt: { $gte: yesterdayStart, $lt: todayStart },
+            status: 'completed'
+          }
+        },
+        { $group: { _id: null, total: { $sum: { $ifNull: ['$totalProfit', 0] } } } }
+      ]),
+      
+      // Previous period: last week profit
+      Sale.aggregate([
+        {
+          $match: {
+            ...franchiseFilter,
+            createdAt: { $gte: twoWeeksAgo, $lt: weekAgo },
+            status: 'completed'
+          }
+        },
+        { $group: { _id: null, total: { $sum: { $ifNull: ['$totalProfit', 0] } } } }
+      ]),
+      
+      // Previous period: last month profit
+      Sale.aggregate([
+        {
+          $match: {
+            ...franchiseFilter,
+            createdAt: { $gte: twoMonthsAgo, $lt: monthAgo },
+            status: 'completed'
+          }
+        },
+        { $group: { _id: null, total: { $sum: { $ifNull: ['$totalProfit', 0] } } } }
+      ]),
+      
+      // Top selling products (revenue = sum of sellingPrice * quantity per item)
+      Sale.aggregate([
+        {
+          $match: {
+            ...franchiseFilter,
             status: 'completed',
             createdAt: { $gte: monthAgo }
           }
@@ -342,8 +506,15 @@ export const getNetworkStats = async (req, res) => {
         {
           $group: {
             _id: '$items.product',
-            totalSold: { $sum: '$items.quantity' },
-            totalRevenue: { $sum: '$grandTotal' }
+            totalSold: { $sum: { $ifNull: ['$items.quantity', 0] } },
+            totalRevenue: {
+              $sum: {
+                $multiply: [
+                  { $ifNull: ['$items.sellingPrice', 0] },
+                  { $ifNull: ['$items.quantity', 0] }
+                ]
+              }
+            }
           }
         },
         { $sort: { totalSold: -1 } },
@@ -356,13 +527,15 @@ export const getNetworkStats = async (req, res) => {
             as: 'product'
           }
         },
-        { $unwind: '$product' }
+        { $unwind: '$product' },
+        { $addFields: { quantitySold: '$totalSold', revenue: '$totalRevenue' } }
       ]),
       
-      // Franchise performance ranking
+      // Franchise performance ranking (with profit)
       Sale.aggregate([
         {
           $match: {
+            ...franchiseFilter,
             status: 'completed',
             createdAt: { $gte: monthAgo }
           }
@@ -371,6 +544,7 @@ export const getNetworkStats = async (req, res) => {
           $group: {
             _id: '$franchise',
             totalRevenue: { $sum: '$grandTotal' },
+            totalProfit: { $sum: { $ifNull: ['$totalProfit', 0] } },
             salesCount: { $sum: 1 }
           }
         },
@@ -387,14 +561,49 @@ export const getNetworkStats = async (req, res) => {
       ])
     ]);
     
+    const todayRev = totalRevenueToday[0]?.total || 0;
+    const weekRev = totalRevenueWeek[0]?.total || 0;
+    const monthRev = totalRevenueMonth[0]?.total || 0;
+    const todayProf = totalProfitToday[0]?.total || 0;
+    const weekProf = totalProfitWeek[0]?.total || 0;
+    const monthProf = totalProfitMonth[0]?.total || 0;
+    const prevTodayRev = prevRevenueToday[0]?.total || 0;
+    const prevWeekRev = prevRevenueWeek[0]?.total || 0;
+    const prevMonthRev = prevRevenueMonth[0]?.total || 0;
+    const prevTodayProf = prevProfitToday[0]?.total || 0;
+    const prevWeekProf = prevProfitWeek[0]?.total || 0;
+    const prevMonthProf = prevProfitMonth[0]?.total || 0;
+
+    const revenueTrendToday = prevTodayRev > 0 ? (((todayRev - prevTodayRev) / prevTodayRev) * 100) : 0;
+    const revenueTrendWeek = prevWeekRev > 0 ? (((weekRev - prevWeekRev) / prevWeekRev) * 100) : 0;
+    const revenueTrendMonth = prevMonthRev > 0 ? (((monthRev - prevMonthRev) / prevMonthRev) * 100) : 0;
+    const profitTrendToday = prevTodayProf !== 0 ? (((todayProf - prevTodayProf) / Math.abs(prevTodayProf)) * 100) : 0;
+    const profitTrendWeek = prevWeekProf !== 0 ? (((weekProf - prevWeekProf) / Math.abs(prevWeekProf)) * 100) : 0;
+    const profitTrendMonth = prevMonthProf !== 0 ? (((monthProf - prevMonthProf) / Math.abs(prevMonthProf)) * 100) : 0;
+
     res.json({
       success: true,
       data: {
         franchiseCount,
         activeFranchises,
-        todayRevenue: totalRevenueToday[0]?.total || 0,
-        weekRevenue: totalRevenueWeek[0]?.total || 0,
-        monthRevenue: totalRevenueMonth[0]?.total || 0,
+        todayRevenue: todayRev,
+        weekRevenue: weekRev,
+        monthRevenue: monthRev,
+        todayProfit: todayProf,
+        weekProfit: weekProf,
+        monthProfit: monthProf,
+        prevTodayRevenue: prevTodayRev,
+        prevWeekRevenue: prevWeekRev,
+        prevMonthRevenue: prevMonthRev,
+        prevTodayProfit: prevTodayProf,
+        prevWeekProfit: prevWeekProf,
+        prevMonthProfit: prevMonthProf,
+        revenueTrendToday,
+        revenueTrendWeek,
+        revenueTrendMonth,
+        profitTrendToday,
+        profitTrendWeek,
+        profitTrendMonth,
         topProducts: topProducts,
         franchisePerformance: franchisePerformance
       }
@@ -1025,8 +1234,9 @@ export const getFranchiseImportsExports = async (req, res) => {
       });
     }
 
-    // Check access
-    if (user.role !== 'admin' && !user.franchises?.some((f) => f.toString() === franchiseId)) {
+    // Check access - User model has franchise (singular) for manager/sales
+    const userFranchiseId = user.franchise?._id?.toString() || user.franchise?.toString();
+    if (user.role !== 'admin' && user.role !== 'superAdmin' && (!userFranchiseId || userFranchiseId !== String(franchiseId))) {
       return res.status(403).json({
         success: false,
         message: 'Access denied to this franchise',
@@ -1245,8 +1455,9 @@ export const getFranchiseDashboard = async (req, res) => {
       });
     }
 
-    // Check access
-    if (user.role !== 'admin' && !user.franchises?.some((f) => f.toString() === franchiseId)) {
+    // Check access - User model has franchise (singular) for manager/sales
+    const userFranchiseId = user.franchise?._id?.toString() || user.franchise?.toString();
+    if (user.role !== 'admin' && user.role !== 'superAdmin' && (!userFranchiseId || userFranchiseId !== String(franchiseId))) {
       return res.status(403).json({
         success: false,
         message: 'Access denied to this franchise',
@@ -1505,7 +1716,31 @@ export const getFranchiseDashboard = async (req, res) => {
     ]),
     ]);
 
+    // Extract results from arrays
+    const salesStats = salesStatsResult[0] || {
+      totalSales: 0,
+      totalRevenue: 0,
+      totalProfit: 0,
+      avgOrderValue: 0,
+    };
+    const productPerformance = productPerformanceResult || [];
+    const fastMovingProducts = fastMovingProductsResult || [];
+    const lowStockProducts = lowStockProductsResult || [];
+    const totalProducts = totalProductsResult || 0;
     const inventoryValue = inventoryValueResult[0]?.totalValue || 0;
+
+    // Format low stock products
+    const formattedLowStock = lowStockProducts.map((p) => ({
+      productId: p._id.toString(),
+      sku: p.sku,
+      name: p.name,
+      category: p.category,
+      stockQuantity: p.stockQuantity,
+      minimumStock: p.minimumStock || p.replenishmentSettings?.reorderPoint || 10,
+      buyingPrice: p.buyingPrice,
+      sellingPrice: p.sellingPrice,
+      lastSold: p.lastSold,
+    }));
 
     res.json({
       success: true,
@@ -1580,7 +1815,8 @@ export const getFranchiseOrdersSummary = async (req, res) => {
       });
     }
 
-    if (user.role !== 'admin' && user.role !== 'superAdmin' && !user.franchises?.some((f) => f.toString() === franchiseId)) {
+    const userFranchiseId = user.franchise?._id?.toString() || user.franchise?.toString();
+    if (user.role !== 'admin' && user.role !== 'superAdmin' && (!userFranchiseId || userFranchiseId !== String(franchiseId))) {
       return res.status(403).json({
         success: false,
         message: 'Access denied to this franchise',

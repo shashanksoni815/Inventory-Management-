@@ -18,7 +18,7 @@ import { protect, authorize } from '../middleware/auth.middleware.js';
 const router = express.Router();
 
 // Admin-only routes
-router.get('/network/stats', protect, authorize('admin'), getNetworkStats);
+router.get('/network/stats', protect, authorize('admin', 'manager', 'sales'), getNetworkStats);
 router.get('/admin/kpis', protect, authorize('admin'), getAdminKpis);
 router.get('/admin/charts', protect, authorize('admin'), getAdminCharts);
 router.get('/admin/performance', protect, authorize('admin'), getAdminFranchisePerformance);

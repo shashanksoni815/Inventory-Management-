@@ -22,8 +22,8 @@ export const generateSalesReport = async (req, res) => {
     // STRICT FRANCHISE SCOPING: Filter sales by franchise when provided
     if (franchise) {
       if (user && user.role !== 'admin') {
-        const userFranchises = (user.franchises || []).map((f) => f?.toString?.() || f);
-        if (!userFranchises.includes(String(franchise))) {
+        const userFranchiseId = user.franchise?._id?.toString() || user.franchise?.toString();
+        if (!userFranchiseId || userFranchiseId !== String(franchise)) {
           return res.status(403).json({
             success: false,
             message: 'Access denied to this franchise',
@@ -465,31 +465,29 @@ export const generateProfitLossReport = async (req, res) => {
 
     // Role-Based Access Control: Check franchise access
     if (franchise) {
-      // Admin/SuperAdmin can access all franchises
+      // Admin can access all franchises
       if (user.role === 'admin' || user.role === 'superAdmin') {
-        // No access check needed - admins can access all
-      } else if (user.role === 'franchise_manager') {
-        // Franchise managers can only access their assigned franchises
-        const userFranchises = (user.franchises || []).map((f) => f?.toString() || f);
-        if (!userFranchises.includes(franchise.toString())) {
+        // No access check needed
+      } else if (user.role === 'manager' || user.role === 'sales') {
+        // Manager/Sales can only access their assigned franchise (user.franchise singular)
+        const userFranchiseId = user.franchise?._id?.toString() || user.franchise?.toString();
+        if (!userFranchiseId || userFranchiseId !== String(franchise)) {
           return res.status(403).json({
             success: false,
             message: 'Access denied: You do not have access to this franchise',
           });
         }
       } else {
-        // Unknown role - deny access
         return res.status(403).json({
           success: false,
           message: 'Access denied: Invalid user role',
         });
       }
-    } else if (user.role === 'franchise_manager') {
-      // Franchise managers must have at least one franchise assigned
-      if (!user.franchises || !Array.isArray(user.franchises) || user.franchises.length === 0) {
+    } else if (user.role === 'manager' || user.role === 'sales') {
+      if (!user.franchise) {
         return res.status(403).json({
           success: false,
-          message: 'Access denied: No franchises assigned to your account',
+          message: 'Access denied: No franchise assigned to your account',
         });
       }
     }
@@ -517,8 +515,19 @@ export const generateProfitLossReport = async (req, res) => {
       status: 'completed',
     };
 
-    // Filter by franchise if provided
-    const franchiseFilter = franchise ? new mongoose.Types.ObjectId(franchise) : null;
+    // Filter by franchise - use provided franchise or default to user's franchise for non-admin users
+    let franchiseFilter = null;
+    if (franchise) {
+      franchiseFilter = new mongoose.Types.ObjectId(franchise);
+    } else if (user.role === 'manager' || user.role === 'sales') {
+      // For manager/sales, default to their assigned franchise
+      const raw = user.franchise;
+      const userFranchiseId = raw?._id?.toString() || (typeof raw === 'string' ? raw : raw?.toString?.());
+      if (userFranchiseId && mongoose.Types.ObjectId.isValid(userFranchiseId)) {
+        franchiseFilter = new mongoose.Types.ObjectId(userFranchiseId);
+      }
+    }
+    
     if (franchiseFilter) {
       salesQuery.franchise = franchiseFilter;
     }
@@ -550,7 +559,6 @@ export const generateProfitLossReport = async (req, res) => {
     // When stock is imported, the cost is added to inventory and affects COGS when sold
     const importedStockQuery = {
       ...transferDateFilter,
-      toFranchise: franchiseFilter || { $exists: true },
     };
     if (franchiseFilter) {
       importedStockQuery.toFranchise = franchiseFilter;
@@ -579,7 +587,6 @@ export const generateProfitLossReport = async (req, res) => {
     // Calculate exported stock value (reduces inventory value)
     const exportedStockQuery = {
       ...transferDateFilter,
-      fromFranchise: franchiseFilter || { $exists: true },
     };
     if (franchiseFilter) {
       exportedStockQuery.fromFranchise = franchiseFilter;

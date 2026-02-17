@@ -41,7 +41,7 @@ const franchiseSchema = new mongoose.Schema({
   settings: {
     currency: {
       type: String,
-      default: 'USD'
+      default: 'INR'
     },
     taxRate: {
       type: Number,

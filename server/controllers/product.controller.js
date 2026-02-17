@@ -59,17 +59,7 @@ export const getProducts = async (req, res) => {
     
     const user = req.user;
     
-    // Log incoming request parameters
-    console.log('[Product Controller] Request params:', {
-      franchise,
-      search,
-      status,
-      category,
-      page,
-      limit,
-      userRole: user?.role,
-      userFranchises: user?.franchises
-    });
+    // Request parameters logged only in development
     
     // Build base query with franchise isolation
     let baseQuery = {};
@@ -163,70 +153,13 @@ export const getProducts = async (req, res) => {
       Product.countDocuments(query)
     ]);
     
-    // CRITICAL: Validate products have names BEFORE any processing
-    if (products.length > 0) {
-      const sampleProduct = products[0];
-      console.log('[Product Controller] SAMPLE PRODUCT FROM DB:', {
-        _id: sampleProduct._id,
-        name: sampleProduct.name,
-        nameType: typeof sampleProduct.name,
-        nameExists: 'name' in sampleProduct,
-        nameValue: String(sampleProduct.name || 'NULL'),
-        allFields: Object.keys(sampleProduct),
-        fullProduct: JSON.stringify(sampleProduct).substring(0, 500)
-      });
-      
-      // Check if ANY products are missing names
-      const missingNames = products.filter(p => !p.name || p.name === null || p.name === undefined || String(p.name).trim() === '');
-      if (missingNames.length > 0) {
-        console.error('[Product Controller] CRITICAL ERROR: Products missing names in database:', {
-          count: missingNames.length,
-          totalProducts: products.length,
-          missingProductIds: missingNames.map(p => p._id),
-          missingProductSkus: missingNames.map(p => p.sku),
-          firstMissing: missingNames[0]
-        });
-      }
-    }
-    
-    // Immediate validation - check if products have names
-    console.log('[Product Controller] Products fetched from DB:', {
-      count: products.length,
-      firstProductFields: products[0] ? Object.keys(products[0]) : [],
-      firstProductHasName: products[0] ? !!products[0].name : false,
-      firstProductName: products[0] ? products[0].name : null,
-      firstProductNameType: products[0] ? typeof products[0].name : null,
-      productsWithoutNames: products.filter(p => !p.name || p.name.trim() === '').length
-    });
-    
-    // Log for debugging
-    console.log('[Product Controller] Products fetched:', {
-      count: products.length,
-      firstProduct: products[0] ? {
-        _id: products[0]._id,
-        name: products[0].name,
-        sku: products[0].sku,
-        hasName: !!products[0].name,
-        nameType: typeof products[0].name,
-        nameValue: String(products[0].name || 'NULL'),
-        allFields: Object.keys(products[0]),
-        franchise: products[0].franchise ? products[0].franchise._id : null
-      } : null,
-      allProductNames: products.slice(0, 5).map(p => ({ id: p._id, name: p.name || 'NO NAME', hasName: !!p.name })),
-      query: JSON.stringify(query)
-    });
-    
     // Validate products have names (before transformation)
     const initialProductsWithoutNames = products.filter(p => {
       const name = p.name;
       return !name || typeof name !== 'string' || name.trim() === '';
     });
-    if (initialProductsWithoutNames.length > 0) {
-      console.warn('[Product Controller] WARNING: Some products are missing names:', {
-        count: initialProductsWithoutNames.length,
-        ids: initialProductsWithoutNames.map(p => p._id),
-        firstMissing: initialProductsWithoutNames[0]
-      });
+    if (initialProductsWithoutNames.length > 0 && process.env.NODE_ENV === 'development') {
+      console.warn('[Product Controller] Some products missing names:', initialProductsWithoutNames.length);
     }
     
     // Calculate franchise-specific stock
@@ -256,14 +189,6 @@ export const getProducts = async (req, res) => {
       
       // Ensure all required fields are present - CRITICAL: name must always be present
       const productName = product.name || product.productName || 'Unknown Product';
-      if (!product.name && !product.productName) {
-        console.error('[Product Controller] ERROR: Product missing name field:', {
-          productId: product._id,
-          productSku: product.sku,
-          productKeys: Object.keys(product),
-          productData: product
-        });
-      }
       
       const productData = {
         ...product,
@@ -280,10 +205,6 @@ export const getProducts = async (req, res) => {
       
       // Final validation
       if (!productData.name || productData.name === '') {
-        console.error('[Product Controller] CRITICAL: ProductData still missing name after normalization:', {
-          productId: productData._id,
-          productData
-        });
         productData.name = 'Unknown Product'; // Force set name
       }
       
@@ -301,23 +222,11 @@ export const getProducts = async (req, res) => {
     });
     
     if (productsWithoutNames.length > 0) {
-      console.error('[Product Controller] CRITICAL: Sending products without names:', {
-        count: productsWithoutNames.length,
-        products: productsWithoutNames.map(p => ({ id: p._id, sku: p.sku, name: p.name }))
-      });
       // Force set names for products missing them
       productsWithoutNames.forEach(p => {
         p.name = p.name || 'Unknown Product';
       });
     }
-    
-    console.log('[Product Controller] Final response:', {
-      totalProducts: productsWithFranchiseStock.length,
-      productsWithNames: productsWithNames.length,
-      productsWithoutNames: productsWithoutNames.length,
-      firstProductName: productsWithFranchiseStock[0]?.name || 'N/A',
-      firstProductHasName: !!productsWithFranchiseStock[0]?.name
-    });
     
     res.json({
       success: true,
@@ -817,11 +726,10 @@ export const getProductAnalytics = async (req, res) => {
       });
     }
     
-    // Check access - handle both string and ObjectId comparison
-    if (user && user.role !== 'admin') {
-      const userFranchises = (user.franchises || []).map((f) => f?.toString() || f);
-      const franchiseIdStr = franchiseId.toString();
-      if (!userFranchises.includes(franchiseIdStr)) {
+    // Check access - User has franchise (singular) for manager/sales
+    if (user && user.role !== 'admin' && user.role !== 'superAdmin') {
+      const userFranchiseId = user.franchise?._id?.toString() || user.franchise?.toString();
+      if (!userFranchiseId || userFranchiseId !== String(franchiseId)) {
         return res.status(403).json({
           success: false,
           message: 'Access denied to this franchise'

@@ -8,9 +8,9 @@ import { protect, authorize } from '../middleware/auth.middleware.js';
 
 const router = express.Router();
 
-// Report routes - admin and manager only (managers can generate reports for their franchise)
-router.get('/sales', protect, authorize('admin', 'manager'), generateSalesReport);
-router.get('/inventory', protect, authorize('admin', 'manager'), generateInventoryReport);
-router.get('/profit-loss', protect, authorize('admin', 'manager'), generateProfitLossReport);
+// Report routes - admin, manager, and sales (managers/sales can generate reports for their franchise)
+router.get('/sales', protect, authorize('admin', 'manager', 'sales'), generateSalesReport);
+router.get('/inventory', protect, authorize('admin', 'manager', 'sales'), generateInventoryReport);
+router.get('/profit-loss', protect, authorize('admin', 'manager', 'sales'), generateProfitLossReport);
 
 export default router;

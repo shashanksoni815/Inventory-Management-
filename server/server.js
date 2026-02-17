@@ -17,11 +17,17 @@ import transferRoutes from './routes/transfer.routes.js';
 import adminRoutes from './routes/admin.routes.js';
 import orderRoutes from './routes/order.routes.js';
 import notificationRoutes from './routes/notification.routes.js';
+import userRoutes from './routes/user.routes.js';
 
 dotenv.config();
 
 const app = express();
 const PORT = parseInt(process.env.PORT, 10) || 5000;
+
+// Log port configuration on startup
+console.log(`📋 Server configuration:`);
+console.log(`   PORT from .env: ${process.env.PORT || 'not set'}`);
+console.log(`   Using PORT: ${PORT}`);
 
 // Fix CORS configuration
 app.use(cors({
@@ -66,12 +72,31 @@ app.use('/api/transfers', transferRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/users', userRoutes);
+
+// Drop legacy username index (User model now uses name/email, not username)
+const dropLegacyUsernameIndex = async () => {
+  try {
+    const coll = mongoose.connection.collection('users');
+    const indexes = await coll.indexes();
+    const hasUsername = indexes.some((idx) => idx.name === 'username_1');
+    if (hasUsername) {
+      await coll.dropIndex('username_1');
+      console.log('✅ Dropped legacy username_1 index from users collection');
+    }
+  } catch (err) {
+    if (err.code !== 27 && err.codeName !== 'IndexNotFound') {
+      console.warn('⚠️ Could not drop username index:', err.message);
+    }
+  }
+};
 
 // Database connection with better error handling
 const connectDB = async () => {
   try {
     const conn = await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/inventory_db');
     console.log(`✅ MongoDB Connected: ${conn.connection.host}`);
+    await dropLegacyUsernameIndex();
     return conn;
   } catch (error) {
     console.error('❌ MongoDB connection error:', error.message);

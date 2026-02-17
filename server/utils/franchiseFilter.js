@@ -21,21 +21,18 @@ export const buildFranchiseFilter = (req, options = {}) => {
   
   // Manager and Sales only see their franchise data
   if (user && (user.role === 'manager' || user.role === 'sales')) {
-    const userFranchise = user.franchise;
+    // user.franchise can be ObjectId or populated { _id, name, code }
+    const raw = user.franchise;
+    const userFranchiseId = raw?._id?.toString() || (typeof raw === 'string' ? raw : raw?.toString?.());
     
-    if (!userFranchise) {
-      // User has no franchise assigned - return empty result filter
-      // Unless we're including global products
+    if (!userFranchiseId || !mongoose.Types.ObjectId.isValid(userFranchiseId)) {
       if (includeGlobal) {
         return { isGlobal: true };
       }
       return { _id: { $exists: false } };
     }
     
-    // Convert to ObjectId if it's a string
-    const franchiseId = mongoose.Types.ObjectId.isValid(userFranchise) 
-      ? new mongoose.Types.ObjectId(userFranchise)
-      : userFranchise;
+    const franchiseId = new mongoose.Types.ObjectId(userFranchiseId);
     
     // If including global products, use $or to include both franchise and global products
     if (includeGlobal) {

@@ -51,8 +51,8 @@ const buildFranchiseFilter = (req) => {
       if (!mongoose.Types.ObjectId.isValid(franchiseParam)) {
         return { _id: { $exists: false } };
       }
-      const userFranchise = user.franchise?.toString();
-      if (!userFranchise || userFranchise !== franchiseParam.toString()) {
+      const userFranchiseId = user.franchise?._id?.toString() || user.franchise?.toString();
+      if (!userFranchiseId || userFranchiseId !== String(franchiseParam)) {
         return null; // signal 403
       }
       return { franchise: new mongoose.Types.ObjectId(franchiseParam) };

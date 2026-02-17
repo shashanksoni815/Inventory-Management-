@@ -51,7 +51,7 @@ const userSchema = new mongoose.Schema({
     },
     currency: {
       type: String,
-      default: 'USD'
+      default: 'INR'
     },
     taxRate: {
       type: Number,
@@ -76,18 +76,6 @@ userSchema.index({ email: 1 });
 userSchema.index({ franchise: 1 });
 // Index for role (for role-based queries)
 userSchema.index({ role: 1 });
-
-// Validate franchise requirement before saving
-userSchema.pre('validate', function(next) {
-  if ((this.role === 'manager' || this.role === 'sales') && !this.franchise) {
-    this.invalidate('franchise', 'Franchise is required for manager and sales roles');
-  }
-  // Ensure admin doesn't have a franchise assigned
-  if (this.role === 'admin' && this.franchise) {
-    this.invalidate('franchise', 'Admin role cannot be assigned to a franchise');
-  }
-  next();
-});
 
 // Hash password before saving
 userSchema.pre('save', async function(next) {

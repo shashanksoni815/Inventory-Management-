@@ -24,18 +24,28 @@ export const getNotifications = async (req, res) => {
       });
     }
 
-    // Build query
+    // Build query - properly handle unreadOnly (can be string 'true' or boolean)
+    const isUnreadOnly = unreadOnly === 'true' || unreadOnly === true;
+    
     const query = {
       user: user._id,
-      ...(unreadOnly === 'true' && { isRead: false }),
-      ...(type && { type }),
-      ...(category && { category }),
       // Exclude expired notifications
       $or: [
         { expiresAt: null },
         { expiresAt: { $gt: new Date() } }
       ]
     };
+    
+    // Add filters conditionally
+    if (isUnreadOnly) {
+      query.isRead = false;
+    }
+    if (type) {
+      query.type = type;
+    }
+    if (category) {
+      query.category = category;
+    }
 
     // Get notifications
     const [notifications, totalCount, unreadCount] = await Promise.all([
