@@ -27,12 +27,18 @@ export const hasFranchiseAccess = (user, franchiseId) => {
     return true;
   }
   
-  // Franchise managers and staff can only access their assigned franchises
+  // Manager and Sales: single franchise (user.franchise)
+  if (user.role === 'manager' || user.role === 'sales') {
+    const userFranchiseId = user.franchise?._id?.toString() || user.franchise?.toString();
+    if (!userFranchiseId) return false;
+    return userFranchiseId === String(franchiseId);
+  }
+  
+  // Legacy: Franchise managers and staff can only access their assigned franchises
   if (user.role === 'franchise_manager' || user.role === 'staff') {
     if (!user.franchises || !Array.isArray(user.franchises) || user.franchises.length === 0) {
-      return false; // No franchises assigned
+      return false;
     }
-    
     const franchiseIdStr = franchiseId?.toString();
     return user.franchises.some(f => f?.toString() === franchiseIdStr);
   }
@@ -57,6 +63,22 @@ export const checkFranchiseAccess = (req, res, next) => {
   
   // Admin/SuperAdmin can access all franchises
   if (user.role === 'admin' || user.role === 'superAdmin') {
+    return next();
+  }
+  
+  // Manager and Sales: single franchise access
+  if (user.role === 'manager' || user.role === 'sales') {
+    const franchiseId = req.query.franchise || req.body.franchise || req.params.franchiseId || req.params.franchise;
+    if (!franchiseId) {
+      if (!user.franchise) {
+        return res.status(403).json({ success: false, message: 'Access denied: No franchise assigned' });
+      }
+      return next();
+    }
+    const userFranchiseId = user.franchise?._id?.toString() || user.franchise?.toString();
+    if (!userFranchiseId || userFranchiseId !== String(franchiseId)) {
+      return res.status(403).json({ success: false, message: 'Access denied: You do not have access to this franchise' });
+    }
     return next();
   }
   
@@ -90,7 +112,7 @@ export const checkFranchiseAccess = (req, res, next) => {
   }
   
   // Unknown role - deny access
-  if (!['admin', 'superAdmin', 'franchise_manager', 'staff'].includes(user.role)) {
+  if (!['admin', 'superAdmin', 'manager', 'sales', 'franchise_manager', 'staff'].includes(user.role)) {
     return res.status(403).json({
       success: false,
       message: 'Access denied: Invalid user role',
@@ -115,33 +137,36 @@ export const requireFranchiseAccess = (franchiseParamName = 'franchiseId') => {
       });
     }
     
-    // Admin/SuperAdmin can access all franchises
-    if (user.role === 'admin' || user.role === 'superAdmin') {
-      return next();
+  // Admin/SuperAdmin can access all franchises
+  if (user.role === 'admin' || user.role === 'superAdmin') {
+    return next();
+  }
+  
+  // Manager and Sales: single franchise
+  if (user.role === 'manager' || user.role === 'sales') {
+    const franchiseId = req.params[franchiseParamName] || req.query[franchiseParamName] || req.body[franchiseParamName];
+    if (!franchiseId) {
+      return res.status(400).json({ success: false, message: 'Franchise ID is required' });
     }
-    
-    // Franchise managers and staff need franchise access check
-    if (user.role === 'franchise_manager' || user.role === 'staff') {
-      const franchiseId = req.params[franchiseParamName] || 
-                          req.query[franchiseParamName] || 
-                          req.body[franchiseParamName];
-      
-      if (!franchiseId) {
-        return res.status(400).json({
-          success: false,
-          message: 'Franchise ID is required',
-        });
-      }
-      
-      if (!hasFranchiseAccess(user, franchiseId)) {
-        return res.status(403).json({
-          success: false,
-          message: 'Access denied: You do not have access to this franchise',
-        });
-      }
+    if (!hasFranchiseAccess(user, franchiseId)) {
+      return res.status(403).json({ success: false, message: 'Access denied: You do not have access to this franchise' });
     }
+    return next();
+  }
+  
+  // Franchise managers and staff
+  if (user.role === 'franchise_manager' || user.role === 'staff') {
+    const franchiseId = req.params[franchiseParamName] || req.query[franchiseParamName] || req.body[franchiseParamName];
+    if (!franchiseId) {
+      return res.status(400).json({ success: false, message: 'Franchise ID is required' });
+    }
+    if (!hasFranchiseAccess(user, franchiseId)) {
+      return res.status(403).json({ success: false, message: 'Access denied: You do not have access to this franchise' });
+    }
+    return next();
+  }
     
-    next();
+  return res.status(403).json({ success: false, message: 'Access denied: Invalid user role' });
   };
 };
 
@@ -159,6 +184,16 @@ export const getFranchiseFilter = (user) => {
   // Admin/SuperAdmin can see all franchises
   if (user.role === 'admin' || user.role === 'superAdmin') {
     return {}; // No filter - show all
+  }
+  
+  // Manager and Sales: single franchise
+  if (user.role === 'manager' || user.role === 'sales') {
+    const raw = user.franchise;
+    const userFranchiseId = raw?._id?.toString() || (typeof raw === 'object' && raw?.toString ? raw.toString() : raw);
+    if (!userFranchiseId || !mongoose.Types.ObjectId.isValid(userFranchiseId)) {
+      return { _id: { $exists: false } };
+    }
+    return { _id: new mongoose.Types.ObjectId(userFranchiseId) };
   }
   
   // Franchise managers and staff can only see their assigned franchises

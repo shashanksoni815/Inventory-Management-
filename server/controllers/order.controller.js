@@ -16,13 +16,15 @@ const ORDER_PAYMENT_TO_SALE_METHOD = {
   COD: 'cash'
 };
 
-/** Roles allowed to access orders (admin = all; franchise_manager = own outlets; staff = own outlets read-only). */
-const ORDER_ACCESS_ROLES = ['superAdmin', 'admin', 'franchise_manager', 'staff'];
+/** Roles allowed to access orders (admin = all; manager/sales = own franchise). */
+const ORDER_ACCESS_ROLES = ['admin', 'manager', 'sales'];
+
+import { applyFranchiseFilter } from '../utils/franchiseFilter.js';
 
 /**
  * Build franchise filter for list query.
- * Admin/SuperAdmin: no restriction (optional franchise from query).
- * Franchise manager / Staff: restricted to their assigned franchises only.
+ * Admin: no restriction (optional franchise from query).
+ * Manager / Sales: restricted to their assigned franchise only.
  */
 const buildFranchiseFilter = (req) => {
   const user = req.user;
@@ -32,28 +34,31 @@ const buildFranchiseFilter = (req) => {
     return { _id: { $exists: false } };
   }
 
-  if (user.role === 'admin' || user.role === 'superAdmin') {
+  // Admin can see all or filter by explicit franchise param
+  if (user.role === 'admin') {
     if (franchiseParam) {
       return { franchise: new mongoose.Types.ObjectId(franchiseParam) };
     }
     return {};
   }
 
-  if (user.role === 'franchise_manager' || user.role === 'staff') {
-    const franchises = (user.franchises || []).map((f) => f?.toString?.()).filter(Boolean);
-    if (franchises.length === 0) {
-      return { _id: { $exists: false } };
-    }
+  // Manager and Sales: use franchise isolation helper
+  if (user.role === 'manager' || user.role === 'sales') {
+    const franchiseFilter = applyFranchiseFilter(req);
+    
+    // If explicit franchise param provided, validate it matches user's franchise
     if (franchiseParam) {
       if (!mongoose.Types.ObjectId.isValid(franchiseParam)) {
         return { _id: { $exists: false } };
       }
-      if (!hasFranchiseAccess(user, franchiseParam)) {
+      const userFranchiseId = user.franchise?._id?.toString() || user.franchise?.toString();
+      if (!userFranchiseId || userFranchiseId !== String(franchiseParam)) {
         return null; // signal 403
       }
       return { franchise: new mongoose.Types.ObjectId(franchiseParam) };
     }
-    return { franchise: { $in: franchises.map((id) => new mongoose.Types.ObjectId(id)) } };
+    
+    return franchiseFilter;
   }
 
   return { _id: { $exists: false } };

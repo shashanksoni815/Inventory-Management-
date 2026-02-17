@@ -1,10 +1,13 @@
 import mongoose from 'mongoose';
 import ExcelJS from 'exceljs';
+import fs from 'fs';
+import path from 'path';
 import { Sale } from '../models/Sale.model.js';
 import { Product } from '../models/Product.model.js';
 import Franchise from '../models/Franchise.js';
 import { ImportLog } from '../models/ImportLog.model.js';
 import { AuditLog } from '../models/AuditLog.model.js';
+import { applyFranchiseFilter } from '../utils/franchiseFilter.js';
 
 // Helper function to create audit log from import log
 const createAuditLogFromImportLog = async (importLog, req) => {
@@ -48,12 +51,20 @@ export const getAllSales = async (req, res) => {
     const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 20));
     const { startDate, endDate, type, paymentMethod, status, search, franchise, sortBy = 'createdAt', sortOrder = 'desc' } = req.query;
 
-    const query = {};
+    // Build base query
+    const baseQuery = {};
 
-    // STRICT FRANCHISE SCOPING: Filter by franchise if provided
-    if (franchise) {
-      query.franchise = franchise;
+    // Apply franchise filter (admin sees all, manager/sales see only their franchise)
+    // If explicit franchise param provided and user is admin, use it; otherwise use user's franchise
+    if (req.user && req.user.role === 'admin' && franchise) {
+      baseQuery.franchise = franchise;
+    } else {
+      // Apply franchise isolation filter
+      const franchiseFilter = applyFranchiseFilter(req);
+      Object.assign(baseQuery, franchiseFilter);
     }
+
+    const query = { ...baseQuery };
 
     // Date range filter (defensive parsing)
     if (startDate || endDate) {
@@ -82,7 +93,7 @@ export const getAllSales = async (req, res) => {
 
     const sortOptions = { [sortBy]: sortOrder === 'asc' ? 1 : -1 };
 
-    // STRICT FRANCHISE SCOPING: Query already filtered by franchise if provided
+    // Query already filtered by franchise isolation
     const [sales, total] = await Promise.all([
       Sale.find(query)
         .sort(sortOptions)
@@ -93,9 +104,9 @@ export const getAllSales = async (req, res) => {
       Sale.countDocuments(query),
     ]);
 
-    // Calculate summary - STRICTLY SCOPED BY FRANCHISE
+    // Calculate summary - scoped by franchise isolation
     const summaryAgg = await Sale.aggregate([
-      { $match: query }, // Query already includes franchise filter if provided
+      { $match: query }, // Query already includes franchise filter
       {
         $group: {
           _id: null,
@@ -143,8 +154,19 @@ export const getAllSales = async (req, res) => {
 
 export const createSale = async (req, res) => {
   try {
+    // Debug logging removed for cleaner console output
+    
+    // Check if request body exists
+    if (!req.body || typeof req.body !== 'object') {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid request body',
+      });
+    }
+    
     const {
       items,
+      franchise,
       customerName,
       customerEmail,
       paymentMethod,
@@ -158,6 +180,35 @@ export const createSale = async (req, res) => {
         success: false,
         message: 'At least one item is required',
       });
+    }
+
+    // FRANCHISE SCOPING: Require franchise in request body
+    if (!franchise) {
+      return res.status(400).json({
+        success: false,
+        message: 'Franchise is required for sale creation',
+      });
+    }
+
+    // Validate franchise is a valid ObjectId
+    if (!mongoose.Types.ObjectId.isValid(franchise)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid franchise ID format',
+      });
+    }
+
+    // Enforce franchise isolation: non-admin users can only create sales for their franchise
+    if (req.user && req.user.role !== 'admin') {
+      const userFranchise = req.user.franchise?.toString();
+      const saleFranchise = franchise.toString();
+      
+      if (!userFranchise || userFranchise !== saleFranchise) {
+        return res.status(403).json({
+          success: false,
+          message: 'Access denied: You can only create sales for your assigned franchise',
+        });
+      }
     }
 
     const validPaymentMethods = ['cash', 'card', 'upi', 'bank_transfer', 'credit'];
@@ -177,13 +228,26 @@ export const createSale = async (req, res) => {
     }
 
     // Normalize items: ensure product and quantity exist and are valid
-    for (const item of items) {
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
       if (!item.product) {
         return res.status(400).json({
           success: false,
           message: 'Each item must have a product id',
         });
       }
+      
+      // Convert product ID to ObjectId if it's a string
+      if (typeof item.product === 'string') {
+        if (!mongoose.Types.ObjectId.isValid(item.product)) {
+          return res.status(400).json({
+            success: false,
+            message: `Invalid product ID format: ${item.product}`,
+          });
+        }
+        item.product = new mongoose.Types.ObjectId(item.product);
+      }
+      
       const qty = Number(item.quantity);
       if (!Number.isInteger(qty) || qty < 1) {
         return res.status(400).json({
@@ -194,8 +258,8 @@ export const createSale = async (req, res) => {
       item.quantity = qty;
     }
 
-    // STRICT FRANCHISE SCOPING: Determine franchise from products
-    let saleFranchise = null;
+    // FRANCHISE SCOPING: Use franchise from request body (already validated as required)
+    const saleFranchise = franchise;
     const user = req.user;
     
     // Validate items and attach product data
@@ -214,16 +278,8 @@ export const createSale = async (req, res) => {
         });
       }
 
-      // STRICT FRANCHISE SCOPING: Set franchise from first product
-      // All products in a sale must belong to the same franchise
-      if (!saleFranchise) {
-        saleFranchise = product.franchise;
-      } else if (product.franchise.toString() !== saleFranchise.toString()) {
-        return res.status(400).json({
-          success: false,
-          message: 'All products in a sale must belong to the same franchise',
-        });
-      }
+      // Products can be sold by any franchise (global products available to all)
+      // Stock is shared across franchises, so no franchise validation needed
 
       // Attach product data to item (ensure numbers for schema)
       item.sku = product.sku;
@@ -244,26 +300,11 @@ export const createSale = async (req, res) => {
     const grandTotal = subTotal - totalDiscount + totalTax;
     const totalProfit = items.reduce((sum, item) => sum + item.profit, 0);
 
-    const date = new Date();
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
-    const invoiceNumber = `INV-${year}${month}${day}-${random}`;
-
-    // STRICT FRANCHISE SCOPING: Ensure franchise is set
-    if (!saleFranchise) {
-      // Fallback: use user's franchise if available
-      if (user && user.franchises && user.franchises.length > 0) {
-        saleFranchise = user.franchises[0];
-      } else {
-        return res.status(400).json({
-          success: false,
-          message: 'Unable to determine franchise for sale',
-        });
-      }
-    }
-
+    // FRANCHISE SCOPING: Create sale with franchise from request body
+    // Invoice number will be generated by pre-save hook
+    // Convert franchise string to ObjectId
+    const franchiseObjectId = new mongoose.Types.ObjectId(saleFranchise);
+    
     const saleDoc = {
       items,
       customerName: customerName?.trim() || undefined,
@@ -272,14 +313,15 @@ export const createSale = async (req, res) => {
       saleType,
       notes: notes?.trim() || undefined,
       status: 'completed',
-      invoiceNumber,
       subTotal,
       totalDiscount,
       totalTax,
       grandTotal,
       totalProfit,
-      franchise: saleFranchise, // STRICT FRANCHISE SCOPING
+      franchise: franchiseObjectId, // FRANCHISE SCOPING: Converted to ObjectId
     };
+
+    // Creating sale document
 
     const sale = await Sale.create(saleDoc);
 
@@ -289,11 +331,21 @@ export const createSale = async (req, res) => {
       message: 'Sale completed successfully',
     });
   } catch (error) {
-    console.error('Create sale error:', error);
-    res.status(500).json({
+    
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    let errorDetails = errorMessage;
+    let statusCode = 500;
+    
+    if (error instanceof Error && error.name === 'ValidationError') {
+      const validationErrors = error.errors || {};
+      errorDetails = Object.values(validationErrors).map((e) => e.message).join(', ');
+      statusCode = 400; // Validation errors should be 400, not 500
+    }
+    
+    res.status(statusCode).json({
       success: false,
       message: 'Failed to create sale',
-      error: error.message,
+      error: errorDetails || 'Unknown error occurred',
     });
   }
 };
@@ -309,6 +361,19 @@ export const getSaleById = async (req, res) => {
         success: false,
         message: 'Sale not found',
       });
+    }
+
+    // Enforce franchise isolation: non-admin users can only access their franchise sales
+    if (req.user && req.user.role !== 'admin') {
+      const userFranchise = req.user.franchise?.toString();
+      const saleFranchise = sale.franchise?.toString();
+      
+      if (!userFranchise || userFranchise !== saleFranchise) {
+        return res.status(403).json({
+          success: false,
+          message: 'Access denied: You do not have permission to view this sale',
+        });
+      }
     }
 
     res.status(200).json({
@@ -336,6 +401,19 @@ export const refundSale = async (req, res) => {
         success: false,
         message: 'Sale not found',
       });
+    }
+
+    // Enforce franchise isolation: non-admin users can only refund their franchise sales
+    if (req.user && req.user.role !== 'admin') {
+      const userFranchise = req.user.franchise?.toString();
+      const saleFranchise = sale.franchise?.toString();
+      
+      if (!userFranchise || userFranchise !== saleFranchise) {
+        return res.status(403).json({
+          success: false,
+          message: 'Access denied: You do not have permission to refund this sale',
+        });
+      }
     }
 
     if (sale.status === 'refunded') {
@@ -400,6 +478,19 @@ export const generateInvoice = async (req, res) => {
         success: false,
         message: 'Sale not found',
       });
+    }
+
+    // Enforce franchise isolation: non-admin users can only generate invoices for their franchise sales
+    if (req.user && req.user.role !== 'admin') {
+      const userFranchise = req.user.franchise?.toString();
+      const saleFranchise = sale.franchise?.toString();
+      
+      if (!userFranchise || userFranchise !== saleFranchise) {
+        return res.status(403).json({
+          success: false,
+          message: 'Access denied: You do not have permission to generate invoice for this sale',
+        });
+      }
     }
 
     // Create PDF document
@@ -506,39 +597,19 @@ export const exportSalesReport = async (req, res) => {
     
     const user = req.user;
 
-    // Role-Based Access Control: Check franchise access
-    if (franchise) {
-      // Validate franchise access for franchise managers
-      if (user.role === 'franchise_manager') {
-        if (!user.franchises || !Array.isArray(user.franchises) || 
-            !user.franchises.some(f => f?.toString() === franchise.toString())) {
-          return res.status(403).json({
-            success: false,
-            message: 'Access denied: You do not have access to this franchise',
-          });
-        }
-      }
-      // Admin/SuperAdmin can access all franchises - no check needed
-    } else if (user.role === 'franchise_manager') {
-      // Franchise managers must have at least one franchise assigned
-      if (!user.franchises || !Array.isArray(user.franchises) || user.franchises.length === 0) {
-        return res.status(403).json({
-          success: false,
-          message: 'Access denied: No franchises assigned to your account',
-        });
-      }
+    // Build query with franchise isolation
+    const baseQuery = { status: 'completed' };
+    
+    // Apply franchise filter (admin sees all, manager/sales see only their franchise)
+    if (user && user.role === 'admin' && franchise) {
+      baseQuery.franchise = franchise;
+    } else {
+      // Apply franchise isolation filter
+      const franchiseFilter = applyFranchiseFilter(req);
+      Object.assign(baseQuery, franchiseFilter);
     }
 
-    // Build query
-    const query = { status: 'completed' };
-    
-    // Franchise filter
-    if (franchise) {
-      query.franchise = franchise;
-    } else if (user && user.role !== 'admin' && user.role !== 'superAdmin' && Array.isArray(user.franchises) && user.franchises.length > 0) {
-      // Franchise managers: only see sales from their franchises
-      query.franchise = { $in: user.franchises };
-    }
+    const query = { ...baseQuery };
     
     // Date range filter
     if (startDate || endDate) {
@@ -1012,13 +1083,22 @@ export const getSalesSummary = async (req, res) => {
         endDate = new Date();
     }
 
-    const dateMatch = {
+    // Build date match with franchise isolation
+    const baseDateMatch = {
       createdAt: { $gte: startDate, $lte: endDate },
       status: 'completed',
     };
-    if (franchise) {
-      dateMatch.franchise = franchise;
+    
+    // Apply franchise filter (admin sees all, manager/sales see only their franchise)
+    if (req.user && req.user.role === 'admin' && franchise) {
+      baseDateMatch.franchise = franchise;
+    } else {
+      // Apply franchise isolation filter
+      const franchiseFilter = applyFranchiseFilter(req);
+      Object.assign(baseDateMatch, franchiseFilter);
     }
+    
+    const dateMatch = baseDateMatch;
 
     const summary = await Sale.aggregate([
       {

@@ -53,6 +53,7 @@ const Sales: React.FC = () => {
       return result;
     },
     retry: 1,
+    staleTime: 30 * 1000, // 30 seconds - sales update frequently
     refetchOnWindowFocus: false,
   });
 

@@ -14,23 +14,26 @@ import {
   importStock,
   exportStock,
 } from '../controllers/transfer.controller.js';
-import { authMiddleware } from '../middleware/auth.middleware.js';
+import { protect, authorize } from '../middleware/auth.middleware.js';
 
 const router = express.Router();
 
-router.use(authMiddleware);
+// Admin-only routes
+router.get('/admin/overview', protect, authorize('admin'), getAdminTransfersOverview);
 
-router.get('/', getAllTransfers);
-router.get('/admin/overview', getAdminTransfersOverview);
-router.get('/statistics/:franchiseId', getTransferStatistics);
-router.post('/import', importStock); // Stock import route before /:id to avoid route conflict
-router.post('/export', exportStock); // Stock export route before /:id to avoid route conflict
-router.get('/:id', getTransferById);
-router.post('/', createTransfer);
-router.put('/:id', updateTransfer);
-router.post('/:id/approve', approveTransfer);
-router.post('/:id/reject', rejectTransfer);
-router.post('/:id/complete', completeTransfer);
-router.post('/:id/cancel', cancelTransfer);
+// View routes - accessible to all authenticated users (admin, manager, sales)
+router.get('/', protect, authorize('admin', 'manager', 'sales'), getAllTransfers);
+router.get('/statistics/:franchiseId', protect, authorize('admin', 'manager', 'sales'), getTransferStatistics);
+router.get('/:id', protect, authorize('admin', 'manager', 'sales'), getTransferById);
+
+// Management routes - admin and manager only
+router.post('/import', protect, authorize('admin', 'manager'), importStock); // Stock import route before /:id to avoid route conflict
+router.post('/export', protect, authorize('admin', 'manager'), exportStock); // Stock export route before /:id to avoid route conflict
+router.post('/', protect, authorize('admin', 'manager'), createTransfer);
+router.put('/:id', protect, authorize('admin', 'manager'), updateTransfer);
+router.post('/:id/approve', protect, authorize('admin', 'manager'), approveTransfer);
+router.post('/:id/reject', protect, authorize('admin', 'manager'), rejectTransfer);
+router.post('/:id/complete', protect, authorize('admin', 'manager'), completeTransfer);
+router.post('/:id/cancel', protect, authorize('admin', 'manager'), cancelTransfer);
 
 export default router;

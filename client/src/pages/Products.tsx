@@ -36,6 +36,8 @@ const Products: React.FC = () => {
       page: 1,
       limit: 50,
     }),
+    staleTime: 1 * 60 * 1000, // 1 minute - products can change but not constantly
+    refetchOnWindowFocus: false,
   });
 
   const createMutation = useMutation({

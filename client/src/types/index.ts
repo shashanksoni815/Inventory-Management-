@@ -1,9 +1,15 @@
-export type UserRole = 'superAdmin' | 'admin' | 'franchise_manager' | 'staff';
+export type UserRole = 'admin' | 'manager' | 'sales';
 
 export interface User {
-    _id: string;
-    username: string;
+    id: string;
+    name: string;
+    email: string;
     role: UserRole;
+    franchise?: {
+      id: string;
+      name: string;
+      code: string;
+    } | null;
     settings: UserSettings;
     lastLogin?: string;
   }
@@ -37,6 +43,8 @@ export interface User {
     stockHistory: StockHistory[];
     createdAt: string;
     updatedAt: string;
+    franchise?: string;
+    isGlobal?: boolean;
     // Virtuals
     stockStatus?: 'out-of-stock' | 'low-stock' | 'in-stock';
     inventoryValue?: number;

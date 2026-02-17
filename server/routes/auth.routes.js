@@ -7,15 +7,18 @@ import {
   updateProfile,
   changePassword,
 } from '../controllers/auth.controller.js';
-import { authMiddleware } from '../middleware/auth.middleware.js';
+import { protect } from '../middleware/auth.middleware.js';
 
 const router = express.Router();
 
+// Public routes
 router.post('/login', login);
 router.post('/register', register);
-router.post('/logout', authMiddleware, logout);
-router.get('/profile', authMiddleware, getProfile);
-router.put('/profile', authMiddleware, updateProfile);
-router.post('/change-password', authMiddleware, changePassword);
+
+// Protected routes (all authenticated users)
+router.post('/logout', protect, logout);
+router.get('/profile', protect, getProfile);
+router.put('/profile', protect, updateProfile);
+router.post('/change-password', protect, changePassword);
 
 export default router;

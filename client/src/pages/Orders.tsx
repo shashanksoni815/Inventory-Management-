@@ -139,6 +139,7 @@ const Orders: React.FC = () => {
         limit,
       }),
     retry: 1,
+    staleTime: 30 * 1000, // 30 seconds - orders update frequently
     refetchOnWindowFocus: false,
   });
 
