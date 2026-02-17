@@ -17,10 +17,31 @@ export default defineConfig({
       '/api': {
         target: 'http://localhost:5002',
         changeOrigin: true,
+        secure: false,
+        ws: true, // Enable WebSocket proxying
+        configure: (proxy, _options) => {
+          proxy.on('error', (err, _req) => {
+            // Silent error handling - backend might not be running
+            // Only log in development if needed
+            if (import.meta.env.DEV) {
+              console.error('Proxy error:', err.message);
+            }
+          });
+        },
       },
     },
     hmr: {
       overlay: false, // Disable HMR overlay to prevent browser extension crashes
+      clientPort: 5173, // Explicit port for HMR
     },
+    watch: {
+      // Ignore changes that might trigger extension errors
+      ignored: ['**/node_modules/**', '**/.git/**'],
+    },
+  },
+  logLevel: 'info',
+  build: {
+    // Suppress chunk size warnings
+    chunkSizeWarningLimit: 1000,
   },
 })

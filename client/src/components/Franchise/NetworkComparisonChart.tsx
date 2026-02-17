@@ -33,10 +33,8 @@ const NetworkComparisonChart: React.FC = () => {
     queryFn: () => franchiseApi.getNetworkStats(),
   });
   
-  // API interceptor unwraps `{ success, data }` and returns the inner stats object.
-  const stats = (networkStats && typeof networkStats === 'object'
-    ? (networkStats as { franchisePerformance?: any[] })
-    : {}) || {};
+  // API interceptor returns unwrapped data directly
+  const stats = (networkStats && typeof networkStats === 'object' ? networkStats : {}) as { franchisePerformance?: any[] };
   const franchisePerformance = stats.franchisePerformance || [];
 
   // Prepare data for charts
@@ -118,12 +116,12 @@ const NetworkComparisonChart: React.FC = () => {
                   tick={{ fontSize: 12 }}
                 />
                 <YAxis 
-                  tickFormatter={(value) => `$${(value / 1000).toFixed(0)}k`}
+                  tickFormatter={(value) => `₹${(value / 1000).toFixed(0)}k`}
                   width={60}
                 />
                 <Tooltip 
                   formatter={(value, name) => {
-                    if (name === 'revenue') return [`$${Number(value).toLocaleString()}`, 'Revenue'];
+                    if (name === 'revenue') return [`₹${Number(value).toLocaleString('en-IN')}`, 'Revenue'];
                     if (name === 'sales') return [value, 'Sales Count'];
                     return [value, name];
                   }}
@@ -150,7 +148,7 @@ const NetworkComparisonChart: React.FC = () => {
                     position="top"
                     formatter={(value: any) => {
                       const num = typeof value === 'number' ? value : Number(value) || 0;
-                      return `$${(num / 1000).toFixed(0)}k`;
+                      return `₹${(num / 1000).toFixed(0)}k`;
                     }}
                     style={{ fontSize: 10, fill: '#374151' }}
                   />
@@ -267,7 +265,7 @@ const NetworkComparisonChart: React.FC = () => {
                       </td>
                       <td className="px-4 py-4">
                         <div className="text-lg font-bold text-gray-900">
-                          ${item.revenue.toLocaleString()}
+                          ₹{item.revenue.toLocaleString('en-IN')}
                         </div>
                       </td>
                       <td className="px-4 py-4">
@@ -277,7 +275,7 @@ const NetworkComparisonChart: React.FC = () => {
                       </td>
                       <td className="px-4 py-4">
                         <div className="font-medium text-gray-900">
-                          ${avgSale.toFixed(2)}
+                          ₹{avgSale.toFixed(2)}
                         </div>
                       </td>
                       <td className="px-4 py-4">

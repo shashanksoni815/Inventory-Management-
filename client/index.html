@@ -4,7 +4,51 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>client</title>
+    <title>InventoryPro</title>
+    <script>
+      // Suppress browser extension errors
+      (function() {
+        const originalError = console.error;
+        console.error = function(...args) {
+          const msg = args[0]?.toString() || '';
+          if (
+            msg.includes('disconnected port object') ||
+            msg.includes('proxy.js') ||
+            msg.includes('Extension context invalidated') ||
+            msg.includes('Message port closed') ||
+            msg.includes('react_devtools_backend')
+          ) {
+            return; // Suppress extension errors
+          }
+          originalError.apply(console, args);
+        };
+        
+        window.addEventListener('error', function(e) {
+          const msg = e.message || '';
+          if (
+            msg.includes('disconnected port object') ||
+            msg.includes('proxy.js') ||
+            msg.includes('Extension context invalidated') ||
+            msg.includes('Message port closed')
+          ) {
+            e.preventDefault();
+            return false;
+          }
+        }, true);
+        
+        window.addEventListener('unhandledrejection', function(e) {
+          const msg = e.reason?.message || e.reason?.toString() || '';
+          if (
+            msg.includes('disconnected port object') ||
+            msg.includes('proxy.js') ||
+            msg.includes('Extension context invalidated') ||
+            msg.includes('Message port closed')
+          ) {
+            e.preventDefault();
+          }
+        });
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

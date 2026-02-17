@@ -6,6 +6,7 @@ import ProductTable from '@/features/products/components/ProductTable';
 import ProductForm from '@/features/products/components/ProductForm';
 import { productApi } from '@/services/api';
 import { useFranchise } from '@/contexts/FranchiseContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { showToast } from '@/services/toast';
 import type { Product } from '@/types';
 
@@ -22,6 +23,7 @@ const Products: React.FC = () => {
 
   const queryClient = useQueryClient();
   const { currentFranchise } = useFranchise();
+  const { user } = useAuth();
   const selectedFranchiseId =
     (currentFranchise as any)?._id || (currentFranchise as any)?.id || undefined;
 
@@ -45,6 +47,11 @@ const Products: React.FC = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['products'] });
       setShowForm(false);
+      showToast.success('Product created successfully!');
+    },
+    onError: (error: any) => {
+      const message = error?.response?.data?.message || error?.message || 'Failed to create product';
+      showToast.error(message);
     },
   });
 
@@ -78,20 +85,34 @@ const Products: React.FC = () => {
 
   const handleSubmit = useCallback(
     async (formData: any) => {
-      if (selectedProduct) {
-        await updateMutation.mutateAsync({
-          id: selectedProduct._id,
-          data: formData,
-        });
-      } else {
-        if (!selectedFranchiseId) {
-          window.alert('Please select a franchise before creating a product.');
-          return;
+      try {
+        if (selectedProduct) {
+          await updateMutation.mutateAsync({
+            id: selectedProduct._id,
+            data: formData,
+          });
+        } else {
+          // For admin: use franchise from form data
+          // For manager/sales: use their assigned franchise or form data
+          const franchiseId = formData.franchise || selectedFranchiseId;
+          
+          if (!franchiseId) {
+            showToast.error('Please select a franchise for this product.');
+            return;
+          }
+          
+          // Ensure stockQuantity is set (backend accepts both 'stock' and 'stockQuantity')
+          const payload = {
+            ...formData,
+            franchise: franchiseId,
+            stockQuantity: formData.stockQuantity || formData.stock || 0,
+          };
+          
+          await createMutation.mutateAsync(payload);
         }
-        await createMutation.mutateAsync({
-          ...formData,
-          franchise: selectedFranchiseId,
-        });
+      } catch (error: any) {
+        // Error is handled by mutation's onError, but log for debugging
+        console.error('Product creation error:', error);
       }
     },
     [selectedProduct, createMutation, updateMutation, selectedFranchiseId]
@@ -400,8 +421,8 @@ const Products: React.FC = () => {
               All Products ({products.length})
             </h2>
             <p className="text-sm text-gray-500">
-              Total inventory value: $
-              {products.reduce((sum: number, p: Product) => sum + (p.inventoryValue ?? 0), 0).toLocaleString()}
+              Total inventory value: ₹
+              {products.reduce((sum: number, p: Product) => sum + (p.inventoryValue ?? 0), 0).toLocaleString('en-IN')}
             </p>
           </div>
           <div className="text-xs sm:text-sm text-gray-500 flex-shrink-0">
@@ -444,10 +465,10 @@ const Products: React.FC = () => {
             <div>
               <p className="text-sm text-gray-500">Total Inventory Value</p>
               <p className="text-2xl font-bold text-gray-900">
-                $
+                ₹
                 {products
                   .reduce((sum: number, p: Product) => sum + (p.inventoryValue ?? 0), 0)
-                  .toLocaleString()}
+                  .toLocaleString('en-IN')}
               </p>
             </div>
             <div className="rounded-lg bg-green-100 p-3 ">

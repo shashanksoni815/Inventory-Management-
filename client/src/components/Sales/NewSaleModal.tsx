@@ -258,16 +258,7 @@ const NewSaleModal: React.FC<NewSaleModalProps> = ({
       total: totals.grandTotal,
     };
 
-    // #region agent log
-    console.error('[DEBUG] ===== PAYLOAD BEING SENT =====');
-    console.error('[DEBUG] Full payload:', JSON.stringify(payload, null, 2));
-    console.error('[DEBUG] Franchise:', payload.franchise);
-    console.error('[DEBUG] Items count:', payload.items.length);
-    console.error('[DEBUG] Items:', payload.items);
-    console.error('[DEBUG] SaleType:', payload.saleType);
-    console.error('[DEBUG] PaymentMethod:', payload.paymentMethod);
-    fetch('http://127.0.0.1:7243/ingest/3fc7926a-846a-45b6-a134-1306e0ccfd99',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'NewSaleModal.tsx:234',message:'Payload before API call',data:{franchise:payload.franchise,itemsCount:payload.items.length,items:payload.items.map(i=>({product:i.product,quantity:i.quantity})),saleType:payload.saleType,paymentMethod:payload.paymentMethod},timestamp:Date.now(),runId:'run1',hypothesisId:'A,B,C,D,E'})}).catch(()=>{});
-    // #endregion
+    // Creating sale
 
     try {
       await saleApi.create(payload);
@@ -276,34 +267,11 @@ const NewSaleModal: React.FC<NewSaleModalProps> = ({
       resetForm();
       onClose();
     } catch (err: any) {
-      // #region agent log
-      const errorData = {
-        errMessage: err?.message,
-        errResponseData: err?.response?.data,
-        errStatus: err?.response?.status,
-        errResponseHeaders: err?.response?.headers,
-        errRequest: err?.request ? 'present' : 'missing',
-        errConfig: err?.config?.url,
-        fullErrKeys: Object.keys(err || {}),
-        errStringified: JSON.stringify(err, null, 2)
-      };
-      console.error('[DEBUG] Sale creation error:', errorData);
-      fetch('http://127.0.0.1:7243/ingest/3fc7926a-846a-45b6-a134-1306e0ccfd99',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'NewSaleModal.tsx:252',message:'Error caught from API',data:errorData,timestamp:Date.now(),runId:'run1',hypothesisId:'A,B,C,D,E'})}).catch(()=>{});
-      // #endregion
-      
       let message = 'Failed to create sale. Check connection and try again.';
       
       // Extract error message - handle axios interceptor format
-      // The interceptor wraps errors as { message, ...errPayload }
-      console.error('[DEBUG] Full error object:', err);
-      console.error('[DEBUG] Error response:', err?.response);
-      console.error('[DEBUG] Error response data:', err?.response?.data);
-      
       if (err?.response?.data) {
         const errorData = err.response.data;
-        console.error('[DEBUG] Error data structure:', errorData);
-        
-        // Try multiple ways to extract the message
         if (errorData.message) {
           message = errorData.message;
         } else if (errorData.error) {
@@ -319,8 +287,6 @@ const NewSaleModal: React.FC<NewSaleModalProps> = ({
         message = err;
       }
       
-      console.error('[DEBUG] Extracted error message:', message);
-      console.error('[DEBUG] Showing toast with message:', message);
       showToast.error(message);
     }
   };

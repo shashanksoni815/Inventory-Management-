@@ -82,6 +82,42 @@ export const authApi = {
   },
 };
 
+export const userApi = {
+  getAll: async (params?: {
+    role?: 'admin' | 'manager' | 'sales';
+    franchise?: string;
+    search?: string;
+    page?: number;
+    limit?: number;
+  }) => {
+    return api.get('/users', { params }) as Promise<{
+      users: User[];
+      pagination: { page: number; limit: number; total: number; pages: number };
+    }>;
+  },
+  getById: async (id: string) => {
+    return api.get(`/users/${id}`) as Promise<User>;
+  },
+  create: async (data: {
+    name: string;
+    email: string;
+    password: string;
+    role: 'manager' | 'sales';
+    franchise: string;
+  }) => {
+    return api.post('/users', data) as Promise<{ data: User; message: string }>;
+  },
+  update: async (id: string, data: Partial<User>) => {
+    return api.put(`/users/${id}`, data) as Promise<{ data: User; message: string }>;
+  },
+  delete: async (id: string) => {
+    return api.delete(`/users/${id}`) as Promise<{ message: string }>;
+  },
+  toggleStatus: async (id: string) => {
+    return api.patch(`/users/${id}/status`) as Promise<{ data: User; message: string }>;
+  },
+};
+
 export const franchiseApi = {
   getAll: async () => api.get('/franchises'),
   /** id must be MongoDB _id (e.g. 65c9a8e2f...). In Network tab you should see /api/franchises/65c9a8e2f..., not /api/franchises/789456 (code). */

@@ -7,7 +7,6 @@ import {
   useLocation,
 } from 'react-router-dom';
 import { QueryClientProvider } from '@tanstack/react-query';
-import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { queryClient } from './lib/queryClient';
 import { ThemeProvider } from './components/Common/ThemeProvider';
 import ErrorBoundary from './components/Common/ErrorBoundary';
@@ -37,6 +36,7 @@ const Orders = lazy(() => import('./pages/Orders'));
 const OrderDetails = lazy(() => import('./pages/OrderDetails'));
 const CreateOrder = lazy(() => import('./pages/CreateOrder'));
 const OrderEdit = lazy(() => import('./pages/OrderEdit'));
+const Users = lazy(() => import('./pages/Users'));
 const Unauthorized = lazy(() => import('./pages/Unauthorized'));
 
 // Scroll to top on route change
@@ -113,6 +113,14 @@ function App() {
                       element={
                         <ProtectedRoute roles={['admin']}>
                           <AdminDashboard />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="users"
+                      element={
+                        <ProtectedRoute roles={['admin']}>
+                          <Users />
                         </ProtectedRoute>
                       }
                     />
@@ -241,10 +249,10 @@ function App() {
                 },
               }}
             />
-            <ReactQueryDevtools initialIsOpen={false} />
           </Router>
-        </ThemeProvider>
-      </QueryClientProvider>
+        </AuthProvider>
+      </ThemeProvider>
+    </QueryClientProvider>
     </ErrorBoundary>
   );
 }

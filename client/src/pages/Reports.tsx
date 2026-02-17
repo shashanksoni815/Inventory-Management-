@@ -80,9 +80,9 @@ const Reports: React.FC = () => {
   }, [selectedReport, dateRange, exportFormat]);
 
   const metrics = [
-    { label: 'Total Revenue', value: '$45,231.89', change: '+20.1%', trend: 'up' },
-    { label: 'Total Profit', value: '$12,567.43', change: '+15.3%', trend: 'up' },
-    { label: 'Avg Order Value', value: '$124.50', change: '+2.4%', trend: 'up' },
+    { label: 'Total Revenue', value: '₹45,231.89', change: '+20.1%', trend: 'up' },
+    { label: 'Total Profit', value: '₹12,567.43', change: '+15.3%', trend: 'up' },
+    { label: 'Avg Order Value', value: '₹124.50', change: '+2.4%', trend: 'up' },
     { label: 'Conversion Rate', value: '3.2%', change: '-0.5%', trend: 'down' },
   ];
 

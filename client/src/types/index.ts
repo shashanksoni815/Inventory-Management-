@@ -12,6 +12,9 @@ export interface User {
     } | null;
     settings: UserSettings;
     lastLogin?: string;
+    isActive?: boolean;
+    createdAt?: string;
+    updatedAt?: string;
   }
   
   export interface UserSettings {
