@@ -836,10 +836,10 @@ const FranchiseDashboard: React.FC = () => {
                   />
                   <YAxis 
                     tick={{ fontSize: 12 }}
-                    tickFormatter={(value) => `$${(value / 1000).toFixed(0)}k`}
+                    tickFormatter={(value) => `₹${(value / 1000).toFixed(0)}k`}
                   />
                   <Tooltip
-                    formatter={(value: any) => `$${Number(value).toLocaleString()}`}
+                    formatter={(value: any) => `₹${Number(value).toLocaleString('en-IN')}`}
                     labelFormatter={(label) => new Date(label).toLocaleDateString()}
                   />
                   <Legend />
@@ -874,8 +874,8 @@ const FranchiseDashboard: React.FC = () => {
                 <BarChart data={profitByCategory}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                   <XAxis dataKey="category" tick={{ fontSize: 12 }} />
-                  <YAxis tick={{ fontSize: 12 }} tickFormatter={(value) => `$${(value / 1000).toFixed(0)}k`} />
-                  <Tooltip formatter={(value: any) => `$${Number(value).toLocaleString()}`} />
+                  <YAxis tick={{ fontSize: 12 }} tickFormatter={(value) => `₹${(value / 1000).toFixed(0)}k`} />
+                  <Tooltip formatter={(value: any) => `₹${Number(value).toLocaleString('en-IN')}`} />
                   <Legend />
                   <Bar dataKey="profit" fill="#10B981" name="Profit" />
                   <Bar dataKey="revenue" fill="#3B82F6" name="Revenue" />
@@ -973,10 +973,10 @@ const FranchiseDashboard: React.FC = () => {
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-600">{sale.customerName || 'Walk-in'}</td>
                       <td className="px-4 py-3 text-sm font-semibold text-green-600 text-right">
-                        ${(sale.grandTotal || 0).toLocaleString()}
+                        ₹{(sale.grandTotal || 0).toLocaleString('en-IN')}
                       </td>
                       <td className="px-4 py-3 text-sm font-semibold text-blue-600 text-right">
-                        ${(sale.totalProfit || 0).toLocaleString()}
+                        ₹{(sale.totalProfit || 0).toLocaleString('en-IN')}
                       </td>
                     </tr>
                   ))}
@@ -1038,7 +1038,7 @@ const FranchiseDashboard: React.FC = () => {
                         </span>
                       </td>
                       <td className="px-4 py-3 text-sm font-semibold text-gray-900 text-right">
-                        ${(order.grandTotal ?? 0).toLocaleString()}
+                        ₹{(order.grandTotal ?? 0).toLocaleString('en-IN')}
                       </td>
                     </tr>
                   ))}
@@ -1067,25 +1067,25 @@ const FranchiseDashboard: React.FC = () => {
               <div className="flex justify-between">
                 <span className="text-gray-600">Revenue</span>
                 <span className="font-semibold text-gray-900">
-                  ${profitLossStatement.revenue.toLocaleString()}
+                  ₹{profitLossStatement.revenue.toLocaleString('en-IN')}
                 </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600">COGS</span>
                 <span className="font-semibold text-gray-900">
-                  ${profitLossStatement.costOfGoodsSold.toLocaleString()}
+                  ₹{profitLossStatement.costOfGoodsSold.toLocaleString('en-IN')}
                 </span>
               </div>
               <div className="flex justify-between pt-2 border-t border-green-200">
                 <span className="text-gray-700 font-medium">Gross Profit</span>
                 <span className={`font-bold ${profitLossStatement.grossProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                  ${profitLossStatement.grossProfit.toLocaleString()}
+                  ₹{profitLossStatement.grossProfit.toLocaleString('en-IN')}
                 </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600">Net Profit</span>
                 <span className={`font-bold ${profitLossStatement.netProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                  ${profitLossStatement.netProfit.toLocaleString()}
+                  ₹{profitLossStatement.netProfit.toLocaleString('en-IN')}
                 </span>
               </div>
               <button
@@ -1120,7 +1120,7 @@ const FranchiseDashboard: React.FC = () => {
               <div className="flex justify-between">
                 <span className="text-gray-600">Inventory Value</span>
                 <span className="font-semibold text-gray-900">
-                  ${((franchise.stats?.inventoryValue ?? analytics?.summary?.inventoryValue ?? 0) / 1000).toFixed(1)}k
+                  ₹{((franchise.stats?.inventoryValue ?? analytics?.summary?.inventoryValue ?? 0) / 1000).toFixed(1)}k
                 </span>
               </div>
               <div className="flex justify-between pt-2 border-t border-blue-200">

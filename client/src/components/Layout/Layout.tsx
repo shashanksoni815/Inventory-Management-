@@ -17,6 +17,8 @@ import {
   ChevronDown,
   Store,
   Users,
+  TrendingUp,
+  Upload,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useFranchise } from '@/contexts/FranchiseContext';
@@ -69,24 +71,33 @@ const Layout: React.FC = () => {
     const menuItems: Array<{ name: string; href: string; icon: React.ComponentType<{ className?: string }> }> = [];
 
     if (userRole === 'admin') {
-      // Admin menu items
+      // Admin menu items (full access)
       menuItems.push(
         { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
         { name: 'Franchises', href: '/franchises', icon: Store },
+        { name: 'Products', href: '/products', icon: Package },
+        { name: 'Sales', href: '/sales', icon: ShoppingCart },
+        { name: 'Orders', href: '/orders', icon: ShoppingBag },
         { name: 'Users', href: '/users', icon: Users },
         { name: 'Reports', href: '/reports', icon: BarChart3 }
       );
     } else if (userRole === 'manager') {
-      // Manager menu items
-      if (user?.franchise) {
+      // Manager menu items - full franchise management for assigned franchise
+      const franchiseId = user?.franchise?.id;
+      if (franchiseId) {
         menuItems.push(
-          { name: 'Franchise Dashboard', href: `/franchise/${user.franchise.id}`, icon: LayoutDashboard }
+          { name: 'Franchise Dashboard', href: `/franchise/${franchiseId}`, icon: LayoutDashboard },
+          { name: 'Franchise Sales', href: `/franchise/${franchiseId}/sales`, icon: ShoppingCart },
+          { name: 'Franchise Imports', href: `/franchise/${franchiseId}/imports`, icon: Upload },
+          { name: 'Franchise P&L', href: `/franchise/${franchiseId}/profit-loss`, icon: TrendingUp },
+          { name: 'Franchise Settings', href: `/franchise/${franchiseId}/settings`, icon: Settings }
         );
       }
       menuItems.push(
         { name: 'Products', href: '/products', icon: Package },
         { name: 'Sales', href: '/sales', icon: ShoppingCart },
-        { name: 'Orders', href: '/orders', icon: ShoppingBag }
+        { name: 'Orders', href: '/orders', icon: ShoppingBag },
+        { name: 'Reports', href: '/reports', icon: BarChart3 }
       );
     } else if (userRole === 'sales') {
       // Sales menu items (view only)
@@ -121,7 +132,7 @@ const Layout: React.FC = () => {
   }, [userMenuOpen]);
 
   const isActive = (path: string) =>
-    location.pathname === path || (path === '/orders' && location.pathname.startsWith('/orders/'));
+    location.pathname === path || (path === '/orders' && location.pathname.startsWith('/orders'));
 
   return (
     <div className="flex min-h-screen bg-white">

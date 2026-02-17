@@ -33,18 +33,13 @@ const FranchiseSelector: React.FC = () => {
     enabled: !isNetworkView,
   });
 
-  // Get franchise performance from network stats
+  // Get franchise performance from network stats (API returns unwrapped data)
   const getFranchisePerformance = (franchiseId: string): number => {
-    if (!performanceData?.data?.franchisePerformance) return 0;
-    const franchise = performanceData.data.franchisePerformance.find(
-      (fp: any) => fp._id === franchiseId
-    );
+    const perf = performanceData?.franchisePerformance ?? (performanceData as any)?.data?.franchisePerformance;
+    if (!perf?.length) return 0;
+    const franchise = perf.find((fp: any) => String(fp._id) === String(franchiseId));
     if (!franchise) return 0;
-    
-    // Calculate performance as percentage of max revenue
-    const maxRevenue = Math.max(
-      ...performanceData.data.franchisePerformance.map((fp: any) => fp.totalRevenue || 0)
-    );
+    const maxRevenue = Math.max(...perf.map((fp: any) => fp.totalRevenue || 0));
     return maxRevenue > 0 ? (franchise.totalRevenue / maxRevenue) * 100 : 0;
   };
 

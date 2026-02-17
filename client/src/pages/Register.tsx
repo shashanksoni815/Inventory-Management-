@@ -57,16 +57,10 @@ const Register: React.FC = () => {
         fetch('http://127.0.0.1:7243/ingest/3fc7926a-846a-45b6-a134-1306e0ccfd99',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Register.tsx:53',message:'Fetching franchises',timestamp:Date.now(),runId:'run3',hypothesisId:'D'})}).catch(()=>{});
         // #endregion
         const data = await franchiseApi.getAll();
-        console.log('[REGISTER] Franchises fetched:', {count:Array.isArray(data)?data.length:0,isArray:Array.isArray(data),dataType:typeof data,firstItem:Array.isArray(data)&&data.length>0?data[0]:null});
+        // Franchises fetched successfully
         return Array.isArray(data) ? data : [];
       } catch (err) {
-        console.error('[REGISTER] Failed to fetch franchises:', err);
-        console.error('[REGISTER] Franchise error details:', {
-          error: err,
-          message: (err as any)?.message,
-          response: (err as any)?.response,
-          status: (err as any)?.response?.status,
-        });
+        // Failed to fetch franchises - return empty array
         return [];
       }
     },
@@ -100,7 +94,7 @@ const Register: React.FC = () => {
     setError('');
 
     try {
-      console.log('[REGISTER] Form submitted with data:', {name:data.name,email:data.email,role:data.role,franchise:data.franchise,hasPassword:!!data.password});
+      // Form submitted
       
       // Prepare payload matching backend expectations
       const payload: {
@@ -129,10 +123,10 @@ const Register: React.FC = () => {
         }
       }
 
-      console.log('[REGISTER] Sending payload:', {...payload, password: '***'});
+      // Sending registration payload
       
       const response = await authApi.register(payload);
-      console.log('[REGISTER] Success response:', response);
+      // Registration successful
 
       if (response?.token) {
         localStorage.setItem('token', response.token);
@@ -145,15 +139,6 @@ const Register: React.FC = () => {
         }
       }
     } catch (err: unknown) {
-      console.error('[REGISTER] Error caught:', err);
-      console.error('[REGISTER] Error details:', {
-        error: err,
-        message: (err as any)?.message,
-        response: (err as any)?.response,
-        status: (err as any)?.response?.status,
-        data: (err as any)?.response?.data,
-      });
-      
       // Extract error message from various possible formats
       let errorMessage = 'Registration failed. Please try again.';
       

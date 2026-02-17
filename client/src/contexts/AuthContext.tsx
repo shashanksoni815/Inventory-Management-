@@ -1,7 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { authApi } from '@/services/api';
 import type { User } from '@/types';
-import jwtDecode from 'jwt-decode';
 
 interface AuthContextType {
   // State
@@ -9,11 +8,13 @@ interface AuthContextType {
   token: string | null;
   isLoading: boolean;
   isAuthenticated: boolean;
+  error: string | null;
 
   // Actions
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
   updateUser: (userData: User) => void;
+  clearError: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -23,108 +24,165 @@ interface AuthProviderProps {
 }
 
 interface DecodedToken {
-  id: string;
-  role: string;
+  id?: string;
+  role?: string;
   franchise?: string;
   exp?: number;
+}
+
+/** Safely decode JWT payload - returns null if invalid (no external dependency) */
+function safeDecodeToken<T>(token: string): T | null {
+  try {
+    if (!token || typeof token !== 'string') return null;
+    const parts = token.split('.');
+    if (parts.length < 2) return null;
+    const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    const json = atob(base64);
+    return JSON.parse(json) as T;
+  } catch {
+    return null;
+  }
+}
+
+/** Safely parse JSON from localStorage */
+function safeParseUser(raw: string): User | null {
+  try {
+    if (!raw || typeof raw !== 'string') return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object') return null;
+    if (!parsed.id && !parsed.email) return null;
+    return parsed as User;
+  } catch {
+    return null;
+  }
 }
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const clearAuthStorage = useCallback(() => {
+    try {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+    } catch (e) {
+      console.warn('Failed to clear auth storage:', e);
+    }
+    setToken(null);
+    setUser(null);
+  }, []);
 
   // Restore user from token on app load
   useEffect(() => {
-    const restoreAuth = async () => {
+    const restoreAuth = () => {
       try {
         const storedToken = localStorage.getItem('token');
         const storedUser = localStorage.getItem('user');
 
-        if (storedToken && storedUser) {
-          // Verify token is not expired
-          try {
-            const decoded = jwtDecode<DecodedToken>(storedToken);
-            const currentTime = Date.now() / 1000;
-
-            if (decoded.exp && decoded.exp < currentTime) {
-              // Token expired, clear storage
-              localStorage.removeItem('token');
-              localStorage.removeItem('user');
-              setToken(null);
-              setUser(null);
-              setIsLoading(false);
-              return;
-            }
-
-            // Token is valid, restore user and token
-            setToken(storedToken);
-            setUser(JSON.parse(storedUser));
-          } catch (error) {
-            // Invalid token, clear storage
-            console.error('Invalid token:', error);
-            localStorage.removeItem('token');
-            localStorage.removeItem('user');
-            setToken(null);
-            setUser(null);
-          }
+        if (!storedToken || typeof storedToken !== 'string') {
+          setIsLoading(false);
+          return;
         }
-      } catch (error) {
-        console.error('Error restoring auth:', error);
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        setToken(null);
-        setUser(null);
+
+        const decoded = safeDecodeToken<DecodedToken>(storedToken);
+        if (!decoded) {
+          clearAuthStorage();
+          setIsLoading(false);
+          return;
+        }
+
+        const currentTime = Date.now() / 1000;
+        if (decoded.exp != null && decoded.exp < currentTime) {
+          clearAuthStorage();
+          setIsLoading(false);
+          return;
+        }
+
+        const parsedUser = storedUser ? safeParseUser(storedUser) : null;
+        if (!parsedUser) {
+          clearAuthStorage();
+          setIsLoading(false);
+          return;
+        }
+
+        setToken(storedToken);
+        setUser(parsedUser);
+      } catch (e) {
+        console.error('Error restoring auth:', e);
+        clearAuthStorage();
       } finally {
         setIsLoading(false);
       }
     };
 
     restoreAuth();
-  }, []);
+  }, [clearAuthStorage]);
+
+  const clearError = useCallback(() => setError(null), []);
 
   // Login function
   const login = useCallback(async (email: string, password: string) => {
+    setError(null);
+    if (!email?.trim() || !password) {
+      const msg = 'Email and password are required';
+      setError(msg);
+      throw new Error(msg);
+    }
     try {
-      const response = await authApi.login(email, password);
+      const response = await authApi.login(email.trim(), password);
+      if (!response || typeof response !== 'object') {
+        const msg = 'Invalid login response';
+        setError(msg);
+        throw new Error(msg);
+      }
       const { token: newToken, user: userData } = response as { token: string; user: User };
+      if (!newToken || typeof newToken !== 'string') {
+        const msg = 'No token received';
+        setError(msg);
+        throw new Error(msg);
+      }
+      if (!userData || typeof userData !== 'object') {
+        const msg = 'No user data received';
+        setError(msg);
+        throw new Error(msg);
+      }
 
-      // Store token and user in localStorage
-      localStorage.setItem('token', newToken);
-      localStorage.setItem('user', JSON.stringify(userData));
+      try {
+        localStorage.setItem('token', newToken);
+        localStorage.setItem('user', JSON.stringify(userData));
+      } catch (e) {
+        console.warn('Failed to persist auth:', e);
+      }
 
-      // Update state
       setToken(newToken);
       setUser(userData);
-    } catch (error) {
-      console.error('Login error:', error);
-      throw error;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Login failed';
+      const apiMessage = (err as { message?: string })?.message;
+      const finalMessage = apiMessage || message;
+      setError(finalMessage);
+      throw err;
     }
   }, []);
 
   // Logout function
   const logout = useCallback(() => {
-    // Clear localStorage
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-
-    // Clear state
-    setToken(null);
-    setUser(null);
-
-    // Call logout API (optional, for server-side session cleanup)
-    authApi.logout().catch(() => {
-      // Ignore errors on logout
-    });
-  }, []);
+    setError(null);
+    clearAuthStorage();
+    authApi.logout().catch(() => {});
+  }, [clearAuthStorage]);
 
   // Update user function
   const updateUser = useCallback((userData: User) => {
-    // Update localStorage
-    localStorage.setItem('user', JSON.stringify(userData));
-
-    // Update state
-    setUser(userData);
+    if (!userData || typeof userData !== 'object') return;
+    try {
+      localStorage.setItem('user', JSON.stringify(userData));
+      setUser(userData);
+    } catch (e) {
+      console.warn('Failed to persist user update:', e);
+    }
   }, []);
 
   const value: AuthContextType = {
@@ -132,9 +190,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     token,
     isLoading,
     isAuthenticated: !!user && !!token,
+    error,
     login,
     logout,
     updateUser,
+    clearError,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

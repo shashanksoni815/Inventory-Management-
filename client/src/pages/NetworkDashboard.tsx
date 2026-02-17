@@ -1,5 +1,27 @@
 // pages/NetworkDashboard.tsx
 import React, { useState } from 'react';
+
+interface NetworkStats {
+  franchiseCount?: number;
+  activeFranchises?: number;
+  todayRevenue?: number;
+  weekRevenue?: number;
+  monthRevenue?: number;
+  todayProfit?: number;
+  weekProfit?: number;
+  monthProfit?: number;
+  prevTodayRevenue?: number;
+  prevWeekRevenue?: number;
+  prevMonthRevenue?: number;
+  revenueTrendToday?: number;
+  revenueTrendWeek?: number;
+  revenueTrendMonth?: number;
+  profitTrendToday?: number;
+  profitTrendWeek?: number;
+  profitTrendMonth?: number;
+  topProducts?: Array<{ _id: string; product?: { name?: string; sku?: string; franchise?: { name?: string } }; quantitySold?: number; totalSold?: number; revenue?: number; totalRevenue?: number }>;
+  franchisePerformance?: Array<{ franchise?: { name?: string; code?: string }; totalRevenue?: number; totalProfit?: number; salesCount?: number }>;
+}
 import {
   Globe,
   Store,
@@ -36,8 +58,19 @@ const NetworkDashboard: React.FC = () => {
     queryFn: () => franchiseApi.getNetworkStats(),
   });
 
-  const stats = networkStats?.data || {};
-  const franchisePerformance = stats.franchisePerformance || [];
+  const stats: NetworkStats = (networkStats && typeof networkStats === 'object' ? networkStats : {}) as NetworkStats;
+  const franchisePerformance = stats.franchisePerformance ?? [];
+
+  const revenue = (timeRange === 'today' ? stats.todayRevenue : timeRange === 'week' ? stats.weekRevenue : stats.monthRevenue) ?? 0;
+  const profit = (timeRange === 'today' ? stats.todayProfit : timeRange === 'week' ? stats.weekProfit : stats.monthProfit) ?? 0;
+  const prevRevenue = (timeRange === 'today' ? stats.prevTodayRevenue : timeRange === 'week' ? stats.prevWeekRevenue : stats.prevMonthRevenue) ?? 0;
+  const revenueTrend = timeRange === 'today' ? (stats.revenueTrendToday ?? 0) : timeRange === 'week' ? (stats.revenueTrendWeek ?? 0) : (stats.revenueTrendMonth ?? 0);
+  const profitTrend = timeRange === 'today' ? (stats.profitTrendToday ?? 0) : timeRange === 'week' ? (stats.profitTrendWeek ?? 0) : (stats.profitTrendMonth ?? 0);
+  const activeFranchises = stats.activeFranchises ?? 0;
+  const avgPerformance = activeFranchises > 0 ? revenue / activeFranchises : 0;
+  const prevAvg = activeFranchises > 0 ? prevRevenue / activeFranchises : 0;
+  const avgTrend = prevAvg > 0 ? (((avgPerformance - prevAvg) / prevAvg) * 100) : 0;
+  const profitMargin = revenue > 0 ? (profit / revenue) * 100 : 0;
 
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement>
@@ -118,42 +151,45 @@ const NetworkDashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* Consolidated KPIs */}
+      {/* Consolidated KPIs - fully dynamic */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <KpiCard
           title="Total Network Revenue"
-          value={stats.todayRevenue || 0}
-          trend={12.5}
+          value={revenue || 0}
+          trend={revenueTrend}
           icon={Globe}
           format="currency"
-          description="Today's revenue across all franchises"
+          description={
+            timeRange === 'today'
+              ? "Today's revenue across all franchises"
+              : timeRange === 'week'
+              ? "This week's revenue across all franchises"
+              : "This month's revenue across all franchises"
+          }
         />
         <KpiCard
           title="Active Franchises"
-          value={stats.activeFranchises || 0}
-          trend={0}
+          value={activeFranchises}
+          trend={undefined}
           icon={Store}
           format="number"
           description="Active locations"
         />
         <KpiCard
           title="Average Performance"
-          value={franchisePerformance.length > 0 
-            ? franchisePerformance.reduce((acc: number, fp: any) => acc + (fp.totalRevenue || 0), 0) / franchisePerformance.length
-            : 0
-          }
-          trend={2.3}
+          value={avgPerformance}
+          trend={avgTrend}
           icon={TrendingUp}
           format="currency"
           description="Average revenue per franchise"
         />
         <KpiCard
           title="Network Profit"
-          value={(stats.todayRevenue || 0) * 0.35} // Example calculation
-          trend={8.2}
+          value={profit || 0}
+          trend={profitTrend}
           icon={DollarSign}
           format="currency"
-          description="Estimated profit margin"
+          description={`Profit${profitMargin > 0 ? ` (${profitMargin.toFixed(1)}% margin)` : ''}`}
         />
       </div>
 
@@ -181,7 +217,7 @@ const NetworkDashboard: React.FC = () => {
                 <div>
                   <div className="text-sm text-gray-500">Revenue</div>
                   <div className="text-2xl font-bold text-gray-900">
-                    ${(franchisePerformance[0].totalRevenue || 0).toLocaleString()}
+                    ₹{(franchisePerformance[0].totalRevenue || 0).toLocaleString('en-IN')}
                   </div>
                 </div>
                 <div>
@@ -250,7 +286,7 @@ const NetworkDashboard: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {stats.topProducts?.slice(0, 5).map((product: any) => (
+              {(stats.topProducts ?? []).slice(0, 5).map((product: { _id: string; product?: { name?: string; sku?: string; franchise?: { name?: string } }; quantitySold?: number; totalSold?: number; revenue?: number; totalRevenue?: number }) => (
                 <tr key={product._id} className="hover:bg-gray-50">
                   <td className="px-4 py-4">
                     <div className="flex items-center space-x-3">
@@ -269,12 +305,12 @@ const NetworkDashboard: React.FC = () => {
                   </td>
                   <td className="px-4 py-4">
                     <div className="text-lg font-bold text-gray-900">
-                      {product.quantitySold}
+                      {product.quantitySold ?? product.totalSold ?? 0}
                     </div>
                   </td>
                   <td className="px-4 py-4">
                     <div className="font-bold text-gray-900">
-                      ${product.revenue.toLocaleString()}
+                      ₹{(product.revenue ?? product.totalRevenue ?? 0).toLocaleString('en-IN')}
                     </div>
                   </td>
                   <td className="px-4 py-4">
@@ -288,12 +324,12 @@ const NetworkDashboard: React.FC = () => {
                         <div
                           className="h-2 rounded-full bg-green-600"
                           style={{ 
-                            width: `${Math.min(100, (product.quantitySold / 100) * 100)}%` 
+                            width: `${Math.min(100, ((product.quantitySold ?? product.totalSold ?? 0) / Math.max(1, Math.max(...(stats.topProducts ?? []).map((p: any) => p.quantitySold ?? p.totalSold ?? 0))) * 100))}%` 
                           }}
                         />
                       </div>
                       <span className="ml-2 text-sm font-medium text-gray-700">
-                        {Math.round((product.quantitySold / 100) * 100)}%
+                        {Math.round(((product.quantitySold ?? product.totalSold ?? 0) / Math.max(1, Math.max(...(stats.topProducts ?? []).map((p: any) => p.quantitySold ?? p.totalSold ?? 0))) * 100))}%
                       </span>
                     </div>
                   </td>

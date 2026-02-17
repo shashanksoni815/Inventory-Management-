@@ -32,7 +32,7 @@ const productSchema = z.object({
   minimumStock: z.number().min(0, 'Minimum stock cannot be negative').int(),
   images: z.array(z.object({ url: z.string(), publicId: z.string() })).optional(),
   franchise: z.string().min(1, 'Franchise is required'),
-  isGlobal: z.boolean().optional(),
+  isGlobal: z.boolean().optional().default(false),
 });
 
 type ProductFormData = z.infer<typeof productSchema>;
@@ -63,6 +63,7 @@ const ProductForm: React.FC<ProductFormProps> = ({
     handleSubmit,
     watch,
     formState: { errors, isValid },
+    trigger,
   } = useForm<ProductFormData>({
     resolver: zodResolver(productSchema),
     defaultValues: product
@@ -94,8 +95,22 @@ const ProductForm: React.FC<ProductFormProps> = ({
     mode: 'onChange',
   });
 
+  // Trigger validation when moving to review step
+  React.useEffect(() => {
+    if (step === 4) {
+      trigger(); // Validate all fields when reaching review step
+    }
+  }, [step, trigger]);
+
   const buyingPrice = watch('buyingPrice');
   const sellingPrice = watch('sellingPrice');
+
+  // Trigger validation when moving to review step (step 4)
+  React.useEffect(() => {
+    if (step === 4) {
+      trigger(); // Validate all fields when reaching review step
+    }
+  }, [step, trigger]);
 
   // Load franchises for required selection
   const { data: franchisesData } = useQuery({
@@ -142,22 +157,28 @@ const ProductForm: React.FC<ProductFormProps> = ({
   }, []);
 
   const handleFormSubmit = async (data: ProductFormData) => {
-    const payload: any = {
-      name: data.name,
-      sku: data.sku,
-      category: data.category,
-      brand: data.brand,
-      description: data.description,
-      buyingPrice: data.buyingPrice,
-      sellingPrice: data.sellingPrice,
-      stock: data.stockQuantity,
-      minimumStock: data.minimumStock,
-      franchise: data.franchise,
-      isGlobal: data.isGlobal || false,
-      images: images.map(url => ({ url, publicId: '' })),
-    };
+    try {
+      const payload: any = {
+        name: data.name,
+        sku: data.sku,
+        category: data.category,
+        brand: data.brand,
+        description: data.description,
+        buyingPrice: data.buyingPrice,
+        sellingPrice: data.sellingPrice,
+        stockQuantity: data.stockQuantity,
+        stock: data.stockQuantity, // Backend accepts both
+        minimumStock: data.minimumStock,
+        franchise: data.franchise,
+        isGlobal: data.isGlobal || false,
+        images: images.map(url => ({ url, publicId: '' })),
+      };
 
-    await onSubmit(payload);
+      await onSubmit(payload);
+    } catch (error) {
+      // Error is handled by parent component's mutation onError
+      console.error('Form submission error:', error);
+    }
   };
 
   const steps = [
@@ -249,7 +270,10 @@ const ProductForm: React.FC<ProductFormProps> = ({
           </div>
         </div>
 
-        <form onSubmit={handleSubmit(handleFormSubmit)}>
+        <form onSubmit={(e) => {
+          e.preventDefault();
+          handleSubmit(handleFormSubmit)(e);
+        }}>
           <div className="max-h-[60vh] overflow-y-auto p-6">
             <AnimatePresence mode="wait">
               {step === 1 && (
@@ -761,8 +785,9 @@ const ProductForm: React.FC<ProductFormProps> = ({
                 ) : (
                   <button
                     type="submit"
-                    disabled={loading || !isValid}
-                    className="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50"
+                    disabled={loading || (!isValid && step === 4)}
+                    className="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    title={!isValid && step === 4 ? `Please fill all required fields. Errors: ${Object.keys(errors).join(', ')}` : ''}
                   >
                     {loading ? (
                       <span className="flex items-center">
