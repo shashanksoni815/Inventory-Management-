@@ -23,6 +23,7 @@ import {
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { DateRangePicker } from '@/components/Common/DateRangePicker';
 import { orderApi } from '@/services/orderApi';
+import { apiBaseURL } from '@/services/api';
 import { useFranchise } from '@/contexts/FranchiseContext';
 import { cn, formatCurrency, formatDate, orderStatusBadgeClass } from '@/lib/utils';
 import type { UserRole } from '@/types';
@@ -194,7 +195,7 @@ const Orders: React.FC = () => {
         params.append('format', format === 'excel' ? 'excel' : 'pdf');
 
         const token = localStorage.getItem('token');
-        const response = await fetch(`/api/orders/export?${params.toString()}`, {
+        const response = await fetch(`${apiBaseURL}/orders/export?${params.toString()}`, {
           headers: token ? { Authorization: `Bearer ${token}` } : {},
         });
 

@@ -27,7 +27,7 @@ import {
   FileSpreadsheet,
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
-import { franchiseApi, saleApi } from '../services/api';
+import { franchiseApi, saleApi, apiBaseURL } from '../services/api';
 import { reportApi } from '../services/reportApi';
 import KpiCard from '../components/Dashboard/KpiCard';
 import {
@@ -267,7 +267,7 @@ const FranchiseProfitLoss: React.FC = () => {
                     params.append('endDate', endDate);
                     params.append('format', 'pdf');
 
-                    const response = await fetch(`/api/reports/profit-loss?${params.toString()}`, {
+                    const response = await fetch(`${apiBaseURL}/reports/profit-loss?${params.toString()}`, {
                       headers: {
                         'Authorization': `Bearer ${localStorage.getItem('token')}`,
                       },
@@ -312,7 +312,7 @@ const FranchiseProfitLoss: React.FC = () => {
                     params.append('endDate', endDate);
                     params.append('format', 'excel');
 
-                    const response = await fetch(`/api/reports/profit-loss?${params.toString()}`, {
+                    const response = await fetch(`${apiBaseURL}/reports/profit-loss?${params.toString()}`, {
                       headers: {
                         'Authorization': `Bearer ${localStorage.getItem('token')}`,
                       },
