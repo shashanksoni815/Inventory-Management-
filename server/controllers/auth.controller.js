@@ -1,6 +1,7 @@
 import jwt from 'jsonwebtoken';
 import mongoose from 'mongoose';
 import { User } from '../models/User.model.js';
+import { createSystemNotification } from '../utils/notificationHelper.js';
 import Franchise from '../models/Franchise.js';
 import bcrypt from 'bcryptjs';
 
@@ -195,7 +196,15 @@ export const register = async (req, res) => {
 
     // Create user (password will be hashed by pre-save hook)
     const user = await User.create(userData);
-    
+
+    createSystemNotification({
+      title: 'New User Added',
+      message: `${user.name} (${user.email}) has been registered as ${userRole}`,
+      type: 'user',
+      priority: 'low',
+      franchise: user.franchise || null,
+    }).catch(() => {});
+
     // Populate franchise for response
     await user.populate('franchise', 'name code');
 
@@ -339,23 +348,68 @@ export const updateProfile = async (req, res) => {
 export const changePassword = async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body;
-    
-    // Get user with password
-    const user = await User.findById(req.user._id);
-    
-    // Verify current password
-    const isValid = await user.comparePassword(currentPassword);
+
+    // Validate input
+    if (!currentPassword || typeof currentPassword !== 'string') {
+      return res.status(400).json({
+        success: false,
+        message: 'Current password is required',
+      });
+    }
+    if (!newPassword || typeof newPassword !== 'string') {
+      return res.status(400).json({
+        success: false,
+        message: 'New password is required',
+      });
+    }
+    if (newPassword.length < 8) {
+      return res.status(400).json({
+        success: false,
+        message: 'New password must be at least 8 characters',
+      });
+    }
+
+    // Get user ID from req.user (set by protect middleware)
+    const userId = req.user?._id ?? req.user?.id;
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required',
+      });
+    }
+
+    // Fetch user document with password field (findById returns all fields by default)
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found',
+      });
+    }
+
+    // Verify current password against hashed password in database
+    let isValid = false;
+    try {
+      isValid = await user.comparePassword(currentPassword);
+    } catch (compareErr) {
+      // bcrypt.compare can throw if stored password is not a valid hash
+      return res.status(400).json({
+        success: false,
+        message: 'Current password is incorrect',
+      });
+    }
+
     if (!isValid) {
       return res.status(400).json({
         success: false,
         message: 'Current password is incorrect',
       });
     }
-    
-    // Update password
+
+    // Update to new password (pre-save hook will hash it)
     user.password = newPassword;
     await user.save();
-    
+
     res.status(200).json({
       success: true,
       message: 'Password changed successfully',

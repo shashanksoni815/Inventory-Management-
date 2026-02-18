@@ -46,16 +46,17 @@ const Layout: React.FC = () => {
   const { user, logout } = useAuth();
   const userRole = user?.role;
 
-  // Fetch unread notification count
+  // Fetch notifications for bell badge (React Query, auto-refresh every 30 seconds)
   const { data: notificationData } = useQuery({
-    queryKey: ['notifications', 'unread-count'],
-    queryFn: () => notificationApi.getAll({ limit: 1, unreadOnly: true }),
-    staleTime: 15 * 1000, // 15 seconds - cache unread count
-    refetchInterval: 30000, // Auto-refresh every 30 seconds in background
+    queryKey: ['notifications'],
+    queryFn: () => notificationApi.getAll({ limit: 100 }),
+    staleTime: 15 * 1000, // 15 seconds
+    refetchInterval: 30000, // Auto-refresh every 30 seconds
     refetchOnWindowFocus: false,
   });
 
-  const unreadCount = (notificationData as { unreadCount?: number })?.unreadCount || 0;
+  const notifications = (notificationData as { notifications?: Array<{ read?: boolean }> })?.notifications ?? [];
+  const unreadCount = notifications.filter((n) => !n.read).length;
 
   // Sync context with URL: when franchiseId in route changes, update context to prevent stale data
   const franchiseMatch = useMatch('/franchise/:franchiseId/*');
@@ -106,6 +107,9 @@ const Layout: React.FC = () => {
         { name: 'Orders', href: '/orders', icon: ShoppingBag }
       );
     }
+
+    // Notifications - admin, manager, sales
+    menuItems.push({ name: 'Notifications', href: '/notifications', icon: Bell });
 
     // Settings is available to all authenticated users
     menuItems.push({ name: 'Settings', href: '/settings', icon: Settings });

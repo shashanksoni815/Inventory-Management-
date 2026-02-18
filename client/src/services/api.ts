@@ -276,6 +276,24 @@ export const productApi = {
     });
     return response;
   },
+  getPublicBySku: async (sku: string) => {
+    // Public endpoint - no auth token needed, use axios directly without interceptors
+    const response = await axios.get(`/api/products/public/${sku}`, {
+      baseURL: '/api',
+    });
+    return response.data as { success: boolean; data: {
+      image: string | null;
+      name: string;
+      sku: string;
+      category: string;
+      sellingPrice: number;
+      taxPercentage: number;
+      description: string;
+      brand: string;
+      isInStock: boolean; // Security: Only availability status, not exact stock quantities
+      franchise: { name: string; code: string } | null; // Security: No internal IDs exposed
+    } };
+  },
 };
 
 export const transferApi = {
@@ -485,60 +503,7 @@ export const exportApi = {
   },
 };
 
-export const notificationApi = {
-  getAll: async (params?: {
-    limit?: number;
-    offset?: number;
-    unreadOnly?: boolean;
-    type?: string;
-    category?: string;
-  }) => {
-    return api.get<{
-      notifications: Array<{
-        _id: string;
-        title: string;
-        message: string;
-        type: string;
-        category: string;
-        isRead: boolean;
-        readAt: string | null;
-        link: string | null;
-        metadata: Record<string, unknown>;
-        priority: string;
-        createdAt: string;
-        updatedAt: string;
-      }>;
-      pagination: {
-        total: number;
-        limit: number;
-        offset: number;
-        hasMore: boolean;
-      };
-      unreadCount: number;
-    }>('/notifications', { params });
-  },
-
-  markAsRead: async (id: string) => {
-    return api.patch<{
-      notification: {
-        _id: string;
-        isRead: boolean;
-        readAt: string | null;
-      };
-      unreadCount: number;
-    }>(`/notifications/${id}/read`);
-  },
-
-  markAllAsRead: async () => {
-    return api.patch<{
-      updatedCount: number;
-    }>('/notifications/read-all');
-  },
-
-  delete: async (id: string) => {
-    return api.delete(`/notifications/${id}`);
-  },
-};
+export { notificationApi } from './notificationApi';
 
 export default api;
 

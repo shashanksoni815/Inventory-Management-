@@ -4,45 +4,87 @@ import {
   Settings as SettingsIcon,
   Bell,
   DollarSign,
-  FileText,
-  Palette,
   RefreshCw,
   Save,
-  Upload,
-  Download,
-  Shield,
-  Keyboard,
+  Key,
+  Lock,
 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
+import { authApi } from '@/services/api';
+import { showToast } from '@/services/toast';
 
 const settingsSchema = z.object({
   businessName: z.string().min(1, 'Business name is required'),
   currency: z.string().min(1, 'Currency is required'),
   taxRate: z.number().min(0).max(100),
   lowStockThreshold: z.number().min(1),
-  invoicePrefix: z.string().max(10),
-  autoBackup: z.boolean(),
   dataRefreshInterval: z.number().min(5).max(300),
   emailNotifications: z.boolean(),
   smsNotifications: z.boolean(),
-  theme: z.enum(['light', 'dark', 'auto']),
   defaultPaymentMethod: z.enum(['cash', 'card', 'upi', 'bank_transfer']),
 });
 
 type SettingsFormData = z.infer<typeof settingsSchema>;
 
+const changePasswordSchema = z
+  .object({
+    currentPassword: z.string().min(1, 'Current password is required'),
+    newPassword: z
+      .string()
+      .min(8, 'New password must be at least 8 characters'),
+    confirmPassword: z.string().min(1, 'Please confirm your new password'),
+  })
+  .refine((data) => data.newPassword === data.confirmPassword, {
+    message: 'Passwords do not match',
+    path: ['confirmPassword'],
+  });
+
+type ChangePasswordFormData = z.infer<typeof changePasswordSchema>;
+
 const Settings: React.FC = () => {
   const [activeTab, setActiveTab] = useState('general');
   const [isSaving, setIsSaving] = useState(false);
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+
+  const passwordForm = useForm<ChangePasswordFormData>({
+    resolver: zodResolver(changePasswordSchema),
+    defaultValues: {
+      currentPassword: '',
+      newPassword: '',
+      confirmPassword: '',
+    },
+  });
+
+  const onPasswordSubmit = useCallback(
+    async (data: ChangePasswordFormData) => {
+      setIsChangingPassword(true);
+      try {
+        await authApi.changePassword(data.currentPassword, data.newPassword);
+        showToast.success('Password changed successfully');
+        passwordForm.reset({
+          currentPassword: '',
+          newPassword: '',
+          confirmPassword: '',
+        });
+      } catch (err: unknown) {
+        const message =
+          (err as { message?: string })?.message ||
+          'Failed to change password. Please check your current password.';
+        showToast.error(message);
+      } finally {
+        setIsChangingPassword(false);
+      }
+    },
+    [passwordForm]
+  );
 
   const {
     register,
     handleSubmit,
     formState: { errors, isDirty },
     reset,
-    watch,
   } = useForm<SettingsFormData>({
     resolver: zodResolver(settingsSchema),
     defaultValues: {
@@ -50,12 +92,9 @@ const Settings: React.FC = () => {
       currency: 'USD',
       taxRate: 10,
       lowStockThreshold: 10,
-      invoicePrefix: 'INV',
-      autoBackup: true,
       dataRefreshInterval: 30,
       emailNotifications: true,
       smsNotifications: false,
-      theme: 'light',
       defaultPaymentMethod: 'card',
     },
   });
@@ -76,11 +115,9 @@ const Settings: React.FC = () => {
 
   const tabs = [
     { id: 'general', label: 'General', icon: SettingsIcon },
+    { id: 'security', label: 'Change Password', icon: Lock },
     { id: 'notifications', label: 'Notifications', icon: Bell },
     { id: 'financial', label: 'Financial', icon: DollarSign },
-    { id: 'invoices', label: 'Invoices', icon: FileText },
-    { id: 'appearance', label: 'Appearance', icon: Palette },
-    { id: 'backup', label: 'Backup', icon: Shield },
   ];
 
   // const shortcuts = [
@@ -280,6 +317,87 @@ const Settings: React.FC = () => {
                 </div>
               )}
 
+              {/* Change Password */}
+              {activeTab === 'security' && (
+                <div className="rounded-xl border border-gray-200 bg-white p-6">
+                  <h2 className="mb-6 text-xl font-semibold text-gray-900 flex items-center gap-2">
+                    <Lock className="h-5 w-5" />
+                    Change Password
+                  </h2>
+                  <p className="mb-6 text-sm text-gray-600">
+                    Enter your current password and choose a new password to reset your account.
+                  </p>
+                  <form
+                    onSubmit={passwordForm.handleSubmit(onPasswordSubmit)}
+                    className="max-w-md space-y-4"
+                  >
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Current Password *
+                      </label>
+                      <input
+                        {...passwordForm.register('currentPassword')}
+                        type="password"
+                        autoComplete="current-password"
+                        placeholder="Enter your current password"
+                        className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                      />
+                      {passwordForm.formState.errors.currentPassword && (
+                        <p className="mt-1 text-sm text-red-600">
+                          {passwordForm.formState.errors.currentPassword.message}
+                        </p>
+                      )}
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        New Password *
+                      </label>
+                      <input
+                        {...passwordForm.register('newPassword')}
+                        type="password"
+                        autoComplete="new-password"
+                        placeholder="Enter new password (min 8 characters)"
+                        className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                      />
+                      {passwordForm.formState.errors.newPassword && (
+                        <p className="mt-1 text-sm text-red-600">
+                          {passwordForm.formState.errors.newPassword.message}
+                        </p>
+                      )}
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Confirm New Password *
+                      </label>
+                      <input
+                        {...passwordForm.register('confirmPassword')}
+                        type="password"
+                        autoComplete="new-password"
+                        placeholder="Confirm your new password"
+                        className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                      />
+                      {passwordForm.formState.errors.confirmPassword && (
+                        <p className="mt-1 text-sm text-red-600">
+                          {passwordForm.formState.errors.confirmPassword.message}
+                        </p>
+                      )}
+                    </div>
+                    <button
+                      type="submit"
+                      disabled={isChangingPassword}
+                      className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isChangingPassword ? (
+                        <RefreshCw className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Key className="h-4 w-4" />
+                      )}
+                      {isChangingPassword ? 'Resetting...' : 'Reset Password'}
+                    </button>
+                  </form>
+                </div>
+              )}
+
               {/* Notification Settings */}
               {activeTab === 'notifications' && (
                 <div className="rounded-xl border border-gray-200 bg-white p-6">
@@ -395,174 +513,6 @@ const Settings: React.FC = () => {
                 </div>
               )}
 
-              {/* Appearance Settings */}
-              {activeTab === 'appearance' && (
-                <div className="rounded-xl border border-gray-200 bg-white p-6">
-                  <h2 className="mb-6 text-xl font-semibold text-gray-900">
-                    Appearance Settings
-                  </h2>
-                  <div className="space-y-6">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-4">
-                        Theme
-                      </label>
-                      <div className="grid grid-cols-3 gap-4">
-                        {[
-                          { id: 'light', label: 'Light', bg: 'bg-white', border: 'border-gray-300' },
-                          { id: 'dark', label: 'Dark', bg: 'bg-gray-800', border: 'border-gray-600' },
-                          { id: 'auto', label: 'Auto', bg: 'bg-gradient-to-r from-white to-gray-800', border: 'border-gray-400' },
-                        ].map((theme) => (
-                          <label
-                            key={theme.id}
-                            className={`
-                              relative flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 p-4
-                              ${watch('theme') === theme.id ? 'border-blue-500' : theme.border}
-                            `}
-                          >
-                            <input
-                              type="radio"
-                              {...register('theme')}
-                              value={theme.id}
-                              className="sr-only"
-                            />
-                            <div className={`h-8 w-8 rounded-full ${theme.bg} mb-2`} />
-                            <span className="text-sm font-medium">{theme.label}</span>
-                            {watch('theme') === theme.id && (
-                              <div className="absolute right-2 top-2 h-4 w-4 rounded-full bg-blue-500">
-                                <div className="absolute inset-1 rounded-full bg-white" />
-                              </div>
-                            )}
-                          </label>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className="rounded-lg border border-gray-200 p-6">
-                      <h3 className="mb-4 font-medium text-gray-900">
-                        Dashboard Preferences
-                      </h3>
-                      <div className="space-y-4">
-                        <label className="flex items-center space-x-3">
-                          <input
-                            type="checkbox"
-                            defaultChecked
-                            className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                          />
-                          <span className="text-sm text-gray-700">
-                            Show animations
-                          </span>
-                        </label>
-                        <label className="flex items-center space-x-3">
-                          <input
-                            type="checkbox"
-                            defaultChecked
-                            className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                          />
-                          <span className="text-sm text-gray-700">
-                            Compact table view
-                          </span>
-                        </label>
-                        <label className="flex items-center space-x-3">
-                          <input
-                            type="checkbox"
-                            className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                          />
-                          <span className="text-sm text-gray-700">
-                            Show grid lines in charts
-                          </span>
-                        </label>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Backup & Restore */}
-              {activeTab === 'backup' && (
-                <div className="rounded-xl border border-gray-200 bg-white p-6">
-                  <h2 className="mb-6 text-xl font-semibold text-gray-900">
-                    Backup & Restore
-                  </h2>
-                  <div className="space-y-6">
-                    <div className="flex items-center justify-between rounded-lg border border-gray-200 p-4">
-                      <div>
-                        <h3 className="font-medium text-gray-900">
-                          Automatic Backups
-                        </h3>
-                        <p className="text-sm text-gray-500">
-                          Automatically backup data daily
-                        </p>
-                      </div>
-                      <label className="relative inline-flex cursor-pointer items-center">
-                        <input
-                          type="checkbox"
-                          {...register('autoBackup')}
-                          className="peer sr-only"
-                        />
-                        <div className="peer h-6 w-11 rounded-full bg-gray-200 after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:border after:border-gray-300 after:bg-white after:transition-all after:content-[''] peer-checked:bg-blue-600 peer-checked:after:translate-x-full peer-checked:after:border-white dark:border-gray-600"></div>
-                      </label>
-                    </div>
-
-                    <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-                      <div className="rounded-lg border border-gray-200 p-6">
-                        <div className="flex items-center space-x-3">
-                          <div className="rounded-lg bg-blue-100 p-3">
-                            <Download className="h-6 w-6 text-blue-600" />
-                          </div>
-                          <div>
-                            <h3 className="font-medium text-gray-900">
-                              Backup Data
-                            </h3>
-                            <p className="text-sm text-gray-500">
-                              Download complete database backup
-                            </p>
-                          </div>
-                        </div>
-                        <button
-                          type="button"
-                          className="mt-4 w-full rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600"
-                        >
-                          Download Backup
-                        </button>
-                      </div>
-
-                      <div className="rounded-lg border border-gray-200 p-6">
-                        <div className="flex items-center space-x-3">
-                          <div className="rounded-lg bg-green-100 p-3">
-                            <Upload className="h-6 w-6 text-green-600 dark:text-green-400" />
-                          </div>
-                          <div>
-                            <h3 className="font-medium text-gray-900">
-                              Restore Data
-                            </h3>
-                            <p className="text-sm text-gray-500">
-                              Upload and restore from backup file
-                            </p>
-                          </div>
-                        </div>
-                        <button
-                          type="button"
-                          className="mt-4 w-full rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600"
-                        >
-                          Restore Backup
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="rounded-lg border border-amber-200 bg-amber-50 p-6">
-                      <h3 className="font-semibold text-amber-800">
-                        ⚠️ Important Notes
-                      </h3>
-                      <ul className="mt-2 space-y-2 text-sm text-amber-700">
-                        <li>• Backups are encrypted and stored securely</li>
-                        <li>• Restoring will overwrite existing data</li>
-                        <li>• Keep backup files in a safe location</li>
-                        <li>• Last backup: Today, 02:30 AM</li>
-                      </ul>
-                    </div>
-                  </div>
-                </div>
-              )}
             </div>
           </form>
         </motion.div>

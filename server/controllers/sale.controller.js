@@ -8,6 +8,7 @@ import Franchise from '../models/Franchise.js';
 import { ImportLog } from '../models/ImportLog.model.js';
 import { AuditLog } from '../models/AuditLog.model.js';
 import { applyFranchiseFilter } from '../utils/franchiseFilter.js';
+import { createSystemNotification } from '../utils/notificationHelper.js';
 
 // Helper function to create audit log from import log
 const createAuditLogFromImportLog = async (importLog, req) => {
@@ -324,6 +325,16 @@ export const createSale = async (req, res) => {
     // Creating sale document
 
     const sale = await Sale.create(saleDoc);
+
+    createSystemNotification({
+      title: 'New Sale Created',
+      message: sale.invoiceNumber
+        ? `Sale ${sale.invoiceNumber} completed successfully`
+        : 'A new sale has been created',
+      type: 'sale',
+      priority: 'medium',
+      franchise: franchiseObjectId,
+    }).catch(() => {});
 
     res.status(201).json({
       success: true,

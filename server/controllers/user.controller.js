@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import { User } from '../models/User.model.js';
+import { createSystemNotification } from '../utils/notificationHelper.js';
 import Franchise from '../models/Franchise.js';
 import jwt from 'jsonwebtoken';
 
@@ -204,7 +205,15 @@ export const createUser = async (req, res) => {
     
     // Create user (password will be hashed by pre-save hook)
     const user = await User.create(userData);
-    
+
+    createSystemNotification({
+      title: 'New User Added',
+      message: `${user.name} (${user.email}) has been added as ${userRole}`,
+      type: 'user',
+      priority: 'low',
+      franchise: franchiseId,
+    }).catch(() => {});
+
     // Populate franchise for response
     await user.populate('franchise', 'name code');
     

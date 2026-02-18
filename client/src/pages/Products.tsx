@@ -1,9 +1,11 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Plus, Filter, Download, Upload, RefreshCw, Package, DollarSign } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
+import { Plus, Filter, Download, Upload, RefreshCw, Package, DollarSign, QrCode } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import ProductTable from '@/features/products/components/ProductTable';
 import ProductForm from '@/features/products/components/ProductForm';
+import BulkQRCodeGenerator from '@/components/Products/BulkQRCodeGenerator';
 import { productApi } from '@/services/api';
 import { useFranchise } from '@/contexts/FranchiseContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -11,15 +13,34 @@ import { showToast } from '@/services/toast';
 import type { Product } from '@/types';
 
 const Products: React.FC = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [showForm, setShowForm] = useState(false);
+  const [showBulkQR, setShowBulkQR] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | undefined>();
   const [filters, setFilters] = useState({
-    search: '',
-    category: '',
-    status: '',
-    minStock: '',
-    maxStock: '',
+    search: searchParams.get('search') || '',
+    category: searchParams.get('category') || '',
+    status: searchParams.get('status') || '',
+    minStock: searchParams.get('minStock') || '',
+    maxStock: searchParams.get('maxStock') || '',
   });
+
+  // Update URL when filters change (but don't replace history)
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (filters.search) params.set('search', filters.search);
+    if (filters.category) params.set('category', filters.category);
+    if (filters.status) params.set('status', filters.status);
+    if (filters.minStock) params.set('minStock', filters.minStock);
+    if (filters.maxStock) params.set('maxStock', filters.maxStock);
+    
+    // Only update URL if there are params or if we're clearing them
+    const currentParams = searchParams.toString();
+    const newParams = params.toString();
+    if (currentParams !== newParams) {
+      setSearchParams(params, { replace: true });
+    }
+  }, [filters, searchParams, setSearchParams]);
 
   const queryClient = useQueryClient();
   const { currentFranchise } = useFranchise();
@@ -293,6 +314,14 @@ const Products: React.FC = () => {
               <span>Refresh</span>
             </button>
             <button
+              onClick={() => setShowBulkQR(true)}
+              className="flex items-center space-x-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 "
+              title="Generate QR codes for all products"
+            >
+              <QrCode className="h-4 w-4" />
+              <span>Generate All QR Codes</span>
+            </button>
+            <button
               onClick={handleImport}
               className="flex items-center space-x-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 "
             >
@@ -504,6 +533,13 @@ const Products: React.FC = () => {
           loading={createMutation.isPending || updateMutation.isPending}
         />
       )}
+
+      {/* Bulk QR Code Generator Modal */}
+      <BulkQRCodeGenerator
+        products={products}
+        isOpen={showBulkQR}
+        onClose={() => setShowBulkQR(false)}
+      />
     </div>
   );
 };
