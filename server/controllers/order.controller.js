@@ -7,6 +7,7 @@ import { Sale } from '../models/Sale.model.js';
 import { ImportLog } from '../models/ImportLog.model.js';
 import { AuditLog } from '../models/AuditLog.model.js';
 import { hasFranchiseAccess } from '../middleware/franchiseAccess.middleware.js';
+import { createSystemNotification } from '../utils/notificationHelper.js';
 
 const STATUSES_WITH_RESERVATION = ['Confirmed', 'Packed', 'Shipped'];
 
@@ -275,6 +276,14 @@ export const createOrder = async (req, res) => {
 
     await order.validate();
     const saved = await order.save();
+
+    createSystemNotification({
+      title: 'New Order Received',
+      message: `Order ${saved.orderNumber} has been created`,
+      type: 'order',
+      priority: 'medium',
+      franchise: franchiseId,
+    }).catch(() => {});
 
     const populated = await Order.findById(saved._id)
       .populate('franchise', 'name code')

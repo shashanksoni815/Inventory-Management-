@@ -7,6 +7,7 @@ import Franchise from '../models/Franchise.js';
 import { ImportLog } from '../models/ImportLog.model.js';
 import { AuditLog } from '../models/AuditLog.model.js';
 import { applyFranchiseFilter } from '../utils/franchiseFilter.js';
+import { createSystemNotification } from '../utils/notificationHelper.js';
 
 // Helper function to create audit log from import log
 const createAuditLogFromImportLog = async (importLog, req) => {
@@ -283,6 +284,97 @@ export const getProductById = async (req, res) => {
   }
 };
 
+/**
+ * Get public product information by SKU
+ * No authentication required - public endpoint
+ */
+export const getPublicProductBySku = async (req, res) => {
+  try {
+    const { sku } = req.params;
+    
+    if (!sku || typeof sku !== 'string' || !sku.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: 'SKU is required',
+      });
+    }
+
+    const skuUpper = sku.trim().toUpperCase();
+    
+    // Find product by SKU - can be from any franchise or global
+    const product = await Product.findOne({ sku: skuUpper, status: 'active' })
+      .populate('franchise', 'name code')
+      .lean();
+
+    if (!product) {
+      return res.status(404).json({
+        success: false,
+        message: 'Product not found',
+      });
+    }
+
+    // Calculate tax percentage if not present (default to 0)
+    const taxPercentage = product.taxPercentage || 0;
+
+    // Determine stock availability status (without exposing exact quantities)
+    const isInStock = (product.stockQuantity || 0) > 0;
+
+    // Return only public-safe fields - NO sensitive internal data
+    const publicProduct = {
+      // Basic product info (safe)
+      image: product.images && product.images.length > 0 ? product.images[0].url : null,
+      name: product.name,
+      sku: product.sku,
+      category: product.category || 'Other',
+      brand: product.brand || '',
+      description: product.description || '',
+      
+      // Pricing info (safe - only selling price, not buying price)
+      sellingPrice: product.sellingPrice,
+      taxPercentage: taxPercentage,
+      
+      // Stock availability (safe - only status, not exact quantities or internal stock info)
+      isInStock: isInStock,
+      
+      // Franchise info (safe - only public name and code, no internal IDs)
+      franchise: product.franchise ? {
+        name: product.franchise.name,
+        code: product.franchise.code,
+        // Explicitly exclude: _id, id, or any other internal identifiers
+      } : null,
+      
+      // Explicitly excluded sensitive fields:
+      // - buyingPrice (cost information)
+      // - profitMargin (profit information)
+      // - stockQuantity (exact stock numbers)
+      // - reservedQuantity (internal stock reservations)
+      // - minimumStock (internal reorder points)
+      // - _id or any MongoDB ObjectIds
+      // - totalSold, totalRevenue, totalProfit (sales analytics)
+      // - stockHistory (internal stock movements)
+      // - franchisePricing (internal pricing data)
+      // - replenishmentSettings (internal inventory management)
+      // - sharedWith (internal product sharing data)
+      // - isGlobal (internal product configuration)
+      // - status (internal product status - only active products are returned)
+      // - lastSold (internal sales data)
+    };
+
+    res.json({
+      success: true,
+      data: publicProduct,
+    });
+  } catch (error) {
+    console.error('Error fetching public product by SKU:', error);
+    // Security: Don't expose internal error details to public API
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching product. Please try again later.',
+      // Explicitly exclude: error.message, error.stack, or any internal error details
+    });
+  }
+};
+
 // export const createProduct = async (req, res) => {
 //   try {
 //     const user = req.user;
@@ -425,6 +517,7 @@ export const createProduct = async (req, res) => {
       });
     }
 
+    const minStock = Number(minimumStock) >= 0 ? Number(minimumStock) : 10;
     const product = await Product.create({
       name: name.trim(),
       sku: skuUpper,
@@ -436,10 +529,20 @@ export const createProduct = async (req, res) => {
       isGlobal: Boolean(isGlobal) || false,
       brand: brand ? String(brand).trim() : undefined,
       description: description ? String(description).trim() : undefined,
-      minimumStock: Number(minimumStock) >= 0 ? Number(minimumStock) : 10,
+      minimumStock: minStock,
       images: Array.isArray(images) ? images : undefined,
       status: status && ['active', 'inactive', 'discontinued'].includes(status) ? status : 'active'
     });
+
+    if (stockQty < minStock && franchise) {
+      createSystemNotification({
+        title: 'Low Stock Alert',
+        message: `${product.name} (${product.sku}) is below minimum stock. Current: ${stockQty}, Minimum: ${minStock}`,
+        type: 'inventory',
+        priority: stockQty === 0 ? 'high' : 'medium',
+        franchise,
+      }).catch(() => {});
+    }
 
     const populated = await Product.findById(product._id)
       .populate('franchise', 'name code')
@@ -491,6 +594,18 @@ export const updateProduct = async (req, res) => {
     });
     
     await product.save();
+
+    const minStock = product.minimumStock ?? 10;
+    if (product.stockQuantity < minStock && product.franchise) {
+      const fid = product.franchise._id || product.franchise;
+      createSystemNotification({
+        title: 'Low Stock Alert',
+        message: `${product.name} (${product.sku}) is below minimum stock. Current: ${product.stockQuantity}, Minimum: ${minStock}`,
+        type: 'inventory',
+        priority: product.stockQuantity === 0 ? 'high' : 'medium',
+        franchise: fid,
+      }).catch(() => {});
+    }
     
     res.json({
       success: true,
@@ -1041,6 +1156,18 @@ export const updateStock = async (req, res) => {
     });
 
     await product.save();
+
+    const minStock = product.minimumStock ?? 10;
+    if (newQty < minStock && product.franchise) {
+      const fid = product.franchise._id || product.franchise;
+      createSystemNotification({
+        title: 'Low Stock Alert',
+        message: `${product.name} (${product.sku}) is below minimum stock. Current: ${newQty}, Minimum: ${minStock}`,
+        type: 'inventory',
+        priority: newQty === 0 ? 'high' : 'medium',
+        franchise: fid,
+      }).catch(() => {});
+    }
 
     res.json({
       success: true,

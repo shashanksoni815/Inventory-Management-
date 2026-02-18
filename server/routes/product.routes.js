@@ -2,6 +2,7 @@ import express from 'express';
 import {
   getAllProducts,
   getProductById,
+  getPublicProductBySku,
   createProduct,
   updateProduct,
   deleteProduct,
@@ -18,6 +19,9 @@ import { uploadExcel } from '../middleware/upload.middleware.js';
 import { protect, authorize } from '../middleware/auth.middleware.js';
 
 const router = express.Router();
+
+// Public route - no authentication required
+router.get('/public/:sku', getPublicProductBySku);
 
 // View routes - accessible to all authenticated users (admin, manager, sales)
 router.get('/', protect, authorize('admin', 'manager', 'sales'), getAllProducts);

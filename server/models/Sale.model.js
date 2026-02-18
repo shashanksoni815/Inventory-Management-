@@ -160,6 +160,31 @@ saleSchema.pre('save', async function(next) {
   next();
 });
 
+// Post-save: create low stock notifications for products that fell below minimum
+saleSchema.post('save', async function() {
+  if (!this.isNew || this.order) return;
+  try {
+    const { createSystemNotification } = await import('../utils/notificationHelper.js');
+    const Product = mongoose.model('Product');
+    for (const item of this.items) {
+      const product = await Product.findById(item.product).select('name sku stockQuantity minimumStock franchise');
+      if (!product) continue;
+      const minStock = product.minimumStock ?? 10;
+      if (product.stockQuantity < minStock && product.franchise) {
+        createSystemNotification({
+          title: 'Low Stock Alert',
+          message: `${product.name} (${product.sku}) is below minimum stock. Current: ${product.stockQuantity}, Minimum: ${minStock}`,
+          type: 'inventory',
+          priority: product.stockQuantity === 0 ? 'high' : 'medium',
+          franchise: product.franchise,
+        }).catch(() => {});
+      }
+    }
+  } catch (err) {
+    console.error('[Sale] Low stock notification error:', err?.message);
+  }
+});
+
 // Generate invoice number
 saleSchema.pre('save', function(next) {
   if (!this.invoiceNumber) {
