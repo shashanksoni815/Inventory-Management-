@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import type { Product } from '@/types';
 import { cn } from '@/lib/utils';
+import ProductQRCode from '@/components/Products/ProductQRCode';
 
 interface ProductTableProps {
   products: Product[];
@@ -218,6 +219,7 @@ const ProductTable: React.FC<ProductTableProps> = ({
         id: 'actions',
         cell: ({ row }: { row: Row<Product> }) => (
           <div className="flex items-center justify-end space-x-2">
+            <ProductQRCode sku={row.original.sku} productName={row.original.name} />
             <button
               onClick={() => onEdit(row.original)}
               className="rounded-lg p-2 text-gray-600 hover:bg-gray-100"

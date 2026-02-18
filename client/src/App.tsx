@@ -20,6 +20,7 @@ import type { UserRole } from './types';
 // Lazy load pages
 const Login = lazy(() => import('./pages/Login'));
 const Register = lazy(() => import('./pages/Register'));
+const PublicProduct = lazy(() => import('./pages/PublicProduct'));
 const Layout = lazy(() => import('./components/Layout/Layout'));
 const Products = lazy(() => import('./pages/Products'));
 const Sales = lazy(() => import('./pages/Sales'));
@@ -37,6 +38,7 @@ const OrderDetails = lazy(() => import('./pages/OrderDetails'));
 const CreateOrder = lazy(() => import('./pages/CreateOrder'));
 const OrderEdit = lazy(() => import('./pages/OrderEdit'));
 const Users = lazy(() => import('./pages/Users'));
+const Notifications = lazy(() => import('./pages/Notifications'));
 const Unauthorized = lazy(() => import('./pages/Unauthorized'));
 
 // Scroll to top on route change
@@ -64,6 +66,7 @@ function App() {
                   <Route path="/login" element={<Login />} />
                   <Route path="/register" element={<Register />} />
                   <Route path="/unauthorized" element={<Unauthorized />} />
+                  <Route path="/product/:sku" element={<PublicProduct />} />
                   
                   {/* Protected routes */}
                   <Route
@@ -166,6 +169,11 @@ function App() {
                     <Route path="settings" element={
                       <ProtectedRoute>
                         <Settings />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="notifications" element={
+                      <ProtectedRoute roles={['admin', 'manager', 'sales']}>
+                        <Notifications />
                       </ProtectedRoute>
                     } />
                     <Route path="franchises" element={

@@ -166,8 +166,8 @@ const Login: React.FC = () => {
               )}
             </div>
 
-            {/* Remember Me & Forgot Password */}
-            <div className="flex items-center justify-between">
+            {/* Remember Me */}
+            <div className="flex items-center">
               <label className="flex items-center">
                 <input
                   type="checkbox"
@@ -177,12 +177,6 @@ const Login: React.FC = () => {
                   Remember me
                 </span>
               </label>
-              <Link
-                to="/register"
-                className="text-sm font-medium text-blue-600 hover:text-blue-500"
-              >
-                Create account
-              </Link>
             </div>
 
             {/* Submit Button */}
@@ -206,6 +200,13 @@ const Login: React.FC = () => {
                 'Sign in'
               )}
             </button>
+
+            <p className="mt-4 text-center text-sm text-gray-600">
+              Don&apos;t have an account?{' '}
+              <Link to="/register" className="font-medium text-blue-600 hover:text-blue-500">
+                Create account
+              </Link>
+            </p>
           </form>
 
           {/* Demo Credentials */}

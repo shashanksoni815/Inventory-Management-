@@ -1,8 +1,9 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { motion, AnimatePresence } from 'framer-motion';
+import QRCode from 'qrcode';
 import {
   Package,
   DollarSign,
@@ -11,6 +12,9 @@ import {
   X,
   Check,
   AlertCircle,
+  QrCode,
+  Download,
+  Printer,
 } from 'lucide-react';
 import type { Product, ProductCategory } from '@/types';
 import { cn, calculateProfit } from '@/lib/utils';
@@ -52,6 +56,8 @@ const ProductForm: React.FC<ProductFormProps> = ({
 }) => {
   const [step, setStep] = useState(1);
   const [images, setImages] = useState<string[]>(product?.images?.map(img => img.url) || []);
+  const [qrCodeImage, setQrCodeImage] = useState<string | null>(null);
+  const [qrCodeLoading, setQrCodeLoading] = useState(false);
   const [profitData, setProfitData] = useState({
     profit: 0,
     profitMargin: 0,
@@ -133,6 +139,115 @@ const ProductForm: React.FC<ProductFormProps> = ({
       setProfitData(profit);
     }
   }, [buyingPrice, sellingPrice]);
+
+  // Watch SKU value from form
+  const currentSku = watch('sku');
+
+  // Generate QR code when product SKU is available
+  useEffect(() => {
+    const generateQRCode = async () => {
+      const skuValue = product?.sku || currentSku;
+      if (!skuValue || skuValue.trim() === '') {
+        setQrCodeImage(null);
+        return;
+      }
+
+      try {
+        setQrCodeLoading(true);
+        // Generate QR code with ONLY the public product URL (no JSON, images, or other data)
+        const publicUrl = `${window.location.origin}/product/${skuValue}`;
+        const qrDataUrl: string = await QRCode.toDataURL(publicUrl, {
+          width: 300, // Medium size: 300px
+          margin: 2, // Clear white border
+          errorCorrectionLevel: 'H', // High error correction for better scanning
+          color: {
+            dark: '#000000', // Black QR code
+            light: '#FFFFFF', // White background (clear)
+          },
+        });
+        setQrCodeImage(qrDataUrl);
+      } catch (error) {
+        console.error('Error generating QR code:', error);
+        setQrCodeImage(null);
+      } finally {
+        setQrCodeLoading(false);
+      }
+    };
+
+    generateQRCode();
+  }, [product?.sku, currentSku]);
+
+  const handleDownloadQR = () => {
+    if (!qrCodeImage) return;
+    
+    const link = document.createElement('a');
+    link.href = qrCodeImage;
+    link.download = `QR-${product?.sku || currentSku || 'product'}.png`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handlePrintQR = () => {
+    if (!qrCodeImage) return;
+    
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+    
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>QR Code - ${product?.name || watch('name') || 'Product'}</title>
+          <style>
+            body {
+              display: flex;
+              justify-content: center;
+              align-items: center;
+              min-height: 100vh;
+              margin: 0;
+              font-family: Arial, sans-serif;
+            }
+            .qr-container {
+              text-align: center;
+              padding: 20px;
+            }
+            .qr-container h2 {
+              margin-bottom: 20px;
+              color: #333;
+            }
+            .qr-container img {
+              max-width: 100%;
+              height: auto;
+            }
+            .qr-info {
+              margin-top: 20px;
+              color: #666;
+              font-size: 14px;
+            }
+            @media print {
+              body { margin: 0; }
+              .qr-container { padding: 0; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="qr-container">
+            <h2>${product?.name || watch('name') || 'Product'}</h2>
+            <img src="${qrCodeImage}" alt="QR Code" />
+            <div class="qr-info">
+              <p>SKU: ${product?.sku || watch('sku') || 'N/A'}</p>
+              <p>Scan to view product details</p>
+            </div>
+          </div>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => {
+      printWindow.print();
+    }, 250);
+  };
 
   const handleImageUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -743,6 +858,63 @@ const ProductForm: React.FC<ProductFormProps> = ({
                           </div>
                         </div>
                       )}
+
+                      {/* QR Code Section */}
+                      <div className="mt-6 rounded-lg border border-gray-200 bg-white p-6">
+                        <div className="flex items-center gap-2 mb-4">
+                          <QrCode className="h-5 w-5 text-gray-700" />
+                          <h4 className="text-lg font-semibold text-gray-900">Product QR Code</h4>
+                        </div>
+                        
+                        {qrCodeLoading ? (
+                          <div className="flex items-center justify-center py-8">
+                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                            <span className="ml-3 text-gray-600">Generating QR code...</span>
+                          </div>
+                        ) : qrCodeImage ? (
+                          <div className="space-y-4">
+                            <div className="flex justify-center">
+                              <img
+                                src={qrCodeImage}
+                                alt="Product QR Code"
+                                className="w-48 h-48 border border-gray-200 rounded-lg p-2 bg-white"
+                              />
+                            </div>
+                            <div className="text-center">
+                              <p className="text-sm text-gray-600 mb-2">
+                                Scan this QR code to view product details
+                              </p>
+                              <p className="text-xs text-gray-500 font-mono break-all">
+                                {window.location.origin}/product/{product?.sku || currentSku}
+                              </p>
+                            </div>
+                            <div className="flex gap-3 justify-center">
+                              <button
+                                type="button"
+                                onClick={handleDownloadQR}
+                                className="flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                              >
+                                <Download className="h-4 w-4" />
+                                Download QR
+                              </button>
+                              <button
+                                type="button"
+                                onClick={handlePrintQR}
+                                className="flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                              >
+                                <Printer className="h-4 w-4" />
+                                Print QR
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="text-center py-8">
+                            <p className="text-sm text-gray-500">
+                              QR code will be generated once SKU is provided
+                            </p>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </motion.div>
