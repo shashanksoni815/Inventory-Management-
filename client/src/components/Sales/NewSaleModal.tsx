@@ -443,9 +443,9 @@ const NewSaleModal: React.FC<NewSaleModalProps> = ({
 
           {/* Right Panel - Cart & Details */}
           <div className="w-1/2">
-            <div className="flex h-full flex-col">
+            <div className="flex overflow-y-auto h-full flex-col">
               {/* Cart Items */}
-              <div className="flex-1 overflow-y-auto p-6">
+              <div className="flex-1  p-6">
                 <h3 className="mb-4 text-lg font-semibold text-gray-900">
                   Cart ({items.length} items)
                 </h3>
