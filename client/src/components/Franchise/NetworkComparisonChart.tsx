@@ -302,8 +302,7 @@
 // export default NetworkComparisonChart;
 
 import React from 'react';
-import { 
-  TrendingUp, 
+import {  
   IndianRupee,
   ShoppingCart,
 } from 'lucide-react';
