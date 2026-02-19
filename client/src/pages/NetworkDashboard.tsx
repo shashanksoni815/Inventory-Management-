@@ -26,7 +26,7 @@ import {
   Globe,
   Store,
   TrendingUp,
-  DollarSign,
+  IndianRupee,
   Package,
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
@@ -187,7 +187,7 @@ const NetworkDashboard: React.FC = () => {
           title="Network Profit"
           value={profit || 0}
           trend={profitTrend}
-          icon={DollarSign}
+          icon={IndianRupee}
           format="currency"
           description={`Profit${profitMargin > 0 ? ` (${profitMargin.toFixed(1)}% margin)` : ''}`}
         />

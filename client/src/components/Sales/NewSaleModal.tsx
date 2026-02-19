@@ -443,7 +443,7 @@ const NewSaleModal: React.FC<NewSaleModalProps> = ({
 
           {/* Right Panel - Cart & Details */}
           <div className="w-1/2">
-            <div className="flex overflow-y-auto h-full flex-col">
+            <div className="flex overflow-y-auto h-full flex-col max-h-[calc(70vh-120px)]">
               {/* Cart Items */}
               <div className="flex-1  p-6">
                 <h3 className="mb-4 text-lg font-semibold text-gray-900">

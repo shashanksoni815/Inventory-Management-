@@ -14,7 +14,7 @@ import React, { useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Store,
-  DollarSign,
+  IndianRupee,
   Package,
   ShoppingCart,
   Settings,
@@ -255,7 +255,7 @@ const FranchiseSalesDashboard: React.FC = () => {
         <KpiCard
           title="Total Revenue"
           value={salesSummary.totalRevenue}
-          icon={DollarSign}
+          icon={IndianRupee}
           format="currency"
           trend={salesSummary.totalRevenue > 0 ? 5.2 : 0}
         />
