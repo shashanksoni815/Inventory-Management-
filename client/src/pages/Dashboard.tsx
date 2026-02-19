@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { 
-  DollarSign, 
+  IndianRupee, 
   TrendingUp, 
   TrendingDown, 
   Package, 
@@ -19,6 +19,8 @@ import DeadStockTable from '@/components/Dashboard/DeadStockTable';
 import { dashboardApi } from '@/services/api';
 import type { DashboardStats } from '@/types';
 
+<IndianRupee />
+
 const Dashboard: React.FC = () => {
   const { data: dashboardData, isPending } = useQuery<DashboardStats>({
     queryKey: ['dashboard-stats'],
@@ -31,7 +33,7 @@ const Dashboard: React.FC = () => {
   const kpis: Array<{
     title: string;
     value: number;
-    icon: typeof DollarSign;
+    icon: typeof IndianRupee;
     format: 'currency' | 'number' | 'percent';
     color: 'default' | 'profit' | 'loss' | 'warning';
     trend?: number;
@@ -40,7 +42,7 @@ const Dashboard: React.FC = () => {
     {
       title: 'Total Revenue',
       value: dashboardData?.kpis?.totalRevenue ?? 0,
-      icon: DollarSign,
+      icon: IndianRupee,
       format: 'currency',
       color: 'default',
       trend: 12.5,

@@ -20,7 +20,7 @@ import {
   TrendingDown,
   FileText,
   BarChart3,
-  DollarSign,
+  IndianRupee,
   Package,
   ShoppingCart,
   FileSpreadsheet,
@@ -375,7 +375,7 @@ const FranchiseProfitLoss: React.FC = () => {
         <KpiCard
           title="Total Revenue"
           value={profitLossStatement.totalRevenue}
-          icon={DollarSign}
+          icon={IndianRupee}
           format="currency"
           color="default"
         />
