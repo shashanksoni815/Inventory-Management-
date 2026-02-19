@@ -386,7 +386,7 @@ const NetworkComparisonChart: React.FC = () => {
             </div>
           </div>
           
-          <div className="h-72">
+          <div className="h-[280px] sm:h-[350px] lg:h-[400px] w-full overflow-x-hidden">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={revenueData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
@@ -402,9 +402,13 @@ const NetworkComparisonChart: React.FC = () => {
                   width={60}
                   tick={{ fill: '#6B7280' }}
                 />
-                <Tooltip 
-                  formatter={(value: any) => [`₹${Number(value).toLocaleString('en-IN')}`, 'Revenue']}
+                <Tooltip
+                  formatter={(value) => {
+                    const num = Number(value) || 0;
+                    return [`₹${num.toLocaleString('en-IN')}`, 'Revenue'];
+                  }}
                 />
+
                 <Bar 
                   dataKey="revenue" 
                   name="Revenue"
@@ -438,7 +442,7 @@ const NetworkComparisonChart: React.FC = () => {
             </div>
           </div>
           
-          <div className="h-72">
+          <div className="h-[280px] sm:h-[350px] lg:h-[400px] w-full overflow-x-hidden">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={salesData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />

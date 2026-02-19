@@ -205,8 +205,8 @@ const FranchiseInventoryAnalytics: React.FC = () => {
         {/* Stock Status Distribution */}
         <div className="bg-white rounded-xl border border-gray-200 p-6">
           <h4 className="text-lg font-semibold text-gray-900 mb-4">Stock Status</h4>
-          <div className="h-80">
-            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
+          <div className="h-[280px] sm:h-[350px] lg:h-[400px] w-full overflow-x-hidden">
+            <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
                   data={stockStatusData}
@@ -232,8 +232,8 @@ const FranchiseInventoryAnalytics: React.FC = () => {
         {/* Category Distribution */}
         <div className="bg-white rounded-xl border border-gray-200 p-6">
           <h4 className="text-lg font-semibold text-gray-900 mb-4">Category Distribution</h4>
-          <div className="h-80">
-            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
+          <div className="h-[280px] sm:h-[350px] lg:h-[400px] w-full overflow-x-hidden">
+            <ResponsiveContainer width="100%" height="100%">
               <BarChart data={categoryData}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="name" />
@@ -250,8 +250,8 @@ const FranchiseInventoryAnalytics: React.FC = () => {
         {/* Top Products */}
         <div className="bg-white rounded-xl border border-gray-200 p-6 lg:col-span-2">
           <h4 className="text-lg font-semibold text-gray-900 mb-4">Top Performing Products</h4>
-          <div className="h-80">
-            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
+          <div className="h-[280px] sm:h-[350px] lg:h-[400px] w-full overflow-x-hidden">
+            <ResponsiveContainer width="100%" height="100%">
               <BarChart data={topProductsData}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="name" />

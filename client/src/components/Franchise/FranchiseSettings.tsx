@@ -152,7 +152,7 @@ const FranchiseSettings: React.FC = () => {
             <Card className="p-6">
               <h4 className="text-lg font-semibold text-gray-900 mb-6">General Information</h4>
               <div className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Franchise Name
@@ -229,7 +229,7 @@ const FranchiseSettings: React.FC = () => {
             <Card className="p-6">
               <h4 className="text-lg font-semibold text-gray-900 mb-6">Contact Information</h4>
               <div className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Email Address
@@ -270,7 +270,7 @@ const FranchiseSettings: React.FC = () => {
             <Card className="p-6">
               <h4 className="text-lg font-semibold text-gray-900 mb-6">Business Settings</h4>
               <div className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Currency
@@ -300,7 +300,7 @@ const FranchiseSettings: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Opening Hours
@@ -330,7 +330,7 @@ const FranchiseSettings: React.FC = () => {
 
                 <div className="space-y-4">
                   <h5 className="text-sm font-medium text-gray-700">Inventory Settings</h5>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         Default Reorder Point

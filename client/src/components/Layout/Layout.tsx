@@ -138,7 +138,7 @@ const Layout: React.FC = () => {
     location.pathname === path || (path === '/orders' && location.pathname.startsWith('/orders'));
 
   return (
-    <div className="flex min-h-screen bg-white">
+    <div className="flex min-h-screen w-full bg-white overflow-x-hidden">
       {/* Mobile sidebar overlay + drawer */}
       <AnimatePresence>
         {sidebarOpen && (
@@ -156,7 +156,7 @@ const Layout: React.FC = () => {
               animate={{ x: 0 }}
               exit={{ x: -280 }}
               transition={{ type: 'tween', duration: 0.2 }}
-              className="fixed inset-y-0 left-0 z-50 w-64 max-w-[85vw] bg-white shadow-xl lg:hidden"
+              className="fixed inset-y-0 left-0 z-50 w-64 max-w-[85vw] bg-white shadow-xl transform lg:hidden"
             >
               <div className="flex h-16 items-center justify-between border-b border-gray-200 px-4">
                 <div className="flex items-center space-x-2">
@@ -228,7 +228,7 @@ const Layout: React.FC = () => {
         className={cn(
           'hidden lg:flex lg:flex-col lg:fixed lg:inset-y-0 lg:left-0 lg:z-30 lg:w-64',
           'border-r border-gray-200 bg-white',
-          'flex-shrink-0'
+          'shrink-0'
         )}
       >
         <div className="flex h-16 items-center border-b border-gray-200 px-4 sm:px-6">
@@ -304,11 +304,11 @@ const Layout: React.FC = () => {
       </aside>
 
       {/* Main content - offset by sidebar on desktop */}
-      <div className="flex-1 flex flex-col min-w-0 lg:pl-64">
+      <div className="flex flex-1 flex-col min-w-0 overflow-x-hidden lg:pl-64">
         {/* Top navigation */}
-        <header className="sticky top-0 z-20 border-b border-gray-200 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/80">
-          <div className="flex h-14 sm:h-16 items-center justify-between gap-2 px-3 sm:px-4 lg:px-6">
-            <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1">
+        <header className="sticky top-0 z-20 w-full border-b border-gray-200 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/80">
+          <div className="flex h-14 sm:h-16 w-full min-w-0 items-center justify-between gap-2 px-3 sm:px-4 lg:px-6">
+            <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-4">
               <button
                 onClick={() => setSidebarOpen(true)}
                 className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 lg:hidden flex-shrink-0"
@@ -316,7 +316,7 @@ const Layout: React.FC = () => {
               >
                 <Menu className="h-5 w-5" />
               </button>
-              <div className="relative w-full max-w-xs sm:max-w-md min-w-0">
+              <div className="relative flex-1 min-w-0 max-w-xs sm:max-w-md">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 pointer-events-none" />
                 <input
                   type="search"
@@ -398,8 +398,10 @@ const Layout: React.FC = () => {
         </header>
 
         {/* Page content - responsive padding */}
-        <main className="flex-1 p-3 sm:p-4 lg:p-6 overflow-x-hidden">
-          <Outlet />
+        <main className="flex-1 overflow-x-hidden p-3 sm:p-4 lg:p-6">
+          <div className="mx-auto w-full max-w-[1400px]">
+            <Outlet />
+          </div>
         </main>
 
         {/* Footer - responsive */}

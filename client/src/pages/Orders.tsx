@@ -508,31 +508,31 @@ const Orders: React.FC = () => {
       >
         <>
             <div className="overflow-x-auto -mx-px" aria-label="Orders table">
-              <table className="w-full min-w-[640px] divide-y divide-gray-200">
+              <table className="min-w-full w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                    <th scope="col" className="px-2 sm:px-4 lg:px-6 py-2 sm:py-3 text-left text-xs sm:text-sm font-semibold text-gray-600 uppercase tracking-wider">
                       Order #
                     </th>
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                    <th scope="col" className="px-2 sm:px-4 lg:px-6 py-2 sm:py-3 text-left text-xs sm:text-sm font-semibold text-gray-600 uppercase tracking-wider">
                       Date
                     </th>
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                    <th scope="col" className="px-2 sm:px-4 lg:px-6 py-2 sm:py-3 text-left text-xs sm:text-sm font-semibold text-gray-600 uppercase tracking-wider">
                       Customer
                     </th>
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                    <th scope="col" className="px-2 sm:px-4 lg:px-6 py-2 sm:py-3 text-left text-xs sm:text-sm font-semibold text-gray-600 uppercase tracking-wider">
                       Franchise
                     </th>
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                    <th scope="col" className="px-2 sm:px-4 lg:px-6 py-2 sm:py-3 text-left text-xs sm:text-sm font-semibold text-gray-600 uppercase tracking-wider">
                       Payment
                     </th>
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                    <th scope="col" className="px-2 sm:px-4 lg:px-6 py-2 sm:py-3 text-left text-xs sm:text-sm font-semibold text-gray-600 uppercase tracking-wider">
                       Order Status
                     </th>
-                    <th scope="col" className="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                    <th scope="col" className="px-2 sm:px-4 lg:px-6 py-2 sm:py-3 text-right text-xs sm:text-sm font-semibold text-gray-600 uppercase tracking-wider">
                       Total
                     </th>
-                    <th scope="col" className="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                    <th scope="col" className="px-2 sm:px-4 lg:px-6 py-2 sm:py-3 text-right text-xs sm:text-sm font-semibold text-gray-600 uppercase tracking-wider">
                       Actions
                     </th>
                   </tr>
@@ -540,19 +540,19 @@ const Orders: React.FC = () => {
                 <tbody className="divide-y divide-gray-200 bg-white">
                   {orders.map((order) => (
                       <tr key={order._id} className="hover:bg-gray-50/50">
-                        <td className="px-4 py-3 text-sm font-medium text-gray-900 whitespace-nowrap">
+                        <td className="px-2 sm:px-4 lg:px-6 py-2 sm:py-3 text-xs sm:text-sm font-medium text-gray-900 whitespace-nowrap">
                           {order.orderNumber}
                         </td>
-                        <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">
+                        <td className="px-2 sm:px-4 lg:px-6 py-2 sm:py-3 text-xs sm:text-sm text-gray-600 whitespace-nowrap">
                           {formatDate(order.createdAt, 'medium')}
                         </td>
-                        <td className="px-4 py-3 text-sm text-gray-700">
+                        <td className="px-2 sm:px-4 lg:px-6 py-2 sm:py-3 text-xs sm:text-sm text-gray-700">
                           <span className="font-medium text-gray-900">{order.customer?.name ?? '—'}</span>
                           {order.customer?.phone && (
                             <span className="block text-xs text-gray-500">{order.customer.phone}</span>
                           )}
                         </td>
-                        <td className="px-4 py-3 text-sm text-gray-600">
+                        <td className="px-2 sm:px-4 lg:px-6 py-2 sm:py-3 text-xs sm:text-sm text-gray-600">
                           {order.franchise?.name || order.franchise?.code ? (
                             <>
                               <span className="font-medium text-gray-900">
@@ -568,13 +568,13 @@ const Orders: React.FC = () => {
                             <span className="text-gray-400">—</span>
                           )}
                         </td>
-                        <td className="px-4 py-3 text-sm text-gray-600">
+                        <td className="px-2 sm:px-4 lg:px-6 py-2 sm:py-3 text-xs sm:text-sm text-gray-600">
                           <span>{order.payment?.method ?? '—'}</span>
                           <span className={cn('ml-1 text-xs', order.payment?.status === 'Paid' ? 'text-green-600' : 'text-amber-600')}>
                             ({order.payment?.status ?? '—'})
                           </span>
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-2 sm:px-4 lg:px-6 py-2 sm:py-3 text-xs sm:text-sm">
                           <span
                             className={cn(
                               'inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium',
@@ -584,10 +584,10 @@ const Orders: React.FC = () => {
                             {order.orderStatus}
                           </span>
                         </td>
-                        <td className="px-4 py-3 text-sm text-right font-medium text-gray-900 whitespace-nowrap">
+                        <td className="px-2 sm:px-4 lg:px-6 py-2 sm:py-3 text-xs sm:text-sm text-right font-medium text-gray-900 whitespace-nowrap">
                           {formatCurrency(order.totals?.grandTotal ?? 0)}
                         </td>
-                        <td className="px-4 py-3 text-right whitespace-nowrap space-x-2">
+                        <td className="px-2 sm:px-4 lg:px-6 py-2 sm:py-3 text-right whitespace-nowrap space-x-2 text-xs sm:text-sm">
                           <Link
                             to={`/orders/${order._id}`}
                             className="inline-flex items-center gap-1 rounded-lg border border-gray-300 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"

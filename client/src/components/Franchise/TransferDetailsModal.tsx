@@ -125,7 +125,7 @@ const TransferDetailsModal: React.FC<TransferDetailsModalProps> = ({
                 {/* Transfer Details */}
                 <Card className="p-6">
                   <h4 className="text-lg font-semibold text-gray-900 mb-4">Transfer Details</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                     <div>
                       <h5 className="text-sm font-medium text-gray-700 mb-3">From Franchise</h5>
                       <div className="space-y-2">
@@ -160,7 +160,7 @@ const TransferDetailsModal: React.FC<TransferDetailsModalProps> = ({
                   </div>
                   
                   <div className="mt-6 pt-6 border-t border-gray-200">
-                    <div className="grid grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
                       <div>
                         <div className="text-sm text-gray-500">Quantity</div>
                         <div className="text-2xl font-bold text-gray-900">
@@ -302,12 +302,12 @@ const TransferDetailsModal: React.FC<TransferDetailsModalProps> = ({
           </div>
 
           {/* Footer */}
-          <div className="px-6 py-4 bg-gray-50 rounded-b-xl border-t border-gray-200">
-            <div className="flex items-center justify-between">
+          <div className="px-4 sm:px-6 py-4 bg-gray-50 rounded-b-xl border-t border-gray-200">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-0">
               <div className="text-sm text-gray-600">
                 Initiated by: {transfer.initiatedBy?.name || 'Unknown User'}
               </div>
-              <Button variant="outline" onClick={onClose}>
+              <Button variant="outline" onClick={onClose} className="w-full sm:w-auto">
                 Close
               </Button>
             </div>

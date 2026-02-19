@@ -516,34 +516,34 @@ const Sales: React.FC = () => {
         className="rounded-xl border border-gray-200 bg-white"
       >
         <div className="overflow-x-auto">
-          <table className="w-full">
+          <table className="min-w-full w-full">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                <th className="px-2 sm:px-4 lg:px-6 py-2 sm:py-3 text-left text-xs sm:text-sm font-medium uppercase tracking-wider text-gray-500">
                   Invoice
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                <th className="px-2 sm:px-4 lg:px-6 py-2 sm:py-3 text-left text-xs sm:text-sm font-medium uppercase tracking-wider text-gray-500">
                   Date
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                <th className="px-2 sm:px-4 lg:px-6 py-2 sm:py-3 text-left text-xs sm:text-sm font-medium uppercase tracking-wider text-gray-500">
                   Customer
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                <th className="px-2 sm:px-4 lg:px-6 py-2 sm:py-3 text-left text-xs sm:text-sm font-medium uppercase tracking-wider text-gray-500">
                   Type
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                <th className="px-2 sm:px-4 lg:px-6 py-2 sm:py-3 text-left text-xs sm:text-sm font-medium uppercase tracking-wider text-gray-500">
                   Payment
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                <th className="px-2 sm:px-4 lg:px-6 py-2 sm:py-3 text-left text-xs sm:text-sm font-medium uppercase tracking-wider text-gray-500">
                   Amount
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                <th className="px-2 sm:px-4 lg:px-6 py-2 sm:py-3 text-left text-xs sm:text-sm font-medium uppercase tracking-wider text-gray-500">
                   Profit
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                <th className="px-2 sm:px-4 lg:px-6 py-2 sm:py-3 text-left text-xs sm:text-sm font-medium uppercase tracking-wider text-gray-500">
                   Status
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                <th className="px-2 sm:px-4 lg:px-6 py-2 sm:py-3 text-left text-xs sm:text-sm font-medium uppercase tracking-wider text-gray-500">
                   Actions
                 </th>
               </tr>
@@ -553,7 +553,7 @@ const Sales: React.FC = () => {
                 [...Array(5)].map((_, i) => (
                   <tr key={i}>
                     {[...Array(9)].map((_, j) => (
-                      <td key={j} className="px-6 py-4">
+                      <td key={j} className="px-2 sm:px-4 lg:px-6 py-2 sm:py-3 lg:py-4">
                         <div className="h-4 bg-gray-200 rounded animate-pulse" />
                       </td>
                     ))}
@@ -561,7 +561,7 @@ const Sales: React.FC = () => {
                 ))
               ) : sales.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="px-6 py-8 text-center">
+                  <td colSpan={9} className="px-2 sm:px-4 lg:px-6 py-4 sm:py-6 lg:py-8 text-center text-xs sm:text-sm">
                     <ShoppingCart className="mx-auto h-12 w-12 text-gray-300" />
                     <p className="mt-2 text-gray-500">
                       No sales found
@@ -577,21 +577,21 @@ const Sales: React.FC = () => {
                     transition={{ delay: index * 0.05 }}
                     className="hover:bg-gray-50"
                   >
-                    <td className="whitespace-nowrap px-6 py-4">
-                      <div className="font-mono text-sm font-medium text-gray-900">
+                    <td className="whitespace-nowrap px-2 sm:px-4 lg:px-6 py-2 sm:py-3 lg:py-4 text-xs sm:text-sm">
+                      <div className="font-mono font-medium text-gray-900">
                         {sale.invoiceNumber}
                       </div>
                     </td>
-                    <td className="whitespace-nowrap px-6 py-4">
-                      <div className="text-sm text-gray-900">
+                    <td className="whitespace-nowrap px-2 sm:px-4 lg:px-6 py-2 sm:py-3 lg:py-4 text-xs sm:text-sm">
+                      <div className="text-gray-900">
                         {formatDate(sale.createdAt, 'short')}
                       </div>
                       <div className="text-xs text-gray-500">
                         {formatDate(sale.createdAt, 'relative')}
                       </div>
                     </td>
-                    <td className="whitespace-nowrap px-6 py-4">
-                      <div className="text-sm text-gray-900">
+                    <td className="whitespace-nowrap px-2 sm:px-4 lg:px-6 py-2 sm:py-3 lg:py-4 text-xs sm:text-sm">
+                      <div className="text-gray-900">
                         {sale.customerName || 'Walk-in Customer'}
                       </div>
                       {sale.customerEmail && (
@@ -600,7 +600,7 @@ const Sales: React.FC = () => {
                         </div>
                       )}
                     </td>
-                    <td className="whitespace-nowrap px-6 py-4">
+                    <td className="whitespace-nowrap px-2 sm:px-4 lg:px-6 py-2 sm:py-3 lg:py-4 text-xs sm:text-sm">
                       <span
                         className={cn(
                           'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium',
@@ -622,7 +622,7 @@ const Sales: React.FC = () => {
                         )}
                       </span>
                     </td>
-                    <td className="whitespace-nowrap px-6 py-4">
+                    <td className="whitespace-nowrap px-2 sm:px-4 lg:px-6 py-2 sm:py-3 lg:py-4 text-xs sm:text-sm">
                       <div className="flex items-center">
                         {sale.paymentMethod === 'cash' ? (
                           <Banknote className="mr-2 h-4 w-4 text-gray-400" />
@@ -631,23 +631,23 @@ const Sales: React.FC = () => {
                         ) : (
                           <Receipt className="mr-2 h-4 w-4 text-gray-400" />
                         )}
-                        <span className="text-sm capitalize">
+                        <span className="capitalize">
                           {sale.paymentMethod.replace('_', ' ')}
                         </span>
                       </div>
                     </td>
-                    <td className="whitespace-nowrap px-6 py-4">
-                      <div className="text-sm font-bold text-gray-900">
+                    <td className="whitespace-nowrap px-2 sm:px-4 lg:px-6 py-2 sm:py-3 lg:py-4 text-xs sm:text-sm">
+                      <div className="font-bold text-gray-900">
                         {formatCurrency(sale.grandTotal)}
                       </div>
                       <div className="text-xs text-gray-500">
                         {sale.items.length} item{sale.items.length !== 1 ? 's' : ''}
                       </div>
                     </td>
-                    <td className="whitespace-nowrap px-6 py-4">
+                    <td className="whitespace-nowrap px-2 sm:px-4 lg:px-6 py-2 sm:py-3 lg:py-4 text-xs sm:text-sm">
                       <div
                         className={cn(
-                          'text-sm font-bold',
+                          'font-bold',
                           sale.totalProfit >= 0
                             ? 'text-green-600'
                             : 'text-red-600'
@@ -661,7 +661,7 @@ const Sales: React.FC = () => {
                           : 0}%
                       </div>
                     </td>
-                    <td className="whitespace-nowrap px-6 py-4">
+                    <td className="whitespace-nowrap px-2 sm:px-4 lg:px-6 py-2 sm:py-3 lg:py-4 text-xs sm:text-sm">
                       <span
                         className={cn(
                           'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium',
@@ -677,7 +677,7 @@ const Sales: React.FC = () => {
                         {sale.status.charAt(0).toUpperCase() + sale.status.slice(1)}
                       </span>
                     </td>
-                    <td className="whitespace-nowrap px-6 py-4">
+                    <td className="whitespace-nowrap px-2 sm:px-4 lg:px-6 py-2 sm:py-3 lg:py-4 text-xs sm:text-sm">
                       <div className="flex items-center space-x-2">
                         <button
                           onClick={() => handleInvoice(sale._id)}

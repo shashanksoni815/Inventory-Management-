@@ -483,7 +483,7 @@ const NewSaleModal: React.FC<NewSaleModalProps> = ({
                               </button>
                             </div>
 
-                            <div className="mt-4 grid grid-cols-4 gap-4">
+                            <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-4 sm:gap-6">
                               <div>
                                 <label className="block text-xs text-gray-500">
                                   Price
@@ -577,7 +577,7 @@ const NewSaleModal: React.FC<NewSaleModalProps> = ({
                   <h4 className="mb-3 text-sm font-medium text-gray-700">
                     Customer Details (Optional)
                   </h4>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                     <input
                       type="text"
                       value={customer.name}
@@ -596,7 +596,7 @@ const NewSaleModal: React.FC<NewSaleModalProps> = ({
                 </div>
 
                 {/* Sale Configuration */}
-                <div className="mb-6 grid grid-cols-2 gap-4">
+                <div className="mb-6 grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Sale Type
@@ -687,17 +687,17 @@ const NewSaleModal: React.FC<NewSaleModalProps> = ({
                 </div>
 
                 {/* Action Buttons */}
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-0">
                   <button
                     onClick={onClose}
-                    className="rounded-lg border border-gray-300 px-6 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                    className="w-full sm:w-auto rounded-lg border border-gray-300 px-6 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={handleSubmit}
                     disabled={items.length === 0}
-                    className="rounded-lg bg-green-600 px-8 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50"
+                    className="w-full sm:w-auto rounded-lg bg-green-600 px-8 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50"
                   >
                     Complete Sale
                   </button>

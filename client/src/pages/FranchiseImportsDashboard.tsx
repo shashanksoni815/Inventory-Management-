@@ -96,7 +96,7 @@ const FranchiseImportsDashboard: React.FC = () => {
     return (
       <div className="p-6">
         <div className="animate-pulse">
-          <div className="h-8 bg-gray-200 rounded w-1/4 mb-4"></div>
+          <div className="h-8 bg-gray-200 rounded w-full max-w-xs mb-4"></div>
           <div className="h-32 bg-gray-200 rounded mb-6"></div>
         </div>
       </div>
@@ -123,9 +123,9 @@ const FranchiseImportsDashboard: React.FC = () => {
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="w-full overflow-x-hidden p-4 sm:p-6 space-y-4 sm:space-y-6">
       {/* Franchise Header */}
-      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-200 p-6">
+      <div className="w-full min-w-0 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-200 p-4 sm:p-6 overflow-x-hidden">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between">
           <div className="mb-4 lg:mb-0">
             <div className="flex items-center space-x-3">
@@ -178,8 +178,8 @@ const FranchiseImportsDashboard: React.FC = () => {
       </div>
 
       {/* Import/Export Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+        <div className="w-full min-w-0 bg-white rounded-xl border border-gray-200 p-4 sm:p-6 overflow-x-hidden">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold text-gray-900">Imports</h3>
             <Download className="h-8 w-8 text-green-600" />
@@ -198,7 +198,7 @@ const FranchiseImportsDashboard: React.FC = () => {
           </div>
         </div>
 
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
+        <div className="w-full min-w-0 bg-white rounded-xl border border-gray-200 p-4 sm:p-6 overflow-x-hidden">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold text-gray-900">Exports</h3>
             <Upload className="h-8 w-8 text-blue-600" />
@@ -219,9 +219,9 @@ const FranchiseImportsDashboard: React.FC = () => {
       </div>
 
       {/* Import/Export Activity */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
         {/* Recent Imports */}
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
+        <div className="w-full min-w-0 bg-white rounded-xl border border-gray-200 p-4 sm:p-6 overflow-x-hidden">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Recent Imports</h3>
           <div className="space-y-3">
             {importExportData.recentImports.length > 0 ? (
@@ -250,7 +250,7 @@ const FranchiseImportsDashboard: React.FC = () => {
         </div>
 
         {/* Recent Exports */}
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
+        <div className="w-full min-w-0 bg-white rounded-xl border border-gray-200 p-4 sm:p-6 overflow-x-hidden">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Recent Exports</h3>
           <div className="space-y-3">
             {importExportData.recentExports.length > 0 ? (
@@ -300,23 +300,23 @@ const FranchiseImportsDashboard: React.FC = () => {
           </div>
         </div>
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
+          <table className="min-w-full w-full divide-y divide-gray-200">
             <thead>
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Product</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Quantity</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">From/To</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Value</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                <th className="px-2 sm:px-4 lg:px-6 py-2 sm:py-3 text-left text-xs sm:text-sm font-medium text-gray-500 uppercase">Type</th>
+                <th className="px-2 sm:px-4 lg:px-6 py-2 sm:py-3 text-left text-xs sm:text-sm font-medium text-gray-500 uppercase">Product</th>
+                <th className="px-2 sm:px-4 lg:px-6 py-2 sm:py-3 text-left text-xs sm:text-sm font-medium text-gray-500 uppercase">Quantity</th>
+                <th className="px-2 sm:px-4 lg:px-6 py-2 sm:py-3 text-left text-xs sm:text-sm font-medium text-gray-500 uppercase">From/To</th>
+                <th className="px-2 sm:px-4 lg:px-6 py-2 sm:py-3 text-left text-xs sm:text-sm font-medium text-gray-500 uppercase">Value</th>
+                <th className="px-2 sm:px-4 lg:px-6 py-2 sm:py-3 text-left text-xs sm:text-sm font-medium text-gray-500 uppercase">Status</th>
+                <th className="px-2 sm:px-4 lg:px-6 py-2 sm:py-3 text-left text-xs sm:text-sm font-medium text-gray-500 uppercase">Date</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
               {filteredTransfers.length > 0 ? (
                 filteredTransfers.map((transfer: any) => (
                   <tr key={transfer._id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3">
+                    <td className="px-2 sm:px-4 lg:px-6 py-2 sm:py-3 text-xs sm:text-sm">
                       {transfer.toFranchise === franchiseId || transfer.toFranchise?._id === franchiseId ? (
                         <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">
                           <Download className="h-3 w-3 mr-1" />
@@ -329,20 +329,20 @@ const FranchiseImportsDashboard: React.FC = () => {
                         </span>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-900">
+                    <td className="px-2 sm:px-4 lg:px-6 py-2 sm:py-3 text-xs sm:text-sm text-gray-900">
                       {transfer.product?.name || 'N/A'}
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-900">{transfer.quantity || 0}</td>
-                    <td className="px-4 py-3 text-sm text-gray-600">
+                    <td className="px-2 sm:px-4 lg:px-6 py-2 sm:py-3 text-xs sm:text-sm text-gray-900">{transfer.quantity || 0}</td>
+                    <td className="px-2 sm:px-4 lg:px-6 py-2 sm:py-3 text-xs sm:text-sm text-gray-600">
                       {transfer.toFranchise === franchiseId || transfer.toFranchise?._id === franchiseId
                         ? `From: ${transfer.fromFranchise?.name || 'N/A'}`
                         : `To: ${transfer.toFranchise?.name || 'N/A'}`
                       }
                     </td>
-                    <td className="px-4 py-3 text-sm font-semibold text-gray-900">
+                    <td className="px-2 sm:px-4 lg:px-6 py-2 sm:py-3 text-xs sm:text-sm font-semibold text-gray-900">
                       ${((transfer.totalValue || 0) || (transfer.quantity || 0) * (transfer.unitPrice || 0)).toLocaleString()}
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-2 sm:px-4 lg:px-6 py-2 sm:py-3 text-xs sm:text-sm">
                       <span className={`px-2 py-1 text-xs font-medium rounded-full capitalize
                         ${transfer.status === 'completed' ? 'bg-green-100 text-green-800' :
                           transfer.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
@@ -352,14 +352,14 @@ const FranchiseImportsDashboard: React.FC = () => {
                         {transfer.status || 'pending'}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-600">
+                    <td className="px-2 sm:px-4 lg:px-6 py-2 sm:py-3 text-xs sm:text-sm text-gray-600">
                       {transfer.createdAt ? new Date(transfer.createdAt).toLocaleDateString() : 'N/A'}
                     </td>
                   </tr>
                 ))
               ) : (
                 <tr>
-                  <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
+                  <td colSpan={7} className="px-2 sm:px-4 lg:px-6 py-4 sm:py-6 lg:py-8 text-center text-xs sm:text-sm text-gray-500">
                     {transferFilter === 'all' ? 'No transfer activity found' : `No ${transferFilter} found`}
                   </td>
                 </tr>

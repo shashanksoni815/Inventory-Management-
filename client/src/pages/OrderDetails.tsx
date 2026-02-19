@@ -225,7 +225,7 @@ const OrderDetails: React.FC = () => {
               <User className="h-4 w-4" />
               Customer & delivery
             </h2>
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
               <div>
                 <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</p>
                 <p className="mt-1 font-medium text-gray-900">{o.customer?.name ?? '—'}</p>

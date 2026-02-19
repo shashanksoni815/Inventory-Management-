@@ -321,9 +321,9 @@ const FranchiseDashboard: React.FC = () => {
     return (
       <div className="p-6">
         <div className="animate-pulse">
-          <div className="h-8 bg-gray-200 rounded w-1/4 mb-4" />
+          <div className="h-8 bg-gray-200 rounded w-full max-w-xs mb-4" />
           <div className="h-32 bg-gray-200 rounded mb-6" />
-          <div className="grid grid-cols-4 gap-6 mb-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6 mb-6">
             {[1, 2, 3, 4].map((i) => (
               <div key={i} className="h-24 bg-gray-200 rounded" />
             ))}
@@ -385,9 +385,9 @@ const FranchiseDashboard: React.FC = () => {
   // Success state — render dashboard
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="w-full overflow-x-hidden p-4 sm:p-6 space-y-4 sm:space-y-6">
       {/* Franchise Header */}
-      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-200 p-6">
+      <div className="w-full min-w-0 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-200 p-4 sm:p-6 overflow-x-hidden">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between">
           <div className="mb-4 lg:mb-0">
             <div className="flex items-center space-x-3">
@@ -434,7 +434,7 @@ const FranchiseDashboard: React.FC = () => {
       </div>
 
       {/* Navigation Links */}
-      <div className="flex items-center justify-between bg-white rounded-lg border border-gray-200 p-4">
+      <div className="w-full min-w-0 flex items-center justify-between bg-white rounded-lg border border-gray-200 p-3 sm:p-4 overflow-x-hidden">
         <div className="flex items-center space-x-2">
           <span className="text-sm font-medium text-gray-700">Quick Navigation:</span>
           <button
@@ -573,7 +573,7 @@ const FranchiseDashboard: React.FC = () => {
       {/* Overview Dashboard */}
       <div className="space-y-6">
         {/* Key Performance Indicators */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
           <KpiCard
             title="Total Revenue"
             value={salesSummary.totalRevenue}
@@ -617,8 +617,8 @@ const FranchiseDashboard: React.FC = () => {
 
         {/* Sales Comparison Cards */}
         {comparisonSalesData && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="bg-white rounded-xl border border-gray-200 p-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+            <div className="w-full min-w-0 bg-white rounded-xl border border-gray-200 p-4 sm:p-6 overflow-x-hidden">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Today vs Yesterday</h3>
               <div className="space-y-3">
                 <div className="flex justify-between items-center">
@@ -653,7 +653,7 @@ const FranchiseDashboard: React.FC = () => {
                 </div>
               </div>
             </div>
-            <div className="bg-white rounded-xl border border-gray-200 p-6">
+            <div className="w-full min-w-0 bg-white rounded-xl border border-gray-200 p-4 sm:p-6 overflow-x-hidden">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">This Week vs Last Week</h3>
               <div className="space-y-3">
                 <div className="flex justify-between items-center">
@@ -692,7 +692,7 @@ const FranchiseDashboard: React.FC = () => {
         )}
 
         {/* Secondary Metrics */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
           <KpiCard
             title="Avg Order Value"
             value={salesSummary.avgOrderValue}
@@ -718,7 +718,7 @@ const FranchiseDashboard: React.FC = () => {
 
         {/* Top Selling Products from Sales */}
         {((dashboardData as any)?.productPerformance && Array.isArray((dashboardData as any).productPerformance) && (dashboardData as any).productPerformance.length > 0) && (
-          <div className="bg-white rounded-xl border border-gray-200 p-6">
+          <div className="w-full min-w-0 bg-white rounded-xl border border-gray-200 p-4 sm:p-6 overflow-x-hidden">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-gray-900">Top Selling Products</h3>
               <button
@@ -730,15 +730,15 @@ const FranchiseDashboard: React.FC = () => {
               </button>
             </div>
             <div className="overflow-x-auto">
-              <table className="w-full text-left">
+              <table className="min-w-full w-full text-left">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-4 py-3 text-xs font-semibold text-gray-700 uppercase">Product</th>
-                    <th className="px-4 py-3 text-xs font-semibold text-gray-700 uppercase">SKU</th>
-                    <th className="px-4 py-3 text-xs font-semibold text-gray-700 uppercase text-right">Qty Sold</th>
-                    <th className="px-4 py-3 text-xs font-semibold text-gray-700 uppercase text-right">Revenue</th>
-                    <th className="px-4 py-3 text-xs font-semibold text-gray-700 uppercase text-right">Profit</th>
-                    <th className="px-4 py-3 text-xs font-semibold text-gray-700 uppercase text-right">Margin</th>
+                    <th className="px-2 sm:px-4 lg:px-6 py-2 sm:py-3 text-xs sm:text-sm font-semibold text-gray-700 uppercase">Product</th>
+                    <th className="px-2 sm:px-4 lg:px-6 py-2 sm:py-3 text-xs sm:text-sm font-semibold text-gray-700 uppercase">SKU</th>
+                    <th className="px-2 sm:px-4 lg:px-6 py-2 sm:py-3 text-xs sm:text-sm font-semibold text-gray-700 uppercase text-right">Qty Sold</th>
+                    <th className="px-2 sm:px-4 lg:px-6 py-2 sm:py-3 text-xs sm:text-sm font-semibold text-gray-700 uppercase text-right">Revenue</th>
+                    <th className="px-2 sm:px-4 lg:px-6 py-2 sm:py-3 text-xs sm:text-sm font-semibold text-gray-700 uppercase text-right">Profit</th>
+                    <th className="px-2 sm:px-4 lg:px-6 py-2 sm:py-3 text-xs sm:text-sm font-semibold text-gray-700 uppercase text-right">Margin</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
@@ -752,16 +752,16 @@ const FranchiseDashboard: React.FC = () => {
                     marginPercent: number;
                   }>).slice(0, 10).map((product) => (
                     <tr key={product.productId} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 text-sm font-medium text-gray-900">{product.productName}</td>
-                      <td className="px-4 py-3 text-sm text-gray-600">{product.productSku}</td>
-                      <td className="px-4 py-3 text-sm text-gray-600 text-right">{product.quantitySold}</td>
-                      <td className="px-4 py-3 text-sm font-semibold text-green-600 text-right">
+                      <td className="px-2 sm:px-4 lg:px-6 py-2 sm:py-3 text-xs sm:text-sm font-medium text-gray-900">{product.productName}</td>
+                      <td className="px-2 sm:px-4 lg:px-6 py-2 sm:py-3 text-xs sm:text-sm text-gray-600">{product.productSku}</td>
+                      <td className="px-2 sm:px-4 lg:px-6 py-2 sm:py-3 text-xs sm:text-sm text-gray-600 text-right">{product.quantitySold}</td>
+                      <td className="px-2 sm:px-4 lg:px-6 py-2 sm:py-3 text-xs sm:text-sm font-semibold text-green-600 text-right">
                         ₹{product.revenue.toLocaleString()}
                       </td>
-                      <td className="px-4 py-3 text-sm font-semibold text-blue-600 text-right">
+                      <td className="px-2 sm:px-4 lg:px-6 py-2 sm:py-3 text-xs sm:text-sm font-semibold text-blue-600 text-right">
                         ₹{product.profit.toLocaleString()}
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-600 text-right">
+                      <td className="px-2 sm:px-4 lg:px-6 py-2 sm:py-3 text-xs sm:text-sm text-gray-600 text-right">
                         <span className={cn(
                           'inline-flex rounded-full px-2 py-0.5 text-xs font-medium',
                           product.marginPercent >= 30 ? 'bg-green-100 text-green-800' :
@@ -780,7 +780,7 @@ const FranchiseDashboard: React.FC = () => {
         )}
 
         {/* Orders Overview */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
           <KpiCard
             title="Total Orders"
             value={ordersSummary?.totalOrders ?? 0}
@@ -812,9 +812,9 @@ const FranchiseDashboard: React.FC = () => {
         </div>
 
         {/* Charts Row */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
           {/* Sales Trend Chart */}
-          <div className="bg-white rounded-xl border border-gray-200 p-6">
+          <div className="w-full min-w-0 bg-white rounded-xl border border-gray-200 p-4 sm:p-6 overflow-x-hidden">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-gray-900">Sales Trend</h3>
               <button
@@ -826,8 +826,9 @@ const FranchiseDashboard: React.FC = () => {
               </button>
             </div>
             {salesTrendData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={300} minWidth={0} minHeight={0}>
-                <AreaChart data={salesTrendData}>
+              <div className="h-[280px] sm:h-[350px] lg:h-[400px] w-full overflow-x-hidden">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={salesTrendData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                   <XAxis 
                     dataKey="date" 
@@ -845,8 +846,9 @@ const FranchiseDashboard: React.FC = () => {
                   <Legend />
                   <Area type="monotone" dataKey="revenue" stackId="1" stroke="#3B82F6" fill="#3B82F6" fillOpacity={0.6} name="Revenue" />
                   <Area type="monotone" dataKey="profit" stackId="2" stroke="#10B981" fill="#10B981" fillOpacity={0.6} name="Profit" />
-                </AreaChart>
-              </ResponsiveContainer>
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
             ) : (
               <div className="h-64 flex items-center justify-center text-gray-500">
                 <div className="text-center">
@@ -858,7 +860,7 @@ const FranchiseDashboard: React.FC = () => {
           </div>
 
           {/* Profit by Category Chart */}
-          <div className="bg-white rounded-xl border border-gray-200 p-6">
+          <div className="w-full min-w-0 bg-white rounded-xl border border-gray-200 p-4 sm:p-6 overflow-x-hidden">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-gray-900">Profit by Category</h3>
               <button
@@ -870,8 +872,9 @@ const FranchiseDashboard: React.FC = () => {
               </button>
             </div>
             {profitByCategory.length > 0 ? (
-              <ResponsiveContainer width="100%" height={300} minWidth={0} minHeight={0}>
-                <BarChart data={profitByCategory}>
+              <div className="h-[280px] sm:h-[350px] lg:h-[400px] w-full overflow-x-hidden">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={profitByCategory}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                   <XAxis dataKey="category" tick={{ fontSize: 12 }} />
                   <YAxis tick={{ fontSize: 12 }} tickFormatter={(value) => `₹${(value / 1000).toFixed(0)}k`} />
@@ -879,8 +882,9 @@ const FranchiseDashboard: React.FC = () => {
                   <Legend />
                   <Bar dataKey="profit" fill="#10B981" name="Profit" />
                   <Bar dataKey="revenue" fill="#3B82F6" name="Revenue" />
-                </BarChart>
-              </ResponsiveContainer>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
             ) : (
               <div className="h-64 flex items-center justify-center text-gray-500">
                 <div className="text-center">
@@ -893,7 +897,7 @@ const FranchiseDashboard: React.FC = () => {
         </div>
 
         {/* Quick Actions & Recent Activity */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
           {/* Quick Actions */}
           <div className="bg-white rounded-xl border border-gray-200 p-6 lg:col-span-1">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
@@ -1056,7 +1060,7 @@ const FranchiseDashboard: React.FC = () => {
         </div>
 
         {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
           {/* Profit & Loss Summary */}
           <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl border border-green-200 p-6">
             <div className="flex items-center justify-between mb-4">
