@@ -18,7 +18,8 @@ import { useFranchise } from '@/contexts/FranchiseContext';
 import { formatCurrency } from '@/lib/utils';
 import { showToast } from '@/services/toast';
 import LoadingSpinner from '@/components/Common/LoadingSpinner';
-import type { Product, UserRole } from '@/types';
+import type { Product } from '@/types';
+import type { UserRole } from '@/types/user';
 
 type PaymentMethod = 'UPI' | 'Card' | 'COD';
 type PaymentStatus = 'Paid' | 'Pending' | 'Failed';
@@ -104,7 +105,7 @@ const CreateOrder: React.FC = () => {
     return [] as any[];
   }, [franchisesData]);
 
-  const { data: productsData, isLoading: productsLoading } = useQuery({
+  const { data: productsData, isPending: productsLoading } = useQuery({
     queryKey: ['order-products', selectedFranchise, productSearch],
     queryFn: async () => {
       const res = await productApi.getAll({

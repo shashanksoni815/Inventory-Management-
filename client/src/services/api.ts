@@ -1,8 +1,11 @@
 import axios, { type InternalAxiosRequestConfig, type AxiosResponse, type AxiosError } from 'axios';
 import type { Product, Sale, DashboardStats, ApiResponse, AdminKpis, AdminCharts, FranchisePerformanceRow, AdminTransfersOverview, AdminInsights } from '@/types';
+import type { User } from '@/types/user';
+
+export const apiBaseURL = import.meta.env.VITE_API_URL || '/api';
 
 export const api = axios.create({
-  baseURL: '/api',
+  baseURL: apiBaseURL,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -279,7 +282,7 @@ export const productApi = {
   getPublicBySku: async (sku: string) => {
     // Public endpoint - no auth token needed, use axios directly without interceptors
     const response = await axios.get(`/api/products/public/${sku}`, {
-      baseURL: '/api',
+      baseURL: apiBaseURL,
     });
     return response.data as { success: boolean; data: {
       image: string | null;

@@ -6,8 +6,6 @@ import {
   TrendingDown,
   Download,
   Calendar,
-  Filter,
-  FileText,
   Package,
   DollarSign,
   PieChart,

@@ -33,7 +33,7 @@ import {
   ArrowRight,
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
-import { franchiseApi, saleApi, productApi } from '../services/api';
+import { franchiseApi, saleApi, productApi, apiBaseURL } from '../services/api';
 import { useFranchise } from '../contexts/FranchiseContext';
 import { orderStatusBadgeClass, cn } from '@/lib/utils';
 import KpiCard from '../components/Dashboard/KpiCard';
@@ -150,7 +150,7 @@ const FranchiseDashboard: React.FC = () => {
   // Fetch franchise details — use franchiseId from URL as-is (do NOT parse or transform)
   const {
     data: franchiseData,
-    isLoading: franchiseLoading,
+    isPending: franchiseLoading,
     isError: franchiseError,
     error: franchiseErrorData,
   } = useQuery<FranchiseDetail>({
@@ -485,7 +485,7 @@ const FranchiseDashboard: React.FC = () => {
                   params.append('endDate', endDate);
                   params.append('format', 'excel');
 
-                  const response = await fetch(`/api/reports/profit-loss?${params.toString()}`, {
+                  const response = await fetch(`${apiBaseURL}/reports/profit-loss?${params.toString()}`, {
                     headers: {
                       'Authorization': `Bearer ${localStorage.getItem('token')}`,
                     },
@@ -531,7 +531,7 @@ const FranchiseDashboard: React.FC = () => {
                   params.append('endDate', endDate);
                   params.append('format', 'pdf');
 
-                  const response = await fetch(`/api/reports/profit-loss?${params.toString()}`, {
+                  const response = await fetch(`${apiBaseURL}/reports/profit-loss?${params.toString()}`, {
                     headers: {
                       'Authorization': `Bearer ${localStorage.getItem('token')}`,
                     },

@@ -58,7 +58,9 @@ export const reportApi = {
         endDate: params.endDate,
       },
     });
-    return response as FranchiseProfitLossResponse;
+    // Extract .data (API may return { success, data }); avoid casting AxiosResponse directly
+    const data = (response as unknown as { data?: FranchiseProfitLossResponse })?.data ?? response;
+    return data as unknown as FranchiseProfitLossResponse;
   },
 };
 

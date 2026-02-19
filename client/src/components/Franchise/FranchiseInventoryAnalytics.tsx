@@ -14,8 +14,6 @@ import { useFranchise } from '../../contexts/FranchiseContext';
 import {
   BarChart,
   Bar,
-  LineChart,
-  Line,
   PieChart,
   Pie,
   Cell,
@@ -31,7 +29,7 @@ const FranchiseInventoryAnalytics: React.FC = () => {
   const { currentFranchise } = useFranchise();
   const [timeRange, setTimeRange] = useState('month');
   
-  const { data: analytics, isLoading } = useQuery({
+  const { data: analytics, isPending } = useQuery({
     queryKey: ['product-analytics', currentFranchise?._id, timeRange],
     queryFn: () => productApi.getAnalytics(currentFranchise?._id!, timeRange),
     enabled: !!currentFranchise?._id,
@@ -74,7 +72,7 @@ const FranchiseInventoryAnalytics: React.FC = () => {
     return colors[category] || '#6B7280';
   }
 
-  if (isLoading) {
+  if (isPending) {
     return (
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {[...Array(4)].map((_, i) => (

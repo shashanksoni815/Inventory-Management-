@@ -23,10 +23,10 @@ import {
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { DateRangePicker } from '@/components/Common/DateRangePicker';
 import { orderApi } from '@/services/orderApi';
+import { apiBaseURL } from '@/services/api';
 import { useFranchise } from '@/contexts/FranchiseContext';
 import { cn, formatCurrency, formatDate, orderStatusBadgeClass } from '@/lib/utils';
-import type { UserRole } from '@/types';
-import LoadingSpinner from '@/components/Common/LoadingSpinner';
+import type { UserRole } from '@/types/user';
 import { showToast } from '@/services/toast';
 
 const ORDER_STATUSES = [
@@ -79,15 +79,6 @@ const ErrorState: React.FC<{ message: string; onRetry?: () => void }> = ({
   </div>
 );
 
-const EmptyState: React.FC<{ message: string }> = ({ message }) => (
-  <div className="min-h-0 bg-gray-50 p-3 sm:p-4 lg:p-6">
-    <div className="rounded-xl border border-gray-200 bg-white px-4 py-12 text-center text-sm text-gray-500">
-      <ShoppingBag className="mx-auto mb-2 h-10 w-10 text-gray-300" />
-      {message}
-    </div>
-  </div>
-);
-
 const Orders: React.FC = () => {
   const queryClient = useQueryClient();
   const { currentFranchise, franchises } = useFranchise();
@@ -124,7 +115,7 @@ const Orders: React.FC = () => {
       ? franchiseFilter
       : currentFranchise?._id || currentFranchise?.id;
 
-  const { data, isLoading, isError, error, refetch } = useQuery({
+  const { data, isPending, isError, error, refetch } = useQuery({
     queryKey: ['orders', effectiveFranchiseId, dateRange, statusFilter, search, page, limit],
     queryFn: () =>
       orderApi.getAll({
@@ -194,7 +185,7 @@ const Orders: React.FC = () => {
         params.append('format', format === 'excel' ? 'excel' : 'pdf');
 
         const token = localStorage.getItem('token');
-        const response = await fetch(`/api/orders/export?${params.toString()}`, {
+        const response = await fetch(`${apiBaseURL}/orders/export?${params.toString()}`, {
           headers: token ? { Authorization: `Bearer ${token}` } : {},
         });
 
@@ -320,7 +311,7 @@ const Orders: React.FC = () => {
   );
 
   // Loading state
-  if (isLoading) {
+  if (isPending) {
     return <OrdersSkeleton />;
   }
 
@@ -615,7 +606,7 @@ const Orders: React.FC = () => {
                               <button
                                 type="button"
                                 onClick={() => handleDelete(order)}
-                                disabled={order.orderStatus === 'Delivered' || deleteMutation.isLoading}
+                                disabled={order.orderStatus === 'Delivered' || deleteMutation.isPending}
                                 className="inline-flex items-center gap-1 rounded-lg border border-red-300 bg-white px-2.5 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 disabled:opacity-60 disabled:cursor-not-allowed"
                               >
                                 Delete

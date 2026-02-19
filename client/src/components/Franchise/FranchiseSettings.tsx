@@ -27,7 +27,7 @@ const FranchiseSettings: React.FC = () => {
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState('general');
 
-  const { data: franchiseData, isLoading } = useQuery({
+  const { data: franchiseData, isPending } = useQuery({
     queryKey: ['franchise-settings', currentFranchise?._id],
     queryFn: () => franchiseApi.getById(currentFranchise?._id!),
     enabled: !!currentFranchise?._id,
@@ -44,7 +44,7 @@ const FranchiseSettings: React.FC = () => {
 
   const franchise = franchiseData?.data;
 
-  if (isLoading) {
+  if (isPending) {
     return (
       <div className="p-6">
         <div className="animate-pulse">

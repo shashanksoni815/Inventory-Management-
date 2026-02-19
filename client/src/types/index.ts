@@ -1,21 +1,6 @@
-export type UserRole = 'admin' | 'manager' | 'sales';
-
-export interface User {
-    id: string;
-    name: string;
-    email: string;
-    role: UserRole;
-    franchise?: {
-      id: string;
-      name: string;
-      code: string;
-    } | null;
-    settings: UserSettings;
-    lastLogin?: string;
-    isActive?: boolean;
-    createdAt?: string;
-    updatedAt?: string;
-  }
+// Re-export from centralized type files
+export type { UserRole, User } from './user';
+export type { Franchise } from './franchise';
   
   export interface UserSettings {
     theme: 'light' | 'dark';

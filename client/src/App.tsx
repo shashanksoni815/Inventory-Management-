@@ -1,4 +1,4 @@
-import React, { Suspense, lazy, useEffect } from 'react';
+import { Suspense, lazy, useEffect } from 'react';
 import {
   BrowserRouter as Router,
   Routes,
@@ -11,11 +11,11 @@ import { queryClient } from './lib/queryClient';
 import { ThemeProvider } from './components/Common/ThemeProvider';
 import ErrorBoundary from './components/Common/ErrorBoundary';
 import LoadingSpinner from './components/Common/LoadingSpinner';
-import toast, { Toaster } from 'react-hot-toast';
+import { Toaster } from 'react-hot-toast';
 import { FranchiseProvider } from './contexts/FranchiseContext';
 import { AuthProvider } from './contexts/AuthContext';
 import ProtectedRoute from './components/Common/ProtectedRoute';
-import type { UserRole } from './types';
+import type { UserRole } from './types/user';
 
 // Lazy load pages
 const Login = lazy(() => import('./pages/Login'));

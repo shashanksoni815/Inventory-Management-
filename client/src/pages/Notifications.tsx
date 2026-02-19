@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import {
   Bell,
@@ -93,7 +93,7 @@ const Notifications: React.FC = () => {
 
   const limit = 20;
 
-  const { data, isLoading, error, refetch } = useQuery({
+  const { data, isPending, error, refetch } = useQuery({
     queryKey: ['notifications', 'page', page, typeFilter, readFilter],
     queryFn: () =>
       notificationApi.getAll({
@@ -240,7 +240,7 @@ const Notifications: React.FC = () => {
 
         {/* List */}
         <div className="rounded-xl border border-gray-200 bg-white overflow-hidden">
-          {isLoading ? (
+          {isPending ? (
             <div className="flex items-center justify-center py-16">
               <LoadingSpinner />
             </div>

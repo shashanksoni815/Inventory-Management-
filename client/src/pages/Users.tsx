@@ -1,13 +1,13 @@
 import React, { useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Search, Filter, Edit, Trash2, UserPlus, UserCheck, UserX, X, Check } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, UserPlus, UserCheck, UserX, X } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { userApi, franchiseApi } from '@/services/api';
 import { showToast } from '@/services/toast';
-import type { User } from '@/types';
+import type { User } from '@/types/user';
 import { cn } from '@/lib/utils';
 
 const createUserFormSchema = z.object({
@@ -44,10 +44,10 @@ const Users: React.FC = () => {
   const queryClient = useQueryClient();
 
   // Fetch users
-  const { data, isLoading, refetch } = useQuery({
+  const { data, isPending, refetch: _refetch } = useQuery({
     queryKey: ['users', filters],
     queryFn: () => userApi.getAll({
-      role: filters.role || undefined,
+      role: (filters.role && ['admin', 'manager', 'sales'].includes(filters.role) ? filters.role : undefined) as 'admin' | 'manager' | 'sales' | undefined,
       franchise: filters.franchise || undefined,
       search: filters.search || undefined,
       page: 1,
@@ -83,7 +83,6 @@ const Users: React.FC = () => {
     handleSubmit,
     reset,
     formState: { errors },
-    watch,
   } = useForm<UserFormData>({
     resolver: zodResolver(formSchema),
     mode: 'onChange',
@@ -108,8 +107,6 @@ const Users: React.FC = () => {
       });
     }
   }, [editingUser, showForm, reset]);
-
-  const selectedRole = watch('role');
 
   // Create user mutation
   const createMutation = useMutation({
@@ -203,7 +200,7 @@ const Users: React.FC = () => {
         updateData.password = data.password;
       }
       await updateMutation.mutateAsync({
-        id: editingUser.id,
+        id: editingUser._id,
         data: updateData,
       });
     } else {
@@ -300,7 +297,7 @@ const Users: React.FC = () => {
 
       {/* Users Table */}
       <div className="rounded-lg border border-gray-200 bg-white overflow-hidden">
-        {isLoading ? (
+        {isPending ? (
           <div className="p-8 text-center text-gray-500">Loading users...</div>
         ) : users.length === 0 ? (
           <div className="p-8 text-center text-gray-500">
@@ -340,7 +337,7 @@ const Users: React.FC = () => {
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {users.map((user) => (
-                  <tr key={user.id} className="hover:bg-gray-50">
+                  <tr key={user._id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div>
                         <div className="text-sm font-medium text-gray-900">{user.name}</div>
@@ -361,7 +358,7 @@ const Users: React.FC = () => {
                     <td className="px-6 py-4 whitespace-nowrap">
                       {user.role !== 'admin' ? (
                         <button
-                          onClick={() => handleToggleStatus(user.id)}
+                          onClick={() => handleToggleStatus(user._id)}
                           className={cn(
                             'inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full',
                             user.isActive !== false
@@ -405,7 +402,7 @@ const Users: React.FC = () => {
                               <Edit className="h-4 w-4" />
                             </button>
                             <button
-                              onClick={() => handleDelete(user.id, user.name)}
+                              onClick={() => handleDelete(user._id, user.name)}
                               className="text-red-600 hover:text-red-900"
                               title="Delete user"
                             >

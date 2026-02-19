@@ -37,7 +37,7 @@ const TransferManagement: React.FC = () => {
   });
   const [selectedTransfer, setSelectedTransfer] = useState<any>(null);
 
-  const { data: transfersResponse, isLoading } = useQuery({
+  const { data: transfersResponse, isPending } = useQuery({
     queryKey: ['transfers', currentFranchise?._id, filters],
     queryFn: async () => {
       const res = await transferApi.getAll({
@@ -224,7 +224,7 @@ const TransferManagement: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {isLoading ? (
+              {isPending ? (
                 <tr>
                   <td colSpan={7} className="px-6 py-12 text-center">
                     <div className="animate-pulse">

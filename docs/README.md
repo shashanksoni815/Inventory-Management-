@@ -1,35 +1,26 @@
 # InventoryPro Documentation
 
-This folder contains implementation notes, validation reports, and technical documentation for the InventoryPro project.
+Documentation is organized by deployment target for easier maintenance and deployment.
 
-## Documentation Index
+## Documentation Locations
 
-### Import/Export Implementation
-- [PRODUCT_IMPORT_IMPLEMENTATION.md](./PRODUCT_IMPORT_IMPLEMENTATION.md)
-- [PRODUCT_EXPORT_IMPLEMENTATION.md](./PRODUCT_EXPORT_IMPLEMENTATION.md)
-- [SALES_IMPORT_IMPLEMENTATION.md](./SALES_IMPORT_IMPLEMENTATION.md)
-- [SALES_EXPORT_IMPLEMENTATION.md](./SALES_EXPORT_IMPLEMENTATION.md)
-- [STOCK_IMPORT_IMPLEMENTATION.md](./STOCK_IMPORT_IMPLEMENTATION.md)
-- [STOCK_EXPORT_IMPLEMENTATION.md](./STOCK_EXPORT_IMPLEMENTATION.md)
-- [IMPORT_EXPORT_DATA_MODEL_REVIEW.md](./IMPORT_EXPORT_DATA_MODEL_REVIEW.md)
+### Server (Backend)
+**Location:** [`server/docs/`](../server/docs/)
 
-### Backend Verification
-- [BACKEND_IMPORT_VERIFICATION.md](./BACKEND_IMPORT_VERIFICATION.md)
-- [BACKEND_SALES_IMPORT_VERIFICATION.md](./BACKEND_SALES_IMPORT_VERIFICATION.md)
+Backend API, import/export implementations, and server-side documentation.
+- Product/Sales/Stock import & export
+- Backend verification
+- Franchise & role-based access
+- Orders validation
 
-### Franchise & Features
-- [FRANCHISE_DASHBOARD_IMPLEMENTATION.md](./FRANCHISE_DASHBOARD_IMPLEMENTATION.md)
-- [FRANCHISE_IMPORTS_EXPORTS_IMPLEMENTATION.md](./FRANCHISE_IMPORTS_EXPORTS_IMPLEMENTATION.md)
-- [PROFIT_LOSS_INTEGRATION.md](./PROFIT_LOSS_INTEGRATION.md)
-- [ROLE_BASED_ACCESS_CONTROL.md](./ROLE_BASED_ACCESS_CONTROL.md)
+→ [View Server Docs](../server/docs/)
 
-### Validation & Testing
-- [ORDERS_FINAL_VALIDATION.md](./ORDERS_FINAL_VALIDATION.md)
-- [VALIDATION_REPORT.md](./VALIDATION_REPORT.md)
-- [VALIDATION_SUMMARY.md](./VALIDATION_SUMMARY.md)
-- [VALIDATION_VERIFICATION_SUMMARY.md](./VALIDATION_VERIFICATION_SUMMARY.md)
-- [FINAL_VALIDATION_CHECKLIST.md](./FINAL_VALIDATION_CHECKLIST.md)
-- [TESTING_CHECKLIST.md](./TESTING_CHECKLIST.md)
+### Client (Frontend)
+**Location:** [`client/docs/`](../client/docs/)
 
-### Other
-- [VITE_CRASH_PREVENTION.md](./VITE_CRASH_PREVENTION.md)
+Frontend build, UI, and client-side documentation.
+- Vite configuration & crash prevention
+- QR Code system
+- Validation & testing checklists
+
+→ [View Client Docs](../client/docs/)

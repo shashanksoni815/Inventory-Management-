@@ -17,7 +17,7 @@ const SharedProductsManager: React.FC = () => {
   const [search, setSearch] = useState('');
 
   // Fetch global products from current franchise
-  const { data: productsData, isLoading } = useQuery({
+  const { data: productsData, isPending } = useQuery({
     queryKey: ['global-products', currentFranchise?._id],
     queryFn: () => productApi.getAll({
       franchise: currentFranchise?._id,
@@ -101,9 +101,9 @@ const SharedProductsManager: React.FC = () => {
           <Button
             onClick={() => queryClient.invalidateQueries({ queryKey: ['global-products'] })}
             variant="outline"
-            disabled={isLoading}
+            disabled={isPending}
           >
-            <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`h-4 w-4 mr-2 ${isPending ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
         </div>
@@ -203,7 +203,7 @@ const SharedProductsManager: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {isLoading ? (
+              {isPending ? (
                 <tr>
                   <td colSpan={6} className="px-6 py-12 text-center">
                     <div className="animate-pulse">

@@ -1,3 +1,4 @@
+/// <reference types="vite/client" />
 import path from 'path'
 import { defineConfig } from 'vite'
 
@@ -22,10 +23,8 @@ export default defineConfig({
         configure: (proxy, _options) => {
           proxy.on('error', (err, _req) => {
             // Silent error handling - backend might not be running
-            // Only log in development if needed
-            if (import.meta.env.DEV) {
-              console.error('Proxy error:', err.message);
-            }
+            // Proxy only runs in development, so log errors here
+            console.error('Proxy error:', err.message);
           });
         },
       },

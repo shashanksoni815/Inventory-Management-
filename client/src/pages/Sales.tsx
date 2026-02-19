@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { DateRangePicker } from '@/components/Common/DateRangePicker';
-import { saleApi } from '@/services/api';
+import { saleApi, apiBaseURL } from '@/services/api';
 import { useFranchise } from '@/contexts/FranchiseContext';
 import type { Sale } from '@/types';
 import { cn, formatCurrency, formatDate } from '@/lib/utils';
@@ -38,7 +38,7 @@ const Sales: React.FC = () => {
   const queryClient = useQueryClient();
   const { currentFranchise } = useFranchise();
 
-  const { data, isLoading, isError, error, refetch } = useQuery({
+  const { data, isPending, isError, error, refetch } = useQuery({
     queryKey: ['sales', dateRange, filters],
     queryFn: async () => {
       const result = await saleApi.getAll({
@@ -70,7 +70,7 @@ const Sales: React.FC = () => {
       if (filters.type !== 'all') params.append('type', filters.type);
       if (filters.paymentMethod !== 'all') params.append('paymentMethod', filters.paymentMethod);
 
-      const response = await fetch(`/api/sales/export?${params.toString()}`, {
+      const response = await fetch(`${apiBaseURL}/sales/export?${params.toString()}`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
         },
@@ -149,8 +149,8 @@ const Sales: React.FC = () => {
       formData.append('file', file);
       
       // Add franchise ID if available from context
-      if (currentFranchise?._id || currentFranchise?.id) {
-        const franchiseId = currentFranchise._id || currentFranchise.id;
+      const franchiseId = currentFranchise?._id ?? currentFranchise?.id;
+      if (franchiseId) {
         formData.append('franchise', franchiseId);
       }
 
@@ -549,7 +549,7 @@ const Sales: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {isLoading ? (
+              {isPending ? (
                 [...Array(5)].map((_, i) => (
                   <tr key={i}>
                     {[...Array(9)].map((_, j) => (

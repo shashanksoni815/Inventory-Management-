@@ -98,12 +98,14 @@ const OrderEdit: React.FC = () => {
     discount: 0,
   });
 
-  const { data, isLoading, isError, error } = useQuery({
+  const { data, isPending, isError, error } = useQuery({
     queryKey: ['order', orderId],
     queryFn: async () => {
       if (!orderId) throw new Error('Missing order ID');
       const result = await orderApi.getById(orderId);
-      return result as LoadedOrder;
+      // Extract .data (avoid casting AxiosResponse directly to LoadedOrder)
+      const data = (result as unknown as { data?: LoadedOrder })?.data ?? result;
+      return data as unknown as LoadedOrder;
     },
     enabled: !!orderId,
   });
@@ -166,13 +168,11 @@ const OrderEdit: React.FC = () => {
     return order.franchise?._id ?? '';
   }, [order]);
 
-  const { data: productResult, isLoading: productsLoading } = useQuery({
+  const { data: productResult, isPending: productsLoading } = useQuery({
     queryKey: ['products-for-order-edit', orderFranchiseId, productSearch],
     queryFn: async () => {
       const res = await productApi.getAll({
         search: productSearch || undefined,
-        // Franchise-specific products only (backend enforces scope)
-        // @ts-expect-error extra param used by backend
         franchise: orderFranchiseId || undefined,
         status: 'active',
         limit: 10,
@@ -360,7 +360,7 @@ const OrderEdit: React.FC = () => {
     },
   });
 
-  if (isLoading) {
+  if (isPending) {
     return (
       <div className="flex min-h-[40vh] items-center justify-center p-6 bg-gray-50">
         <LoadingSpinner />
@@ -864,10 +864,10 @@ const OrderEdit: React.FC = () => {
               <button
                 type="button"
                 onClick={() => updateMutation.mutate()}
-                disabled={updateMutation.isLoading}
+                disabled={updateMutation.isPending}
                 className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                {updateMutation.isLoading && (
+                {updateMutation.isPending && (
                   <LoadingSpinner />
                 )}
                 <span>Save Changes</span>

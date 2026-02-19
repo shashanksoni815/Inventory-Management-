@@ -23,11 +23,10 @@ import {
   DollarSign,
   Package,
   ShoppingCart,
-  Download,
   FileSpreadsheet,
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
-import { franchiseApi, saleApi } from '../services/api';
+import { franchiseApi, saleApi, apiBaseURL } from '../services/api';
 import { reportApi } from '../services/reportApi';
 import KpiCard from '../components/Dashboard/KpiCard';
 import {
@@ -61,7 +60,7 @@ const FranchiseProfitLoss: React.FC = () => {
   }
 
   // Fetch franchise details
-  const { data: franchiseData, isLoading: franchiseLoading } = useQuery({
+  const { data: franchiseData, isPending: franchiseLoading } = useQuery({
     queryKey: ['franchise', franchiseId],
     queryFn: () => franchiseApi.getById(franchiseId!),
     enabled: !!franchiseId,
@@ -70,7 +69,7 @@ const FranchiseProfitLoss: React.FC = () => {
   // Fetch profit & loss data using the new API endpoint
   const {
     data: profitLossData,
-    isLoading: profitLossLoading,
+    isPending: profitLossLoading,
     isError: profitLossError,
     error: profitLossErrorData,
   } = useQuery({
@@ -86,7 +85,8 @@ const FranchiseProfitLoss: React.FC = () => {
   });
 
   // API interceptor returns franchise object directly (no .data wrapper)
-  const franchise = franchiseData;
+  // Extract data properly - interceptor unwraps but TypeScript doesn't know
+  const franchise = (franchiseData as any)?.data ?? franchiseData;
   const profitLoss = profitLossData;
 
   // Extract summary and category breakdown from API response
@@ -267,7 +267,7 @@ const FranchiseProfitLoss: React.FC = () => {
                     params.append('endDate', endDate);
                     params.append('format', 'pdf');
 
-                    const response = await fetch(`/api/reports/profit-loss?${params.toString()}`, {
+                    const response = await fetch(`${apiBaseURL}/reports/profit-loss?${params.toString()}`, {
                       headers: {
                         'Authorization': `Bearer ${localStorage.getItem('token')}`,
                       },
@@ -312,7 +312,7 @@ const FranchiseProfitLoss: React.FC = () => {
                     params.append('endDate', endDate);
                     params.append('format', 'excel');
 
-                    const response = await fetch(`/api/reports/profit-loss?${params.toString()}`, {
+                    const response = await fetch(`${apiBaseURL}/reports/profit-loss?${params.toString()}`, {
                       headers: {
                         'Authorization': `Bearer ${localStorage.getItem('token')}`,
                       },
@@ -451,7 +451,9 @@ const FranchiseProfitLoss: React.FC = () => {
                 tickFormatter={(value) => `$${(value / 1000).toFixed(0)}k`}
               />
               <Tooltip
-                formatter={(value: number) => `$${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                formatter={(value?: number) =>
+                  value != null ? `$${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '$0.00'
+                }
                 labelFormatter={(label) => label}
               />
               <Legend />
@@ -502,7 +504,9 @@ const FranchiseProfitLoss: React.FC = () => {
             <XAxis dataKey="category" />
             <YAxis />
             <Tooltip
-              formatter={(value: number) => `$${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+              formatter={(value?: number) =>
+                value != null ? `$${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '$0.00'
+              }
             />
             <Legend />
             <Bar dataKey="revenue" fill="#10B981" name="Revenue" />
