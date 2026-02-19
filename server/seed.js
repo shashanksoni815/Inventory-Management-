@@ -1,6 +1,6 @@
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
-import { User } from './models/User.model.js';
+import { User } from './models/user.model.js';
 import { Product } from './models/Product.model.js';
 import { Sale } from './models/Sale.model.js';
 import { faker } from '@faker-js/faker';
