@@ -78,7 +78,7 @@ export const SalesChart: React.FC<SalesChartProps> = ({
         </div>
       </div>
 
-      <div className="h-72">
+      <div className="h-[280px] sm:h-[350px] lg:h-[400px] w-full overflow-x-hidden">
         <ResponsiveContainer width="100%" height="100%">
           {type === 'line' ? (
             <LineChart data={chartData}>
@@ -208,7 +208,7 @@ export const ProfitChart: React.FC<ProfitChartProps> = ({
         {title}
       </h3>
 
-      <div className="h-64">
+      <div className="h-[280px] sm:h-[350px] lg:h-[400px] w-full overflow-x-hidden">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={formattedData}>
             <CartesianGrid strokeDasharray="3 3" stroke="#374151" />

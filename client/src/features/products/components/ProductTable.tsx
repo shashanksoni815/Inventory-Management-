@@ -313,14 +313,14 @@ const ProductTable: React.FC<ProductTableProps> = ({
 
       <div className="overflow-hidden rounded-xl border border-gray-200 -mx-2 sm:mx-0">
         <div className="overflow-x-auto min-w-0" style={{ WebkitOverflowScrolling: 'touch' }}>
-          <table className="w-full min-w-[640px]">
+          <table className="min-w-full w-full">
             <thead className="bg-gray-50">
               {table.getHeaderGroups().map((headerGroup: HeaderGroup<Product>) => (
                 <tr key={headerGroup.id}>
                   {headerGroup.headers.map((header: Header<Product, unknown>) => (
                     <th
                       key={header.id}
-                      className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500"
+                      className="px-2 sm:px-4 lg:px-6 py-2 sm:py-3 text-left text-xs sm:text-sm font-medium uppercase tracking-wider text-gray-500"
                     >
                       {header.isPlaceholder ? null : (
                         <div
@@ -360,7 +360,7 @@ const ProductTable: React.FC<ProductTableProps> = ({
                   className="hover:bg-gray-50"
                 >
                   {row.getVisibleCells().map((cell: Cell<Product, unknown>) => (
-                    <td key={cell.id} className="whitespace-nowrap px-6 py-4">
+                    <td key={cell.id} className="whitespace-nowrap px-2 sm:px-4 lg:px-6 py-2 sm:py-3 lg:py-4 text-xs sm:text-sm">
                       {flexRender(
                         cell.column.columnDef.cell,
                         cell.getContext()

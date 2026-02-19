@@ -399,7 +399,7 @@ const ProductForm: React.FC<ProductFormProps> = ({
                   exit={{ opacity: 0, x: 20 }}
                   className="space-y-6"
                 >
-                  <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         Product Name *
@@ -469,7 +469,7 @@ const ProductForm: React.FC<ProductFormProps> = ({
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         Category *
@@ -520,7 +520,7 @@ const ProductForm: React.FC<ProductFormProps> = ({
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Product Images
                     </label>
-                    <div className="mt-2 grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
+                    <div className="mt-2 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                       {images.map((image, index) => (
                         <div key={index} className="relative">
                           <img
@@ -563,7 +563,7 @@ const ProductForm: React.FC<ProductFormProps> = ({
                   exit={{ opacity: 0, x: 20 }}
                   className="space-y-6"
                 >
-                  <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         Buying Price *
@@ -616,7 +616,7 @@ const ProductForm: React.FC<ProductFormProps> = ({
                     <h3 className="mb-4 text-lg font-semibold text-gray-900">
                       Profit Calculator
                     </h3>
-                    <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                       <div className="text-center">
                         <p className="text-sm text-gray-500">
                           Profit Margin
@@ -679,7 +679,7 @@ const ProductForm: React.FC<ProductFormProps> = ({
                   exit={{ opacity: 0, x: 20 }}
                   className="space-y-6"
                 >
-                  <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         Current Stock *
@@ -751,7 +751,7 @@ const ProductForm: React.FC<ProductFormProps> = ({
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                         <div className="rounded-lg bg-blue-50 p-4 dark:bg-blue-900/20">
                           <p className="text-sm text-blue-600">
                             Inventory Value
@@ -794,7 +794,7 @@ const ProductForm: React.FC<ProductFormProps> = ({
                     </h3>
                     
                     <div className="space-y-4">
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                         <div>
                           <p className="text-sm text-gray-500">Product Name</p>
                           <p className="font-medium">{watch('name') || 'Not specified'}</p>
@@ -805,7 +805,7 @@ const ProductForm: React.FC<ProductFormProps> = ({
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                         <div>
                           <p className="text-sm text-gray-500">Buying Price</p>
                           <p className="font-medium">₹{watch('buyingPrice')?.toFixed(2) || '0.00'}</p>
@@ -816,7 +816,7 @@ const ProductForm: React.FC<ProductFormProps> = ({
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                         <div>
                           <p className="text-sm text-gray-500">Stock Quantity</p>
                           <p className="font-medium">{watch('stockQuantity') || 0} units</p>
@@ -846,7 +846,7 @@ const ProductForm: React.FC<ProductFormProps> = ({
                           <p className="text-sm text-gray-500 mb-2">
                             Product Images ({images.length})
                           </p>
-                          <div className="grid grid-cols-4 gap-2">
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4">
                             {images.map((image, index) => (
                               <img
                                 key={index}
@@ -922,13 +922,13 @@ const ProductForm: React.FC<ProductFormProps> = ({
             </AnimatePresence>
           </div>
 
-          <div className="border-t border-gray-200 p-6">
-            <div className="flex items-center justify-between">
+          <div className="border-t border-gray-200 p-4 sm:p-6">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 sm:gap-0">
               <button
                 type="button"
                 onClick={() => step > 1 && setStep(step - 1)}
                 className={cn(
-                  'rounded-lg px-4 py-2 text-sm font-medium',
+                  'w-full sm:w-auto rounded-lg px-4 py-2 text-sm font-medium',
                   step > 1
                     ? 'text-gray-700 hover:bg-gray-100'
                     : 'invisible'
@@ -937,7 +937,7 @@ const ProductForm: React.FC<ProductFormProps> = ({
                 ← Previous
               </button>
 
-              <div className="flex items-center space-x-3">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:space-x-3">
                 <button
                   type="button"
                   onClick={onCancel}

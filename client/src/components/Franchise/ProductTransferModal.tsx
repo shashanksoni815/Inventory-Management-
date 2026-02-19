@@ -118,7 +118,7 @@ const ProductTransferModal: React.FC<ProductTransferModalProps> = ({
               </Badge>
             </div>
             
-            <div className="mt-4 grid grid-cols-2 gap-4">
+            <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
               <div>
                 <div className="text-sm text-gray-500">Available Stock</div>
                 <div className="text-2xl font-bold text-gray-900">
@@ -253,12 +253,13 @@ const ProductTransferModal: React.FC<ProductTransferModalProps> = ({
           </div>
 
           {/* Footer */}
-          <div className="px-6 py-4 bg-gray-50 rounded-b-xl border-t border-gray-200">
-            <div className="flex items-center justify-between">
+          <div className="px-4 sm:px-6 py-4 bg-gray-50 rounded-b-xl border-t border-gray-200">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-0">
               <Button
                 variant="outline"
                 onClick={onClose}
                 disabled={transferMutation.isPending}
+                className="w-full sm:w-auto"
               >
                 Cancel
               </Button>
@@ -270,6 +271,7 @@ const ProductTransferModal: React.FC<ProductTransferModalProps> = ({
                   transferData.quantity > product.stockQuantity ||
                   transferMutation.isPending
                 }
+                className="w-full sm:w-auto"
               >
                 {transferMutation.isPending ? (
                   <span className="inline-flex items-center gap-2">

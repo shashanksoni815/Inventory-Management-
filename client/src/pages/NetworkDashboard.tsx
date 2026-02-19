@@ -120,7 +120,7 @@ const NetworkDashboard: React.FC = () => {
   };
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="w-full overflow-x-hidden p-4 sm:p-6 space-y-4 sm:space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -152,7 +152,7 @@ const NetworkDashboard: React.FC = () => {
       </div>
 
       {/* Consolidated KPIs - fully dynamic */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
         <KpiCard
           title="Total Network Revenue"
           value={revenue || 0}
@@ -187,6 +187,7 @@ const NetworkDashboard: React.FC = () => {
           title="Network Profit"
           value={profit || 0}
           trend={profitTrend}
+          
           icon={IndianRupee}
           format="currency"
           description={`Profit${profitMargin > 0 ? ` (${profitMargin.toFixed(1)}% margin)` : ''}`}
@@ -194,7 +195,7 @@ const NetworkDashboard: React.FC = () => {
       </div>
 
       {/* Performance Summary */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
         {/* Top Performing Franchise */}
         <div className="lg:col-span-1 bg-white rounded-xl border border-gray-200 p-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Top Performer</h3>
@@ -213,7 +214,7 @@ const NetworkDashboard: React.FC = () => {
                   </div>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <div className="text-sm text-gray-500">Revenue</div>
                   <div className="text-2xl font-bold text-gray-900">
@@ -239,7 +240,7 @@ const NetworkDashboard: React.FC = () => {
         <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200 p-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Network Health</h3>
           <div className="space-y-4">
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               <div className="text-center p-4 bg-green-50 rounded-lg">
                 <div className="text-2xl font-bold text-green-600">
                   {franchisePerformance.filter((fp: any) => (fp.totalRevenue || 0) > 10000).length}
@@ -267,7 +268,7 @@ const NetworkDashboard: React.FC = () => {
       <NetworkComparisonChart />
 
       {/* Top Products Across Franchises */}
-      <div className="bg-white rounded-xl border border-gray-200 p-6">
+      <div className="w-full min-w-0 bg-white rounded-xl border border-gray-200 p-4 sm:p-6 overflow-x-hidden">
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-lg font-semibold text-gray-900">Top Products Network-wide</h3>
           <button className="text-blue-600 hover:text-blue-800 text-sm font-medium">
@@ -320,7 +321,7 @@ const NetworkDashboard: React.FC = () => {
                   </td>
                   <td className="px-4 py-4">
                     <div className="flex items-center">
-                      <div className="w-24 bg-gray-200 rounded-full h-2">
+                      <div className="w-full max-w-24 bg-gray-200 rounded-full h-2">
                         <div
                           className="h-2 rounded-full bg-green-600"
                           style={{ 
@@ -343,12 +344,12 @@ const NetworkDashboard: React.FC = () => {
       {/* Add Franchise Modal */}
       {isAddModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg p-6">
+          <div className="w-full min-w-0 bg-white rounded-xl shadow-xl max-w-lg p-4 sm:p-6 overflow-x-hidden">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">
               Add New Franchise
             </h2>
             <form onSubmit={handleCreateFranchise} className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Name *
@@ -401,7 +402,7 @@ const NetworkDashboard: React.FC = () => {
                 />
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Manager

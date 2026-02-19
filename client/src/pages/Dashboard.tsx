@@ -104,7 +104,7 @@ const Dashboard: React.FC = () => {
   ];
 
   return (
-    <div className="min-h-0 bg-white p-3 sm:p-4 lg:p-6">
+    <div className="min-h-0 w-full bg-white overflow-x-hidden p-3 sm:p-4 lg:p-6">
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -208,7 +208,7 @@ const Dashboard: React.FC = () => {
           <h3 className="mb-4 text-lg font-semibold text-gray-900">
             Quick Actions
           </h3>
-          <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 md:grid-cols-4">
             <button className="flex flex-col items-center justify-center rounded-lg border border-gray-300 p-4 transition-colors hover:bg-gray-50">
               <BarChart3 className="mb-2 h-6 w-6 text-blue-600" />
               <span className="text-sm font-medium">Generate Report</span>

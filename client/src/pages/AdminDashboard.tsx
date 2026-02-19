@@ -160,7 +160,7 @@ const AdminDashboard: React.FC = () => {
   };
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="w-full overflow-x-hidden p-4 sm:p-6 space-y-4 sm:space-y-6">
       {/* Header Section */}
       <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl border border-indigo-200 p-6">
         <div className="flex items-center justify-between">
@@ -177,7 +177,7 @@ const AdminDashboard: React.FC = () => {
       </div>
 
       {/* KPI Cards Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
         <KpiCard
           title="Total Franchises"
           value={data.totalFranchises}
@@ -246,15 +246,16 @@ const AdminDashboard: React.FC = () => {
       </div>
 
       {/* Revenue Area Chart */}
-      <div className="bg-white rounded-xl border border-gray-200 p-6">
+      <div className="w-full min-w-0 bg-white rounded-xl border border-gray-200 p-4 sm:p-6 overflow-x-hidden">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Revenue Trend (Last 30 Days)</h3>
         {isPending ? (
           <div className="h-80 flex items-center justify-center text-gray-400">
             <div className="animate-pulse">Loading chart...</div>
           </div>
         ) : data.revenueTrend.length > 0 ? (
-          <ResponsiveContainer width="100%" height={350}>
-            <AreaChart data={data.revenueTrend} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+          <div className="h-[280px] sm:h-[350px] lg:h-[400px] w-full overflow-x-hidden">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={data.revenueTrend} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
               <defs>
                 <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.8} />
@@ -299,8 +300,9 @@ const AdminDashboard: React.FC = () => {
                 fill="url(#colorProfit)"
                 name="Profit"
               />
-            </AreaChart>
-          </ResponsiveContainer>
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
         ) : (
           <div className="h-80 flex items-center justify-center text-gray-500">
             <div className="text-center">
@@ -312,7 +314,7 @@ const AdminDashboard: React.FC = () => {
       </div>
 
       {/* Franchise Performance Bar Chart */}
-      <div className="bg-white rounded-xl border border-gray-200 p-6">
+      <div className="w-full min-w-0 bg-white rounded-xl border border-gray-200 p-4 sm:p-6 overflow-x-hidden">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold text-gray-900">Franchise Performance</h3>
           <button
@@ -328,12 +330,13 @@ const AdminDashboard: React.FC = () => {
             <div className="animate-pulse">Loading chart...</div>
           </div>
         ) : data.franchisePerformance.length > 0 ? (
-          <ResponsiveContainer width="100%" height={400}>
-            <BarChart
-              data={data.franchisePerformance.slice(0, 10)}
-              layout="vertical"
-              margin={{ top: 5, right: 30, left: 100, bottom: 5 }}
-            >
+          <div className="h-[280px] sm:h-[350px] lg:h-[400px] w-full overflow-x-hidden">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                data={data.franchisePerformance.slice(0, 10)}
+                layout="vertical"
+                margin={{ top: 5, right: 30, left: 100, bottom: 5 }}
+              >
               <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
               <XAxis type="number" tick={{ fontSize: 12 }} tickFormatter={(value) => `₹${(value / 1000).toFixed(0)}k`} />
               <YAxis
@@ -351,8 +354,9 @@ const AdminDashboard: React.FC = () => {
               <Legend />
               <Bar dataKey="totalRevenue" fill="#3B82F6" name="Revenue" radius={[0, 4, 4, 0]} />
               <Bar dataKey="totalProfit" fill="#10B981" name="Profit" radius={[0, 4, 4, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
         ) : (
           <div className="h-80 flex items-center justify-center text-gray-500">
             <div className="text-center">
@@ -364,7 +368,7 @@ const AdminDashboard: React.FC = () => {
       </div>
 
       {/* Orders Summary Section */}
-      <div className="bg-white rounded-xl border border-gray-200 p-6">
+      <div className="w-full min-w-0 bg-white rounded-xl border border-gray-200 p-4 sm:p-6 overflow-x-hidden">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold text-gray-900">Orders Summary</h3>
           <button
@@ -375,7 +379,7 @@ const AdminDashboard: React.FC = () => {
             <ArrowRight className="w-4 h-4" />
           </button>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6 mb-6">
           {data.orderStats.byStatus.map((stat: any) => (
             <div
               key={stat.status}
@@ -439,7 +443,7 @@ const AdminDashboard: React.FC = () => {
       </div>
 
       {/* Inventory Alerts Table */}
-      <div className="bg-white rounded-xl border border-gray-200 p-6">
+      <div className="w-full min-w-0 bg-white rounded-xl border border-gray-200 p-4 sm:p-6 overflow-x-hidden">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <AlertTriangle className="h-5 w-5 text-amber-500" />
@@ -480,7 +484,7 @@ const AdminDashboard: React.FC = () => {
       </div>
 
       {/* Recent Activity Feed */}
-      <div className="bg-white rounded-xl border border-gray-200 p-6">
+      <div className="w-full min-w-0 bg-white rounded-xl border border-gray-200 p-4 sm:p-6 overflow-x-hidden">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <Activity className="h-5 w-5 text-blue-500" />

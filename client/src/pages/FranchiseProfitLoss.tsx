@@ -439,8 +439,9 @@ const FranchiseProfitLoss: React.FC = () => {
       <div className="bg-white rounded-lg shadow p-6">
         <h2 className="text-xl font-semibold text-gray-900 mb-4">Profit & Loss Trend</h2>
         {profitLossTrend.length > 0 ? (
-          <ResponsiveContainer width="100%" height={400} minWidth={0} minHeight={0}>
-            <AreaChart data={profitLossTrend}>
+          <div className="h-[280px] sm:h-[350px] lg:h-[400px] w-full overflow-x-hidden">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={profitLossTrend}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis 
                 dataKey="date" 
@@ -483,8 +484,9 @@ const FranchiseProfitLoss: React.FC = () => {
                 fillOpacity={0.8}
                 name="Profit"
               />
-            </AreaChart>
-          </ResponsiveContainer>
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
         ) : (
           <div className="h-96 flex items-center justify-center text-gray-500">
             <div className="text-center">
@@ -498,8 +500,9 @@ const FranchiseProfitLoss: React.FC = () => {
       {/* Profit by Category Chart */}
       <div className="bg-white rounded-lg shadow p-6">
         <h2 className="text-xl font-semibold text-gray-900 mb-4">Profit by Category</h2>
-        <ResponsiveContainer width="100%" height={400} minWidth={0} minHeight={0}>
-          <BarChart data={profitByCategory}>
+        <div className="h-[280px] sm:h-[350px] lg:h-[400px] w-full overflow-x-hidden">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={profitByCategory}>
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis dataKey="category" />
             <YAxis />
@@ -512,8 +515,9 @@ const FranchiseProfitLoss: React.FC = () => {
             <Bar dataKey="revenue" fill="#10B981" name="Revenue" />
             <Bar dataKey="cogs" fill="#EF4444" name="COGS" />
             <Bar dataKey="netProfit" fill="#3B82F6" name="Net Profit" />
-          </BarChart>
-        </ResponsiveContainer>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
       </div>
 
       {/* Detailed Profit & Loss Statement */}

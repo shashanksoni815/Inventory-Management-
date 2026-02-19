@@ -149,9 +149,9 @@ const FranchiseSalesDashboard: React.FC = () => {
     return (
       <div className="p-6">
         <div className="animate-pulse">
-          <div className="h-8 bg-gray-200 rounded w-1/4 mb-4"></div>
+          <div className="h-8 bg-gray-200 rounded w-full max-w-xs mb-4"></div>
           <div className="h-32 bg-gray-200 rounded mb-6"></div>
-          <div className="grid grid-cols-4 gap-6 mb-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6 mb-6">
             {[1, 2, 3, 4].map((i) => (
               <div key={i} className="h-24 bg-gray-200 rounded"></div>
             ))}
@@ -181,9 +181,9 @@ const FranchiseSalesDashboard: React.FC = () => {
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="w-full overflow-x-hidden p-4 sm:p-6 space-y-4 sm:space-y-6">
       {/* Franchise Header */}
-      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-200 p-6">
+      <div className="w-full min-w-0 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-200 p-4 sm:p-6 overflow-x-hidden">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between">
           <div className="mb-4 lg:mb-0">
             <div className="flex items-center space-x-3">
@@ -251,7 +251,7 @@ const FranchiseSalesDashboard: React.FC = () => {
       </div>
 
       {/* Sales KPIs */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
         <KpiCard
           title="Total Revenue"
           value={salesSummary.totalRevenue}
@@ -284,12 +284,12 @@ const FranchiseSalesDashboard: React.FC = () => {
       </div>
 
       {/* Sales Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
         {/* Sales Trend Chart */}
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
+        <div className="w-full min-w-0 bg-white rounded-xl border border-gray-200 p-4 sm:p-6 overflow-x-hidden">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Sales Trend</h3>
-          <div className="h-80">
-            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
+          <div className="h-[280px] sm:h-[350px] lg:h-[400px] w-full overflow-x-hidden">
+            <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={salesTrendData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                 <XAxis 
@@ -314,10 +314,10 @@ const FranchiseSalesDashboard: React.FC = () => {
         </div>
 
         {/* Profit by Category */}
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
+        <div className="w-full min-w-0 bg-white rounded-xl border border-gray-200 p-4 sm:p-6 overflow-x-hidden">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Profit by Category</h3>
-          <div className="h-80">
-            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
+          <div className="h-[280px] sm:h-[350px] lg:h-[400px] w-full overflow-x-hidden">
+            <ResponsiveContainer width="100%" height="100%">
               <BarChart data={profitByCategory}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                 <XAxis dataKey="category" tick={{ fontSize: 12 }} />
@@ -333,37 +333,37 @@ const FranchiseSalesDashboard: React.FC = () => {
       </div>
 
       {/* Recent Sales Table */}
-      <div className="bg-white rounded-xl border border-gray-200 p-6">
+      <div className="w-full min-w-0 bg-white rounded-xl border border-gray-200 p-4 sm:p-6 overflow-x-hidden">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Recent Sales</h3>
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
+          <table className="min-w-full w-full divide-y divide-gray-200">
             <thead>
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Invoice</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Customer</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Items</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Revenue</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Profit</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                <th className="px-2 sm:px-4 lg:px-6 py-2 sm:py-3 text-left text-xs sm:text-sm font-medium text-gray-500 uppercase">Invoice</th>
+                <th className="px-2 sm:px-4 lg:px-6 py-2 sm:py-3 text-left text-xs sm:text-sm font-medium text-gray-500 uppercase">Date</th>
+                <th className="px-2 sm:px-4 lg:px-6 py-2 sm:py-3 text-left text-xs sm:text-sm font-medium text-gray-500 uppercase">Customer</th>
+                <th className="px-2 sm:px-4 lg:px-6 py-2 sm:py-3 text-left text-xs sm:text-sm font-medium text-gray-500 uppercase">Items</th>
+                <th className="px-2 sm:px-4 lg:px-6 py-2 sm:py-3 text-left text-xs sm:text-sm font-medium text-gray-500 uppercase">Revenue</th>
+                <th className="px-2 sm:px-4 lg:px-6 py-2 sm:py-3 text-left text-xs sm:text-sm font-medium text-gray-500 uppercase">Profit</th>
+                <th className="px-2 sm:px-4 lg:px-6 py-2 sm:py-3 text-left text-xs sm:text-sm font-medium text-gray-500 uppercase">Status</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
               {sales.slice(0, 10).map((sale: any) => (
                 <tr key={sale._id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 text-sm font-medium text-gray-900">{sale.invoiceNumber || 'N/A'}</td>
-                  <td className="px-4 py-3 text-sm text-gray-600">
+                  <td className="px-2 sm:px-4 lg:px-6 py-2 sm:py-3 text-xs sm:text-sm font-medium text-gray-900">{sale.invoiceNumber || 'N/A'}</td>
+                  <td className="px-2 sm:px-4 lg:px-6 py-2 sm:py-3 text-xs sm:text-sm text-gray-600">
                     {sale.createdAt ? new Date(sale.createdAt).toLocaleDateString() : 'N/A'}
                   </td>
-                  <td className="px-4 py-3 text-sm text-gray-600">{sale.customerName || 'Walk-in'}</td>
-                  <td className="px-4 py-3 text-sm text-gray-600">{sale.items?.length || 0}</td>
-                  <td className="px-4 py-3 text-sm font-semibold text-green-600">
+                  <td className="px-2 sm:px-4 lg:px-6 py-2 sm:py-3 text-xs sm:text-sm text-gray-600">{sale.customerName || 'Walk-in'}</td>
+                  <td className="px-2 sm:px-4 lg:px-6 py-2 sm:py-3 text-xs sm:text-sm text-gray-600">{sale.items?.length || 0}</td>
+                  <td className="px-2 sm:px-4 lg:px-6 py-2 sm:py-3 text-xs sm:text-sm font-semibold text-green-600">
                     ${(sale.grandTotal || 0).toLocaleString()}
                   </td>
-                  <td className="px-4 py-3 text-sm font-semibold text-blue-600">
+                  <td className="px-2 sm:px-4 lg:px-6 py-2 sm:py-3 text-xs sm:text-sm font-semibold text-blue-600">
                     ${(sale.totalProfit || 0).toLocaleString()}
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-2 sm:px-4 lg:px-6 py-2 sm:py-3 text-xs sm:text-sm">
                     <span className={`px-2 py-1 text-xs font-medium rounded-full capitalize
                       ${sale.status === 'completed' ? 'bg-green-100 text-green-800' :
                         sale.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
@@ -377,7 +377,7 @@ const FranchiseSalesDashboard: React.FC = () => {
               ))}
               {sales.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
+                  <td colSpan={7} className="px-2 sm:px-4 lg:px-6 py-4 sm:py-6 lg:py-8 text-center text-xs sm:text-sm text-gray-500">
                     No sales found for this period
                   </td>
                 </tr>
