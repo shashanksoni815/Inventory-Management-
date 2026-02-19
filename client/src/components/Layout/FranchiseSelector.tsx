@@ -1,7 +1,6 @@
 // components/Layout/FranchiseSelector.tsx
 import React, { useState } from 'react';
 import { 
-  Store, 
   Plus, 
   ChevronDown, 
   Globe,
@@ -20,8 +19,6 @@ const FranchiseSelector: React.FC = () => {
     isNetworkView,
     switchFranchise,
     switchToNetworkView,
-    getFranchiseColor,
-    getFranchiseIcon
   } = useFranchise();
 
   const [isOpen, setIsOpen] = useState(false);
@@ -35,13 +32,25 @@ const FranchiseSelector: React.FC = () => {
 
   // Get franchise performance from network stats (API returns unwrapped data)
   const getFranchisePerformance = (franchiseId: string): number => {
-    const perf = performanceData?.franchisePerformance ?? (performanceData as any)?.data?.franchisePerformance;
+    // Extract data properly - interceptor unwraps but TypeScript doesn't know
+    const networkStats = (performanceData as any)?.data ?? performanceData;
+    const perf = networkStats?.franchisePerformance;
     if (!perf?.length) return 0;
     const franchise = perf.find((fp: any) => String(fp._id) === String(franchiseId));
     if (!franchise) return 0;
     const maxRevenue = Math.max(...perf.map((fp: any) => fp.totalRevenue || 0));
     return maxRevenue > 0 ? (franchise.totalRevenue / maxRevenue) * 100 : 0;
   };
+
+  // Derive color/icon from performance (franchiseUtils uses performance %, not id)
+  const getFranchiseColor = (franchiseId: string): string => {
+    const perf = getFranchisePerformance(franchiseId);
+    if (perf >= 90) return '#10B981';
+    if (perf >= 70) return '#3B82F6';
+    if (perf >= 50) return '#EAB308';
+    return '#EF4444';
+  };
+  const getFranchiseIcon = (_franchiseId: string): string => '🏪';
 
   return (
     <div className="relative">
@@ -180,11 +189,11 @@ const FranchiseSelector: React.FC = () => {
                     )}
 
                     {/* Today's sales indicator */}
-                    {franchise.stats?.todayRevenue > 0 && (
+                    {(franchise.stats?.todayRevenue ?? 0) > 0 && (
                       <div className="flex items-center space-x-1">
                         <DollarSign className="h-4 w-4 text-green-600" />
                         <span className="text-sm font-medium text-gray-900">
-                          {franchise.stats.todayRevenue.toLocaleString('en-US', {
+                          {(franchise.stats?.todayRevenue ?? 0).toLocaleString('en-US', {
                             style: 'currency',
                             currency: 'INR',
                             minimumFractionDigits: 0,

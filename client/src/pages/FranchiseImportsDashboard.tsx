@@ -37,7 +37,7 @@ const FranchiseImportsDashboard: React.FC = () => {
   };
 
   // Fetch franchise details
-  const { data: franchiseData, isLoading: franchiseLoading } = useQuery({
+  const { data: franchiseData, isPending: franchiseLoading } = useQuery({
     queryKey: ['franchise', franchiseId],
     queryFn: () => franchiseApi.getById(franchiseId!),
     enabled: !!franchiseId,
@@ -51,7 +51,8 @@ const FranchiseImportsDashboard: React.FC = () => {
   });
 
   // API interceptor returns franchise object directly (no .data wrapper)
-  const franchise = franchiseData;
+  // Extract data properly - interceptor unwraps but TypeScript doesn't know
+  const franchise = (franchiseData as any)?.data ?? franchiseData;
   const transfers = Array.isArray(transfersData) ? transfersData : (transfersData as { data?: any[] })?.data || [];
 
   // Prepare import/export data

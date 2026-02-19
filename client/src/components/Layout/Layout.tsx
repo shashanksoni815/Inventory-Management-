@@ -26,7 +26,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useQuery } from '@tanstack/react-query';
 import { notificationApi } from '@/services/api';
 import NotificationDropdown from '@/components/Notifications/NotificationDropdown';
-import type { UserRole } from '@/types';
 
 const Layout: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -84,7 +83,7 @@ const Layout: React.FC = () => {
       );
     } else if (userRole === 'manager') {
       // Manager menu items - full franchise management for assigned franchise
-      const franchiseId = user?.franchise?.id;
+      const franchiseId = user?.franchise;
       if (franchiseId) {
         menuItems.push(
           { name: 'Franchise Dashboard', href: `/franchise/${franchiseId}`, icon: LayoutDashboard },

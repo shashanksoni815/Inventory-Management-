@@ -8,7 +8,6 @@ import ProductForm from '@/features/products/components/ProductForm';
 import BulkQRCodeGenerator from '@/components/Products/BulkQRCodeGenerator';
 import { productApi, apiBaseURL } from '@/services/api';
 import { useFranchise } from '@/contexts/FranchiseContext';
-import { useAuth } from '@/contexts/AuthContext';
 import { showToast } from '@/services/toast';
 import type { Product } from '@/types';
 
@@ -47,7 +46,7 @@ const Products: React.FC = () => {
   const selectedFranchiseId =
     (currentFranchise as any)?._id || (currentFranchise as any)?.id || undefined;
 
-  const { data, isLoading, refetch } = useQuery({
+  const { data, isPending, refetch } = useQuery({
     queryKey: ['products', filters],
     queryFn: () => productApi.getAll({
       search: filters.search || undefined,
@@ -222,8 +221,8 @@ const Products: React.FC = () => {
       formData.append('file', file);
       
       // Add franchise ID if available from context
-      if (currentFranchise?._id || currentFranchise?.id) {
-        const franchiseId = currentFranchise._id || currentFranchise.id;
+      const franchiseId = currentFranchise?._id ?? currentFranchise?.id;
+      if (franchiseId) {
         formData.append('franchise', franchiseId);
       }
 
@@ -461,7 +460,7 @@ const Products: React.FC = () => {
 
         <ProductTable
           products={products}
-          loading={isLoading}
+          loading={isPending}
           onEdit={handleEdit}
           onDelete={handleDelete}
         />

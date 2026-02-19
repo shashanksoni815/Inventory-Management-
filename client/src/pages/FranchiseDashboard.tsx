@@ -150,7 +150,7 @@ const FranchiseDashboard: React.FC = () => {
   // Fetch franchise details — use franchiseId from URL as-is (do NOT parse or transform)
   const {
     data: franchiseData,
-    isLoading: franchiseLoading,
+    isPending: franchiseLoading,
     isError: franchiseError,
     error: franchiseErrorData,
   } = useQuery<FranchiseDetail>({

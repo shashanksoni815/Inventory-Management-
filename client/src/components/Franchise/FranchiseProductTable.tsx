@@ -61,7 +61,7 @@ const FranchiseProductTable: React.FC = () => {
 
   const franchiseId = currentFranchise?._id;
 
-  const { data, isLoading } = useQuery({
+  const { data, isPending } = useQuery({
     queryKey: ['products', franchiseId, filters],
     queryFn: () => productApi.getAll({
       franchise: franchiseId,
@@ -198,7 +198,7 @@ const FranchiseProductTable: React.FC = () => {
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {isLoading ? (
+            {isPending ? (
               <tr>
                 <td colSpan={7} className="px-6 py-12 text-center">
                   <div className="animate-pulse">

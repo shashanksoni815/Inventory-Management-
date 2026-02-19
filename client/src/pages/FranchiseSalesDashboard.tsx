@@ -21,7 +21,6 @@ import {
   ArrowLeft,
   Globe,
   TrendingUp,
-  BarChart3,
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { franchiseApi, saleApi, productApi } from '../services/api';
@@ -60,7 +59,7 @@ const FranchiseSalesDashboard: React.FC = () => {
   }
 
   // Fetch franchise details
-  const { data: franchiseData, isLoading: franchiseLoading } = useQuery({
+  const { data: franchiseData, isPending: franchiseLoading } = useQuery({
     queryKey: ['franchise', franchiseId],
     queryFn: () => franchiseApi.getById(franchiseId!),
     enabled: !!franchiseId,
@@ -78,18 +77,16 @@ const FranchiseSalesDashboard: React.FC = () => {
   });
 
   // Fetch product analytics
-  const { data: productAnalytics } = useQuery({
+  const { data: _productAnalytics } = useQuery({
     queryKey: ['franchise-product-analytics', franchiseId, timeRange],
     queryFn: () => productApi.getAnalytics(franchiseId!, timeRange),
     enabled: !!franchiseId,
   });
 
   // API interceptor returns franchise object directly (no .data wrapper)
-  const franchise = franchiseData;
+  // Extract data properly - interceptor unwraps but TypeScript doesn't know
+  const franchise = (franchiseData as any)?.data ?? franchiseData;
   const sales = Array.isArray(salesData) ? salesData : (salesData as { sales?: any[] })?.sales || [];
-  const analytics = (productAnalytics && typeof productAnalytics === 'object' && 'data' in productAnalytics)
-    ? (productAnalytics as { data?: any }).data
-    : (productAnalytics || {});
 
   // Calculate sales summary
   const salesSummary = useMemo(() => {

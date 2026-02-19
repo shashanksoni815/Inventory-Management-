@@ -38,7 +38,7 @@ const Sales: React.FC = () => {
   const queryClient = useQueryClient();
   const { currentFranchise } = useFranchise();
 
-  const { data, isLoading, isError, error, refetch } = useQuery({
+  const { data, isPending, isError, error, refetch } = useQuery({
     queryKey: ['sales', dateRange, filters],
     queryFn: async () => {
       const result = await saleApi.getAll({
@@ -149,8 +149,8 @@ const Sales: React.FC = () => {
       formData.append('file', file);
       
       // Add franchise ID if available from context
-      if (currentFranchise?._id || currentFranchise?.id) {
-        const franchiseId = currentFranchise._id || currentFranchise.id;
+      const franchiseId = currentFranchise?._id ?? currentFranchise?.id;
+      if (franchiseId) {
         formData.append('franchise', franchiseId);
       }
 
@@ -549,7 +549,7 @@ const Sales: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {isLoading ? (
+              {isPending ? (
                 [...Array(5)].map((_, i) => (
                   <tr key={i}>
                     {[...Array(9)].map((_, j) => (

@@ -1,11 +1,7 @@
 import React from 'react';
 import { 
-  BarChart3, 
   TrendingUp, 
-  Store,
   DollarSign,
-  Package,
-  Users,
   ShoppingCart,
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
@@ -14,21 +10,18 @@ import { useFranchise } from '../../contexts/FranchiseContext';
 import {
   BarChart,
   Bar,
-  LineChart,
-  Line,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
-  Legend,
   ResponsiveContainer,
   LabelList
 } from 'recharts';
 
 const NetworkComparisonChart: React.FC = () => {
-  const { franchises } = useFranchise();
+  useFranchise();
   
-  const { data: networkStats, isLoading } = useQuery({
+  const { data: networkStats, isPending } = useQuery({
     queryKey: ['network-stats-comparison'],
     queryFn: () => franchiseApi.getNetworkStats(),
   });
@@ -52,7 +45,7 @@ const NetworkComparisonChart: React.FC = () => {
     color: fp.franchise?.metadata?.color || '#3B82F6'
   })).sort((a: any, b: any) => b.sales - a.sales);
 
-  if (isLoading) {
+  if (isPending) {
     return (
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-white rounded-xl border border-gray-200 p-6">

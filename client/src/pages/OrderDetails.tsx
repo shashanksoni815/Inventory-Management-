@@ -88,12 +88,18 @@ const OrderDetails: React.FC = () => {
     }
   }, []);
 
-  const { data: order, isLoading, isError, error } = useQuery({
+  const { data: orderData, isPending, isError, error } = useQuery({
     queryKey: ['order', orderId],
-    queryFn: () => orderApi.getById(orderId!),
+    queryFn: async () => {
+      const result = await orderApi.getById(orderId!);
+      // Extract data properly - interceptor unwraps but TypeScript doesn't know
+      return (result as any)?.data ?? result;
+    },
     enabled: !!orderId,
     retry: 1,
   });
+  
+  const order = orderData;
 
   const updateStatusMutation = useMutation({
     mutationFn: (newStatus: string) => orderApi.updateStatus(orderId!, newStatus),
@@ -137,7 +143,7 @@ const OrderDetails: React.FC = () => {
     );
   }
 
-  if (isLoading) {
+  if (isPending) {
     return (
       <div className="flex min-h-[40vh] items-center justify-center p-6 bg-gray-50" aria-live="polite" aria-busy="true">
         <LoadingSpinner />

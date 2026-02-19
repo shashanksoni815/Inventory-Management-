@@ -48,7 +48,7 @@ const AdminDashboard: React.FC = () => {
   const navigate = useNavigate();
 
   // Fetch admin dashboard data
-  const { data: dashboardData, isLoading, error } = useQuery({
+  const { data: dashboardData, isPending, error } = useQuery({
     queryKey: ['admin-dashboard'],
     queryFn: () => dashboardApi.getAdminDashboard(),
     staleTime: 2 * 60 * 1000, // 2 minutes - cache dashboard data
@@ -184,7 +184,7 @@ const AdminDashboard: React.FC = () => {
           icon={Store}
           format="number"
           color="default"
-          loading={isLoading}
+          loading={isPending}
         />
         <KpiCard
           title="Total Products"
@@ -192,7 +192,7 @@ const AdminDashboard: React.FC = () => {
           icon={Package}
           format="number"
           color="default"
-          loading={isLoading}
+          loading={isPending}
         />
         <KpiCard
           title="Total Revenue"
@@ -200,7 +200,7 @@ const AdminDashboard: React.FC = () => {
           icon={DollarSign}
           format="currency"
           color="default"
-          loading={isLoading}
+          loading={isPending}
         />
         <KpiCard
           title="Total Profit"
@@ -208,7 +208,7 @@ const AdminDashboard: React.FC = () => {
           icon={TrendingUp}
           format="currency"
           color={data.totalProfit >= 0 ? 'profit' : 'loss'}
-          loading={isLoading}
+          loading={isPending}
         />
         <KpiCard
           title="Total Orders"
@@ -216,7 +216,7 @@ const AdminDashboard: React.FC = () => {
           icon={ShoppingCart}
           format="number"
           color="default"
-          loading={isLoading}
+          loading={isPending}
         />
         <KpiCard
           title="Pending Orders"
@@ -224,7 +224,7 @@ const AdminDashboard: React.FC = () => {
           icon={Clock}
           format="number"
           color={data.pendingOrders > 0 ? 'warning' : 'default'}
-          loading={isLoading}
+          loading={isPending}
         />
         <KpiCard
           title="Low Stock Alerts"
@@ -232,7 +232,7 @@ const AdminDashboard: React.FC = () => {
           icon={AlertTriangle}
           format="number"
           color={data.lowStockCount > 0 ? 'warning' : 'default'}
-          loading={isLoading}
+          loading={isPending}
         />
         <KpiCard
           title="Today's Revenue"
@@ -240,7 +240,7 @@ const AdminDashboard: React.FC = () => {
           icon={DollarSign}
           format="currency"
           color="default"
-          loading={isLoading}
+          loading={isPending}
           description={`${data.todaySales} sales today`}
         />
       </div>
@@ -248,7 +248,7 @@ const AdminDashboard: React.FC = () => {
       {/* Revenue Area Chart */}
       <div className="bg-white rounded-xl border border-gray-200 p-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Revenue Trend (Last 30 Days)</h3>
-        {isLoading ? (
+        {isPending ? (
           <div className="h-80 flex items-center justify-center text-gray-400">
             <div className="animate-pulse">Loading chart...</div>
           </div>
@@ -323,7 +323,7 @@ const AdminDashboard: React.FC = () => {
             <ArrowRight className="w-4 h-4" />
           </button>
         </div>
-        {isLoading ? (
+        {isPending ? (
           <div className="h-80 flex items-center justify-center text-gray-400">
             <div className="animate-pulse">Loading chart...</div>
           </div>
@@ -453,7 +453,7 @@ const AdminDashboard: React.FC = () => {
             <ArrowRight className="w-4 h-4" />
           </button>
         </div>
-        {isLoading ? (
+        {isPending ? (
           <div className="h-32 flex items-center justify-center text-gray-400">
             <div className="animate-pulse">Loading alerts...</div>
           </div>

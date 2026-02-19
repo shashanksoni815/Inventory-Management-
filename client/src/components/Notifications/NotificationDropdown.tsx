@@ -78,7 +78,7 @@ const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Fetch latest 10 notifications
-  const { data, isLoading } = useQuery({
+  const { data, isPending } = useQuery({
     queryKey: ['notifications'],
     queryFn: () => notificationApi.getAll({ limit: 10 }),
     staleTime: 10 * 1000,
@@ -179,7 +179,7 @@ const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
 
           {/* Notifications List */}
           <div className="overflow-y-auto flex-1 min-h-0">
-            {isLoading ? (
+            {isPending ? (
               <div className="p-8 text-center text-gray-500">
                 <div className="animate-pulse">Loading notifications...</div>
               </div>

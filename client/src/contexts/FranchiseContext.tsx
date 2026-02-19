@@ -1,8 +1,9 @@
 // src/contexts/FranchiseContext.tsx
-import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import type { ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { franchiseApi } from '@/services/api';
-// import { Franchise } from '@/types';    
+import type { Franchise } from '@/types/franchise';
 
 interface FranchiseContextType {
   // State
@@ -206,7 +207,8 @@ export const useCurrentFranchiseData = <T,>(
       if (!currentFranchise) {
         throw new Error('No franchise selected');
       }
-      return fetchFunction(currentFranchise._id || currentFranchise.id);
+      const id = currentFranchise._id ?? currentFranchise.id ?? '';
+      return fetchFunction(id);
     },
     enabled: Boolean(currentFranchise && (options?.enabled ?? true)),
     ...options,
@@ -219,7 +221,7 @@ export const useFranchisePermissions = () => {
   
   return {
     // Permission checks
-    canViewFranchise: (franchiseId: string): boolean => {
+    canViewFranchise: (_franchiseId: string): boolean => {
       // For now, all franchises are viewable
       // In a real app, check user permissions
       return true;

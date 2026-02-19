@@ -65,7 +65,7 @@ const NewSaleModal: React.FC<NewSaleModalProps> = ({
   
   const [franchiseId, setFranchiseId] = useState<string | undefined>(getInitialFranchiseId());
 
-  const { data: productsData, isLoading, error } = useQuery({
+  const { data: productsData, isPending, error } = useQuery({
     queryKey: ['products-for-sale', searchQuery],
     queryFn: async () => {
       try {
@@ -382,7 +382,7 @@ const NewSaleModal: React.FC<NewSaleModalProps> = ({
               </div>
 
               <div className="space-y-2 max-h-[calc(70vh-120px)] overflow-y-auto">
-                {isLoading ? (
+                {isPending ? (
                   [...Array(5)].map((_, i) => (
                     <div
                       key={i}

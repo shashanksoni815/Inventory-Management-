@@ -26,6 +26,12 @@ export const orderApi = {
   getAll: async (params?: GetOrdersParams): Promise<OrdersListResponse> => {
     return api.get('/orders', { params }) as Promise<OrdersListResponse>;
   },
+  getById: async (id: string): Promise<any> => {
+    return api.get(`/orders/${id}`);
+  },
+  delete: async (id: string): Promise<void> => {
+    await api.delete(`/orders/${id}`);
+  },
   importOrders: async (formData: FormData): Promise<any> => {
     const response = await api.post('/orders/import', formData, {
       headers: {

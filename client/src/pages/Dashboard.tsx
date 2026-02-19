@@ -20,7 +20,7 @@ import { dashboardApi } from '@/services/api';
 import type { DashboardStats } from '@/types';
 
 const Dashboard: React.FC = () => {
-  const { data: dashboardData, isLoading } = useQuery<DashboardStats>({
+  const { data: dashboardData, isPending } = useQuery<DashboardStats>({
     queryKey: ['dashboard-stats'],
     queryFn: dashboardApi.getDashboardStats,
     staleTime: 1 * 60 * 1000, // 1 minute - cache dashboard stats
@@ -125,7 +125,7 @@ const Dashboard: React.FC = () => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: index * 0.1 }}
           >
-            <KpiCard {...kpi} loading={isLoading} />
+            <KpiCard {...kpi} loading={isPending} />
           </motion.div>
         ))}
       </div>
@@ -141,7 +141,7 @@ const Dashboard: React.FC = () => {
             data={dashboardData?.charts?.salesTrend ?? []}
             type="line"
             title="Sales Trend (Last 30 Days)"
-            loading={isLoading}
+            loading={isPending}
           />
         </motion.div>
         
@@ -153,7 +153,7 @@ const Dashboard: React.FC = () => {
           <ProfitChart
             data={dashboardData?.charts.profitByCategory || []}
             title="Profit by Category"
-            loading={isLoading}
+            loading={isPending}
           />
         </motion.div>
       </div>
@@ -169,7 +169,7 @@ const Dashboard: React.FC = () => {
           <TopProductsChart
             data={dashboardData?.charts?.topProducts ?? []}
             title="Top 5 Products by Revenue"
-            loading={isLoading}
+            loading={isPending}
           />
         </motion.div>
 
@@ -181,7 +181,7 @@ const Dashboard: React.FC = () => {
         >
           <DeadStockTable
             data={dashboardData?.charts?.deadStock ?? []}
-            loading={isLoading}
+            loading={isPending}
           />
         </motion.div>
 

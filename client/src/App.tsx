@@ -15,7 +15,7 @@ import { Toaster } from 'react-hot-toast';
 import { FranchiseProvider } from './contexts/FranchiseContext';
 import { AuthProvider } from './contexts/AuthContext';
 import ProtectedRoute from './components/Common/ProtectedRoute';
-import type { UserRole } from './types';
+import type { UserRole } from './types/user';
 
 // Lazy load pages
 const Login = lazy(() => import('./pages/Login'));

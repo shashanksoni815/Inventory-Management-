@@ -1,5 +1,6 @@
 import axios, { type InternalAxiosRequestConfig, type AxiosResponse, type AxiosError } from 'axios';
-import type { Product, Sale, DashboardStats, ApiResponse, AdminKpis, AdminCharts, FranchisePerformanceRow, AdminTransfersOverview, AdminInsights, User } from '@/types';
+import type { Product, Sale, DashboardStats, ApiResponse, AdminKpis, AdminCharts, FranchisePerformanceRow, AdminTransfersOverview, AdminInsights } from '@/types';
+import type { User } from '@/types/user';
 
 export const apiBaseURL = import.meta.env.VITE_API_URL || '/api';
 
