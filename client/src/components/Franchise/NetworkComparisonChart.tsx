@@ -402,9 +402,13 @@ const NetworkComparisonChart: React.FC = () => {
                   width={60}
                   tick={{ fill: '#6B7280' }}
                 />
-                <Tooltip 
-                  formatter={(value: any) => [`₹${Number(value).toLocaleString('en-IN')}`, 'Revenue']}
+                <Tooltip
+                  formatter={(value) => {
+                    const num = Number(value) || 0;
+                    return [`₹${num.toLocaleString('en-IN')}`, 'Revenue'];
+                  }}
                 />
+
                 <Bar 
                   dataKey="revenue" 
                   name="Revenue"
