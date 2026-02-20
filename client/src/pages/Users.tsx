@@ -6,6 +6,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { userApi, franchiseApi } from '@/services/api';
+import { useRefresh } from '@/contexts/RefreshContext';
 import { showToast } from '@/services/toast';
 import type { User } from '@/types/user';
 import { cn } from '@/lib/utils';
@@ -42,10 +43,11 @@ const Users: React.FC = () => {
   });
 
   const queryClient = useQueryClient();
+  const { refreshKey } = useRefresh();
 
   // Fetch users
   const { data, isPending, refetch: _refetch } = useQuery({
-    queryKey: ['users', filters],
+    queryKey: ['users', refreshKey, filters],
     queryFn: () => userApi.getAll({
       role: (filters.role && ['admin', 'manager', 'sales'].includes(filters.role) ? filters.role : undefined) as 'admin' | 'manager' | 'sales' | undefined,
       franchise: filters.franchise || undefined,
@@ -58,7 +60,7 @@ const Users: React.FC = () => {
 
   // Fetch franchises for form
   const { data: franchisesData } = useQuery({
-    queryKey: ['franchises'],
+    queryKey: ['franchises', refreshKey],
     queryFn: () => franchiseApi.getAll(),
   });
 

@@ -15,6 +15,7 @@ import {
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { franchiseApi } from '../../services/api';
 import { useFranchise } from '../../contexts/FranchiseContext';
+import { useRefresh } from '@/contexts/RefreshContext';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -25,10 +26,11 @@ import { Badge } from '@/components/ui/badge';
 const FranchiseSettings: React.FC = () => {
   const { currentFranchise } = useFranchise();
   const queryClient = useQueryClient();
+  const { refreshKey } = useRefresh();
   const [activeTab, setActiveTab] = useState('general');
 
   const { data: franchiseData, isPending } = useQuery({
-    queryKey: ['franchise-settings', currentFranchise?._id],
+    queryKey: ['franchise-settings', refreshKey, currentFranchise?._id],
     queryFn: () => franchiseApi.getById(currentFranchise?._id!),
     enabled: !!currentFranchise?._id,
   });

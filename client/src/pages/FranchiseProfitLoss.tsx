@@ -28,6 +28,7 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import { franchiseApi, saleApi, apiBaseURL } from '../services/api';
 import { reportApi } from '../services/reportApi';
+import { useRefresh } from '@/contexts/RefreshContext';
 import KpiCard from '../components/Dashboard/KpiCard';
 import {
   AreaChart,
@@ -45,6 +46,7 @@ import {
 const FranchiseProfitLoss: React.FC = () => {
   const { franchiseId } = useParams<{ franchiseId: string }>();
   const navigate = useNavigate();
+  const { refreshKey } = useRefresh();
   const [timeRange, setTimeRange] = useState<'7d' | '30d' | '90d' | '1y'>('30d');
 
   function getStartDate(range: string): string {
@@ -61,7 +63,7 @@ const FranchiseProfitLoss: React.FC = () => {
 
   // Fetch franchise details
   const { data: franchiseData, isPending: franchiseLoading } = useQuery({
-    queryKey: ['franchise', franchiseId],
+    queryKey: ['franchise', refreshKey, franchiseId],
     queryFn: () => franchiseApi.getById(franchiseId!),
     enabled: !!franchiseId,
   });
@@ -73,7 +75,7 @@ const FranchiseProfitLoss: React.FC = () => {
     isError: profitLossError,
     error: profitLossErrorData,
   } = useQuery({
-    queryKey: ['franchise-profit-loss', franchiseId, timeRange],
+    queryKey: ['franchise-profit-loss', refreshKey, franchiseId, timeRange],
     queryFn: () => reportApi.getFranchiseProfitLoss({
       franchise: franchiseId!,
       startDate: getStartDate(timeRange),
@@ -105,7 +107,7 @@ const FranchiseProfitLoss: React.FC = () => {
 
   // Fetch sales data for trend chart (Revenue vs Cost vs Profit)
   const { data: salesData } = useQuery({
-    queryKey: ['franchise-sales-trend', franchiseId, timeRange],
+    queryKey: ['franchise-sales-trend', refreshKey, franchiseId, timeRange],
     queryFn: () => saleApi.getAll({
       startDate: getStartDate(timeRange),
       endDate: getEndDate(),

@@ -12,6 +12,7 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import { productApi, saleApi } from '@/services/api';
 import { useFranchise } from '@/contexts/FranchiseContext';
+import { useRefresh } from '@/contexts/RefreshContext';
 import { cn, calculateProfit } from '@/lib/utils';
 import { showToast } from '@/services/toast';
 
@@ -64,9 +65,10 @@ const NewSaleModal: React.FC<NewSaleModalProps> = ({
   };
   
   const [franchiseId, setFranchiseId] = useState<string | undefined>(getInitialFranchiseId());
+  const { refreshKey } = useRefresh();
 
   const { data: productsData, isPending, error } = useQuery({
-    queryKey: ['products-for-sale', searchQuery],
+    queryKey: ['products-for-sale', refreshKey, searchQuery],
     queryFn: async () => {
       try {
         const response = await productApi.getAll({

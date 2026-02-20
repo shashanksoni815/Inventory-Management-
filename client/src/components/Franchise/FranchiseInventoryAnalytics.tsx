@@ -11,6 +11,7 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import { productApi } from '../../services/api';
 import { useFranchise } from '../../contexts/FranchiseContext';
+import { useRefresh } from '@/contexts/RefreshContext';
 import {
   BarChart,
   Bar,
@@ -27,10 +28,11 @@ import {
 
 const FranchiseInventoryAnalytics: React.FC = () => {
   const { currentFranchise } = useFranchise();
+  const { refreshKey } = useRefresh();
   const [timeRange, setTimeRange] = useState('month');
   
   const { data: analytics, isPending } = useQuery({
-    queryKey: ['product-analytics', currentFranchise?._id, timeRange],
+    queryKey: ['product-analytics', refreshKey, currentFranchise?._id, timeRange],
     queryFn: () => productApi.getAnalytics(currentFranchise?._id!, timeRange),
     enabled: !!currentFranchise?._id,
   });

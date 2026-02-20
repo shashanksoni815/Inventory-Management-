@@ -19,6 +19,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { notificationApi } from '@/services/api';
 import type { Notification } from '@/services/notificationApi';
 import { useAuth } from '@/contexts/AuthContext';
+import { useRefresh } from '@/contexts/RefreshContext';
 import { cn } from '@/lib/utils';
 import LoadingSpinner from '@/components/Common/LoadingSpinner';
 import { showToast } from '@/services/toast';
@@ -93,8 +94,9 @@ const Notifications: React.FC = () => {
 
   const limit = 20;
 
+  const { refreshKey } = useRefresh();
   const { data, isPending, error, refetch } = useQuery({
-    queryKey: ['notifications', 'page', page, typeFilter, readFilter],
+    queryKey: ['notifications', refreshKey, 'page', page, typeFilter, readFilter],
     queryFn: () =>
       notificationApi.getAll({
         limit,

@@ -19,11 +19,13 @@ import {
   Users,
   TrendingUp,
   Upload,
+  RotateCcw,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useFranchise } from '@/contexts/FranchiseContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { useQuery } from '@tanstack/react-query';
+import { useRefresh } from '@/contexts/RefreshContext';
+import { useQuery, useIsFetching } from '@tanstack/react-query';
 import { notificationApi } from '@/services/api';
 import NotificationDropdown from '@/components/Notifications/NotificationDropdown';
 
@@ -45,9 +47,15 @@ const Layout: React.FC = () => {
   const { user, logout } = useAuth();
   const userRole = user?.role;
 
+  // Get refresh function from RefreshContext
+  const { refreshKey, triggerRefresh } = useRefresh();
+
+  // Check if any queries are currently fetching (for loading indicator)
+  const isFetching = useIsFetching() > 0;
+
   // Fetch notifications for bell badge (React Query, auto-refresh every 30 seconds)
   const { data: notificationData } = useQuery({
-    queryKey: ['notifications'],
+    queryKey: ['notifications', refreshKey],
     queryFn: () => notificationApi.getAll({ limit: 100 }),
     staleTime: 15 * 1000, // 15 seconds
     refetchInterval: 30000, // Auto-refresh every 30 seconds
@@ -327,6 +335,22 @@ const Layout: React.FC = () => {
             </div>
 
             <div className="flex items-center gap-1 sm:gap-3 flex-shrink-0">
+              {/* Refresh Button */}
+              <button
+                onClick={triggerRefresh}
+                disabled={isFetching}
+                className="flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                aria-label="Refresh Data"
+              >
+                <RotateCcw 
+                  size={18} 
+                  className={isFetching ? 'animate-spin' : ''}
+                />
+                <span className="hidden sm:inline">
+                  {isFetching ? 'Refreshing...' : 'Refresh Data'}
+                </span>
+              </button>
+
               {/* Notifications */}
               <div className="relative">
                 <button

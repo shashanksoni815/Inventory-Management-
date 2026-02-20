@@ -35,6 +35,7 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import { franchiseApi, saleApi, productApi, apiBaseURL } from '../services/api';
 import { useFranchise } from '../contexts/FranchiseContext';
+import { useRefresh } from '@/contexts/RefreshContext';
 import { orderStatusBadgeClass, cn } from '@/lib/utils';
 import KpiCard from '../components/Dashboard/KpiCard';
 import {
@@ -87,6 +88,7 @@ const FranchiseDashboard: React.FC = () => {
   const { franchiseId } = useParams<{ franchiseId: string }>();
   const navigate = useNavigate();
   const { switchToNetworkView } = useFranchise();
+  const { refreshKey } = useRefresh();
   const [timeRange, setTimeRange] = useState<'7d' | '30d' | '90d' | '1y'>('30d');
 
   const handleNetworkView = () => {
@@ -104,7 +106,7 @@ const FranchiseDashboard: React.FC = () => {
 
   // Fetch comparison sales data (today vs yesterday, this week vs last week)
   const { data: comparisonSalesData } = useQuery({
-    queryKey: ['franchise-sales-comparison', franchiseId],
+    queryKey: ['franchise-sales-comparison', refreshKey, franchiseId],
     queryFn: async () => {
       if (!franchiseId) return null;
       
@@ -154,7 +156,7 @@ const FranchiseDashboard: React.FC = () => {
     isError: franchiseError,
     error: franchiseErrorData,
   } = useQuery<FranchiseDetail>({
-    queryKey: ['franchise', franchiseId],
+    queryKey: ['franchise', refreshKey, franchiseId],
     queryFn: async () => {
       const data = await franchiseApi.getById(franchiseId as string);
       return data as unknown as FranchiseDetail;
@@ -167,7 +169,7 @@ const FranchiseDashboard: React.FC = () => {
 
   // Fetch franchise dashboard data (includes aggregated sales stats)
   const { data: dashboardData } = useQuery({
-    queryKey: ['franchise-dashboard', franchiseId, timeRange],
+    queryKey: ['franchise-dashboard', refreshKey, franchiseId, timeRange],
     queryFn: () => franchiseApi.getDashboard(franchiseId!, { period: timeRange }),
     enabled: !!franchiseId,
     staleTime: 2 * 60 * 1000, // 2 minutes - dashboard data can be cached
@@ -176,7 +178,7 @@ const FranchiseDashboard: React.FC = () => {
 
   // Fetch detailed sales data for charts and recent sales
   const { data: salesData } = useQuery({
-    queryKey: ['franchise-sales', franchiseId, timeRange],
+    queryKey: ['franchise-sales', refreshKey, franchiseId, timeRange],
     queryFn: () => saleApi.getAll({
       startDate: getStartDate(timeRange),
       endDate: new Date().toISOString(),
@@ -190,7 +192,7 @@ const FranchiseDashboard: React.FC = () => {
 
   // Fetch product analytics
   const { data: productAnalytics } = useQuery({
-    queryKey: ['franchise-product-analytics', franchiseId, timeRange],
+    queryKey: ['franchise-product-analytics', refreshKey, franchiseId, timeRange],
     queryFn: () => productApi.getAnalytics(franchiseId!, timeRange),
     enabled: !!franchiseId,
     staleTime: 2 * 60 * 1000, // 2 minutes - analytics can be cached
@@ -199,7 +201,7 @@ const FranchiseDashboard: React.FC = () => {
 
   // Fetch orders summary for franchise dashboard (interceptor returns unwrapped data)
   const { data: ordersSummaryData } = useQuery({
-    queryKey: ['franchise-orders-summary', franchiseId],
+    queryKey: ['franchise-orders-summary', refreshKey, franchiseId],
     queryFn: () => franchiseApi.getOrdersSummary(franchiseId!),
     enabled: !!franchiseId,
     staleTime: 1 * 60 * 1000, // 1 minute - orders update frequently

@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { orderApi } from '@/services/api';
+import { useRefresh } from '@/contexts/RefreshContext';
 import { formatCurrency, formatDate, orderStatusBadgeClass } from '@/lib/utils';
 import LoadingSpinner from '@/components/Common/LoadingSpinner';
 import { cn } from '@/lib/utils';
@@ -76,6 +77,7 @@ interface Order {
 const OrderDetails: React.FC = () => {
   const { orderId } = useParams<{ orderId: string }>();
   const queryClient = useQueryClient();
+  const { refreshKey } = useRefresh();
   const [statusConfirmTarget, setStatusConfirmTarget] = useState<string | null>(null);
 
   const userRole = React.useMemo(() => {
@@ -89,7 +91,7 @@ const OrderDetails: React.FC = () => {
   }, []);
 
   const { data: orderData, isPending, isError, error } = useQuery({
-    queryKey: ['order', orderId],
+    queryKey: ['order', refreshKey, orderId],
     queryFn: async () => {
       const result = await orderApi.getById(orderId!);
       // Extract data properly - interceptor unwraps but TypeScript doesn't know

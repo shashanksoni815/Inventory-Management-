@@ -18,6 +18,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { notificationApi } from '@/services/api';
 import type { Notification } from '@/services/notificationApi';
 import { cn } from '@/lib/utils';
+import { useRefresh } from '@/contexts/RefreshContext';
 
 interface NotificationDropdownProps {
   isOpen: boolean;
@@ -76,10 +77,11 @@ const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const { refreshKey } = useRefresh();
 
   // Fetch latest 10 notifications
   const { data, isPending } = useQuery({
-    queryKey: ['notifications'],
+    queryKey: ['notifications', refreshKey],
     queryFn: () => notificationApi.getAll({ limit: 10 }),
     staleTime: 10 * 1000,
     refetchInterval: 30000,

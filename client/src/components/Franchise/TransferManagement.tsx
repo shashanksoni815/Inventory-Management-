@@ -14,6 +14,7 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import { transferApi } from '../../services/api';
 import { useFranchise } from '../../contexts/FranchiseContext';
+import { useRefresh } from '@/contexts/RefreshContext';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -28,6 +29,7 @@ interface TransfersListResponse {
 
 const TransferManagement: React.FC = () => {
   const { currentFranchise, isNetworkView } = useFranchise();
+  const { refreshKey } = useRefresh();
   const [filters, setFilters] = useState({
     status: 'all',
     search: '',
@@ -38,7 +40,7 @@ const TransferManagement: React.FC = () => {
   const [selectedTransfer, setSelectedTransfer] = useState<any>(null);
 
   const { data: transfersResponse, isPending } = useQuery({
-    queryKey: ['transfers', currentFranchise?._id, filters],
+    queryKey: ['transfers', refreshKey, currentFranchise?._id, filters],
     queryFn: async () => {
       const res = await transferApi.getAll({
         franchise: currentFranchise?._id ?? undefined,

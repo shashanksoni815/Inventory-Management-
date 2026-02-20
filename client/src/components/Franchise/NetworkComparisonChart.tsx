@@ -309,6 +309,7 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import { franchiseApi } from '../../services/api';
 import { useFranchise } from '../../contexts/FranchiseContext';
+import { useRefresh } from '@/contexts/RefreshContext';
 import {
   BarChart,
   Bar,
@@ -322,9 +323,10 @@ import {
 
 const NetworkComparisonChart: React.FC = () => {
   useFranchise();
+  const { refreshKey } = useRefresh();
   
   const { data: networkStats, isPending } = useQuery({
-    queryKey: ['network-stats-comparison'],
+    queryKey: ['network-stats-comparison', refreshKey],
     queryFn: () => franchiseApi.getNetworkStats(),
   });
   

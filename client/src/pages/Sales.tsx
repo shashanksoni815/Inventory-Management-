@@ -5,7 +5,6 @@ import {
   Filter,
   Download,
   Upload,
-  RefreshCw,
   ShoppingCart,
   Store,
   CreditCard,
@@ -13,11 +12,13 @@ import {
   Receipt,
   TrendingUp,
   BarChart3,
+  RotateCcw,
 } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { DateRangePicker } from '@/components/Common/DateRangePicker';
 import { saleApi, apiBaseURL } from '@/services/api';
 import { useFranchise } from '@/contexts/FranchiseContext';
+import { useRefresh } from '@/contexts/RefreshContext';
 import type { Sale } from '@/types';
 import { cn, formatCurrency, formatDate } from '@/lib/utils';
 import NewSaleModal from '@/components/Sales/NewSaleModal';
@@ -37,9 +38,10 @@ const Sales: React.FC = () => {
 
   const queryClient = useQueryClient();
   const { currentFranchise } = useFranchise();
+  const { refreshKey, triggerRefresh } = useRefresh();
 
   const { data, isPending, isError, error, refetch } = useQuery({
-    queryKey: ['sales', dateRange, filters],
+    queryKey: ['sales', refreshKey, dateRange, filters],
     queryFn: async () => {
       const result = await saleApi.getAll({
         startDate: dateRange.startDate.toISOString(),
@@ -58,8 +60,8 @@ const Sales: React.FC = () => {
   });
 
   const handleRefresh = useCallback(() => {
-    refetch();
-  }, [refetch]);
+    triggerRefresh();
+  }, [triggerRefresh]);
 
   const handleExport = useCallback(async (format: 'excel' | 'pdf' = 'excel') => {
     try {
@@ -287,10 +289,10 @@ const Sales: React.FC = () => {
           <div className="flex flex-wrap items-center gap-2 sm:gap-3">
             <button
               onClick={handleRefresh}
-              className="flex items-center space-x-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-700"
             >
-              <RefreshCw className="h-4 w-4" />
-              <span>Refresh</span>
+              <RotateCcw size={16} />
+              Refresh
             </button>
             <button
               onClick={handleImport}

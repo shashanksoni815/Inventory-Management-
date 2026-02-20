@@ -41,15 +41,17 @@ import {
 } from 'recharts';
 import { useQuery } from '@tanstack/react-query';
 import { dashboardApi } from '@/services/api';
+import { useRefresh } from '@/contexts/RefreshContext';
 import KpiCard from '@/components/Dashboard/KpiCard';
 import { cn, orderStatusBadgeClass } from '@/lib/utils';
 
 const AdminDashboard: React.FC = () => {
   const navigate = useNavigate();
+  const { refreshKey } = useRefresh();
 
   // Fetch admin dashboard data
   const { data: dashboardData, isPending, error } = useQuery({
-    queryKey: ['admin-dashboard'],
+    queryKey: ['admin-dashboard', refreshKey],
     queryFn: () => dashboardApi.getAdminDashboard(),
     staleTime: 2 * 60 * 1000, // 2 minutes - cache dashboard data
     refetchInterval: 60000, // Refetch every minute in background

@@ -3,6 +3,7 @@ import { Share2, Package, Globe, Building, Search, RefreshCw } from 'lucide-reac
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { productApi } from '../../services/api';
 import { useFranchise } from '../../contexts/FranchiseContext';
+import { useRefresh } from '@/contexts/RefreshContext';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,6 +12,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 
 const SharedProductsManager: React.FC = () => {
   const { currentFranchise, franchises } = useFranchise();
+  const { refreshKey } = useRefresh();
   const queryClient = useQueryClient();
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
   const [targetFranchise, setTargetFranchise] = useState<string>('');
@@ -18,7 +20,7 @@ const SharedProductsManager: React.FC = () => {
 
   // Fetch global products from current franchise
   const { data: productsData, isPending } = useQuery({
-    queryKey: ['global-products', currentFranchise?._id],
+    queryKey: ['global-products', refreshKey, currentFranchise?._id],
     queryFn: () => productApi.getAll({
       franchise: currentFranchise?._id,
       isGlobal: true,
