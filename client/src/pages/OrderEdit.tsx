@@ -13,6 +13,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { ArrowLeft, ShoppingBag, Search, Trash2 } from 'lucide-react';
 import { orderApi, productApi } from '@/services/api';
+import { useRefresh } from '@/contexts/RefreshContext';
 import { formatCurrency } from '@/lib/utils';
 import { showToast } from '@/services/toast';
 import LoadingSpinner from '@/components/Common/LoadingSpinner';
@@ -66,6 +67,7 @@ const OrderEdit: React.FC = () => {
   const { orderId } = useParams<{ orderId: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { refreshKey } = useRefresh();
 
   const [customer, setCustomer] = useState({
     name: '',
@@ -99,7 +101,7 @@ const OrderEdit: React.FC = () => {
   });
 
   const { data, isPending, isError, error } = useQuery({
-    queryKey: ['order', orderId],
+    queryKey: ['order', refreshKey, orderId],
     queryFn: async () => {
       if (!orderId) throw new Error('Missing order ID');
       const result = await orderApi.getById(orderId);
@@ -169,7 +171,7 @@ const OrderEdit: React.FC = () => {
   }, [order]);
 
   const { data: productResult, isPending: productsLoading } = useQuery({
-    queryKey: ['products-for-order-edit', orderFranchiseId, productSearch],
+    queryKey: ['products-for-order-edit', refreshKey, orderFranchiseId, productSearch],
     queryFn: async () => {
       const res = await productApi.getAll({
         search: productSearch || undefined,

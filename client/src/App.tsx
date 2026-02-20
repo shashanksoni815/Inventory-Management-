@@ -6,14 +6,13 @@ import {
   Navigate,
   useLocation,
 } from 'react-router-dom';
-import { QueryClientProvider } from '@tanstack/react-query';
-import { queryClient } from './lib/queryClient';
 import { ThemeProvider } from './components/Common/ThemeProvider';
 import ErrorBoundary from './components/Common/ErrorBoundary';
 import LoadingSpinner from './components/Common/LoadingSpinner';
 import { Toaster } from 'react-hot-toast';
 import { FranchiseProvider } from './contexts/FranchiseContext';
 import { AuthProvider } from './contexts/AuthContext';
+import { RefreshProvider } from './contexts/RefreshContext';
 import ProtectedRoute from './components/Common/ProtectedRoute';
 import type { UserRole } from './types/user';
 
@@ -55,9 +54,9 @@ const ScrollToTop = () => {
 function App() {
   return (
     <ErrorBoundary>
-      <QueryClientProvider client={queryClient}>
-        <ThemeProvider>
-          <AuthProvider>
+      <ThemeProvider>
+        <AuthProvider>
+          <RefreshProvider>
             <Router>
               <ScrollToTop />
               <Suspense fallback={<LoadingSpinner fullScreen />}>
@@ -258,9 +257,9 @@ function App() {
               }}
             />
           </Router>
+          </RefreshProvider>
         </AuthProvider>
       </ThemeProvider>
-    </QueryClientProvider>
     </ErrorBoundary>
   );
 }

@@ -11,6 +11,7 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import { productApi } from '../../services/api';
 import { useFranchise } from '../../contexts/FranchiseContext';
+import { useRefresh } from '@/contexts/RefreshContext';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -48,6 +49,7 @@ interface FranchiseProductRow {
 
 const FranchiseProductTable: React.FC = () => {
   const { currentFranchise, isNetworkView } = useFranchise();
+  const { refreshKey } = useRefresh();
   const [filters, setFilters] = useState({
     search: '',
     category: 'all',
@@ -62,7 +64,7 @@ const FranchiseProductTable: React.FC = () => {
   const franchiseId = currentFranchise?._id;
 
   const { data, isPending } = useQuery({
-    queryKey: ['products', franchiseId, filters],
+    queryKey: ['products', refreshKey, franchiseId, filters],
     queryFn: () => productApi.getAll({
       franchise: franchiseId,
       search: filters.search || undefined,

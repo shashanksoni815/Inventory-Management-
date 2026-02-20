@@ -17,13 +17,15 @@ import { SalesChart, ProfitChart, TopProductsChart } from '@/components/Dashboar
 import AlertPanel from '@/components/Dashboard/AlertPanel';
 import DeadStockTable from '@/components/Dashboard/DeadStockTable';
 import { dashboardApi } from '@/services/api';
+import { useRefresh } from '@/contexts/RefreshContext';
 import type { DashboardStats } from '@/types';
 
 <IndianRupee />
 
 const Dashboard: React.FC = () => {
+  const { refreshKey } = useRefresh();
   const { data: dashboardData, isPending } = useQuery<DashboardStats>({
-    queryKey: ['dashboard-stats'],
+    queryKey: ['dashboard-stats', refreshKey],
     queryFn: dashboardApi.getDashboardStats,
     staleTime: 1 * 60 * 1000, // 1 minute - cache dashboard stats
     refetchInterval: 30000, // Auto-refresh every 30 seconds in background

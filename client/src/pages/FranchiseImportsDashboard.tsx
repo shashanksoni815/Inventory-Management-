@@ -22,6 +22,7 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import { franchiseApi, transferApi } from '../services/api';
 import { useFranchise } from '../contexts/FranchiseContext';
+import { useRefresh } from '@/contexts/RefreshContext';
 
 type TransferFilter = 'all' | 'imports' | 'exports';
 
@@ -29,6 +30,7 @@ const FranchiseImportsDashboard: React.FC = () => {
   const { franchiseId } = useParams<{ franchiseId: string }>();
   const navigate = useNavigate();
   const { switchToNetworkView } = useFranchise();
+  const { refreshKey } = useRefresh();
   const [transferFilter, setTransferFilter] = useState<TransferFilter>('all');
 
   const handleNetworkView = () => {
@@ -38,14 +40,14 @@ const FranchiseImportsDashboard: React.FC = () => {
 
   // Fetch franchise details
   const { data: franchiseData, isPending: franchiseLoading } = useQuery({
-    queryKey: ['franchise', franchiseId],
+    queryKey: ['franchise', refreshKey, franchiseId],
     queryFn: () => franchiseApi.getById(franchiseId!),
     enabled: !!franchiseId,
   });
 
   // Fetch transfers (import/export) - STRICTLY SCOPED BY FRANCHISE
   const { data: transfersData } = useQuery({
-    queryKey: ['franchise-transfers', franchiseId],
+    queryKey: ['franchise-transfers', refreshKey, franchiseId],
     queryFn: () => transferApi.getAll({ franchise: franchiseId }),
     enabled: !!franchiseId,
   });

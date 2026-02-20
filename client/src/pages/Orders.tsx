@@ -11,7 +11,6 @@ import { motion } from 'framer-motion';
 import {
   ShoppingBag,
   Filter,
-  RefreshCw,
   Search,
   Eye,
   ChevronLeft,
@@ -19,12 +18,14 @@ import {
   Plus,
   Upload,
   Download,
+  RotateCcw,
 } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { DateRangePicker } from '@/components/Common/DateRangePicker';
 import { orderApi } from '@/services/orderApi';
 import { apiBaseURL } from '@/services/api';
 import { useFranchise } from '@/contexts/FranchiseContext';
+import { useRefresh } from '@/contexts/RefreshContext';
 import { cn, formatCurrency, formatDate, orderStatusBadgeClass } from '@/lib/utils';
 import type { UserRole } from '@/types/user';
 import { showToast } from '@/services/toast';
@@ -82,6 +83,7 @@ const ErrorState: React.FC<{ message: string; onRetry?: () => void }> = ({
 const Orders: React.FC = () => {
   const queryClient = useQueryClient();
   const { currentFranchise, franchises } = useFranchise();
+  const { refreshKey, triggerRefresh } = useRefresh();
   const [dateRange, setDateRange] = useState({
     startDate: subDays(new Date(), 30),
     endDate: new Date(),
@@ -116,7 +118,7 @@ const Orders: React.FC = () => {
       : currentFranchise?._id || currentFranchise?.id;
 
   const { data, isPending, isError, error, refetch } = useQuery({
-    queryKey: ['orders', effectiveFranchiseId, dateRange, statusFilter, search, page, limit],
+    queryKey: ['orders', refreshKey, effectiveFranchiseId, dateRange, statusFilter, search, page, limit],
     queryFn: () =>
       orderApi.getAll({
         franchise: effectiveFranchiseId,
@@ -135,8 +137,8 @@ const Orders: React.FC = () => {
   });
 
   const handleRefresh = useCallback(() => {
-    refetch();
-  }, [refetch]);
+    triggerRefresh();
+  }, [triggerRefresh]);
 
   const applySearch = useCallback(() => {
     setSearch(searchInput.trim());
@@ -422,9 +424,9 @@ const Orders: React.FC = () => {
             <button
               onClick={handleRefresh}
               type="button"
-              className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-700"
             >
-              <RefreshCw className="h-4 w-4" />
+              <RotateCcw size={16} />
               Refresh
             </button>
           </div>

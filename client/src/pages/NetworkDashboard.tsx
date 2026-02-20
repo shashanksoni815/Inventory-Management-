@@ -32,6 +32,7 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import { franchiseApi } from '../services/api';
 import { useFranchise } from '../contexts/FranchiseContext';
+import { useRefresh } from '@/contexts/RefreshContext';
 import toast from 'react-hot-toast';
 import NetworkComparisonChart from '../components/Franchise/NetworkComparisonChart';
 import KpiCard from '../components/Dashboard/KpiCard';
@@ -51,10 +52,11 @@ const NetworkDashboard: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const { refreshFranchises } = useFranchise();
+  const { refreshKey } = useRefresh();
 
   // Fetch network statistics
   const { data: networkStats } = useQuery({
-    queryKey: ['network-stats', timeRange],
+    queryKey: ['network-stats', refreshKey, timeRange],
     queryFn: () => franchiseApi.getNetworkStats(),
   });
 

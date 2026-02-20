@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { productApi, orderApi, franchiseApi } from '@/services/api';
 import { useFranchise } from '@/contexts/FranchiseContext';
+import { useRefresh } from '@/contexts/RefreshContext';
 import { formatCurrency } from '@/lib/utils';
 import { showToast } from '@/services/toast';
 import LoadingSpinner from '@/components/Common/LoadingSpinner';
@@ -36,6 +37,7 @@ const CreateOrder: React.FC = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { currentFranchise } = useFranchise();
+  const { refreshKey } = useRefresh();
 
   // Selected franchise for this order (defaults from context if available)
   const [selectedFranchise, setSelectedFranchise] = useState<string | null>(
@@ -93,7 +95,7 @@ const CreateOrder: React.FC = () => {
   }, [selectedFranchise]);
 
   const { data: franchisesData } = useQuery({
-    queryKey: ['franchises'],
+    queryKey: ['franchises', refreshKey],
     queryFn: () => franchiseApi.getAll(),
   });
 
@@ -106,7 +108,7 @@ const CreateOrder: React.FC = () => {
   }, [franchisesData]);
 
   const { data: productsData, isPending: productsLoading } = useQuery({
-    queryKey: ['order-products', selectedFranchise, productSearch],
+    queryKey: ['order-products', refreshKey, selectedFranchise, productSearch],
     queryFn: async () => {
       const res = await productApi.getAll({
         franchise: selectedFranchise || undefined,

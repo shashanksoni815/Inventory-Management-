@@ -9,6 +9,7 @@ import {
   DollarSign
 } from 'lucide-react';
 import { useFranchise } from '../../contexts/FranchiseContext';
+import { useRefresh } from '@/contexts/RefreshContext';
 import { useQuery } from '@tanstack/react-query';
 import { franchiseApi } from '../../services/api';
 
@@ -22,10 +23,11 @@ const FranchiseSelector: React.FC = () => {
   } = useFranchise();
 
   const [isOpen, setIsOpen] = useState(false);
+  const { refreshKey } = useRefresh();
 
   // Fetch franchise performance data
   const { data: performanceData } = useQuery({
-    queryKey: ['franchises-performance'],
+    queryKey: ['franchises-performance', refreshKey],
     queryFn: () => franchiseApi.getNetworkStats(),
     enabled: !isNetworkView,
   });

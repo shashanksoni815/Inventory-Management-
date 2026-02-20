@@ -25,6 +25,7 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import { franchiseApi, saleApi, productApi } from '../services/api';
 import { useFranchise } from '../contexts/FranchiseContext';
+import { useRefresh } from '@/contexts/RefreshContext';
 import KpiCard from '../components/Dashboard/KpiCard';
 import {
   BarChart,
@@ -43,6 +44,7 @@ const FranchiseSalesDashboard: React.FC = () => {
   const { franchiseId } = useParams<{ franchiseId: string }>();
   const navigate = useNavigate();
   const { switchToNetworkView } = useFranchise();
+  const { refreshKey } = useRefresh();
   const [timeRange, setTimeRange] = useState<'7d' | '30d' | '90d' | '1y'>('30d');
 
   const handleNetworkView = () => {
@@ -60,14 +62,14 @@ const FranchiseSalesDashboard: React.FC = () => {
 
   // Fetch franchise details
   const { data: franchiseData, isPending: franchiseLoading } = useQuery({
-    queryKey: ['franchise', franchiseId],
+    queryKey: ['franchise', refreshKey, franchiseId],
     queryFn: () => franchiseApi.getById(franchiseId!),
     enabled: !!franchiseId,
   });
 
   // Fetch sales data filtered by franchise
   const { data: salesData } = useQuery({
-    queryKey: ['franchise-sales', franchiseId, timeRange],
+    queryKey: ['franchise-sales', refreshKey, franchiseId, timeRange],
     queryFn: () => saleApi.getAll({
       startDate: getStartDate(timeRange),
       endDate: new Date().toISOString(),
@@ -78,7 +80,7 @@ const FranchiseSalesDashboard: React.FC = () => {
 
   // Fetch product analytics
   const { data: _productAnalytics } = useQuery({
-    queryKey: ['franchise-product-analytics', franchiseId, timeRange],
+    queryKey: ['franchise-product-analytics', refreshKey, franchiseId, timeRange],
     queryFn: () => productApi.getAnalytics(franchiseId!, timeRange),
     enabled: !!franchiseId,
   });

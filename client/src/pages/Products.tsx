@@ -1,13 +1,14 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useSearchParams } from 'react-router-dom';
-import { Plus, Filter, Download, Upload, RefreshCw, Package, DollarSign, QrCode } from 'lucide-react';
+import { Plus, Filter, Download, Upload, Package, DollarSign, QrCode, RotateCcw } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import ProductTable from '@/features/products/components/ProductTable';
 import ProductForm from '@/features/products/components/ProductForm';
 import BulkQRCodeGenerator from '@/components/Products/BulkQRCodeGenerator';
 import { productApi, apiBaseURL } from '@/services/api';
 import { useFranchise } from '@/contexts/FranchiseContext';
+import { useRefresh } from '@/contexts/RefreshContext';
 import { showToast } from '@/services/toast';
 import type { Product } from '@/types';
 
@@ -43,11 +44,12 @@ const Products: React.FC = () => {
 
   const queryClient = useQueryClient();
   const { currentFranchise } = useFranchise();
+  const { refreshKey, triggerRefresh } = useRefresh();
   const selectedFranchiseId =
     (currentFranchise as any)?._id || (currentFranchise as any)?.id || undefined;
 
   const { data, isPending, refetch } = useQuery({
-    queryKey: ['products', filters],
+    queryKey: ['products', refreshKey, filters],
     queryFn: () => productApi.getAll({
       search: filters.search || undefined,
       category: filters.category || undefined,
@@ -305,11 +307,11 @@ const Products: React.FC = () => {
           </div>
           <div className="flex flex-wrap items-center gap-2 sm:gap-3">
             <button
-              onClick={() => refetch()}
-              className="flex items-center space-x-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 "
+              onClick={triggerRefresh}
+              className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-700"
             >
-              <RefreshCw className="h-4 w-4" />
-              <span>Refresh</span>
+              <RotateCcw size={16} />
+              Refresh
             </button>
             <button
               onClick={() => setShowBulkQR(true)}
